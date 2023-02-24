@@ -2644,6 +2644,10 @@ spec:
     metadata:
       annotations:
         cnrm.cloud.google.com/version: 1.121.0
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/agent-cache-enable: "true"
+        vault.hashicorp.com/role: "config-connector"
+        # Additional annotations added by setVaultAnotations() at runtime
       labels:
         cnrm.cloud.google.com/component: cnrm-controller-manager
         cnrm.cloud.google.com/system: "true"
@@ -2655,7 +2659,7 @@ spec:
         - /configconnector/manager
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /var/secrets/google/key.json
+          value: /vault/secrets/gcp-key
         image: gcr.io/gke-release/cnrm/controller:4fd3fd6
         imagePullPolicy: Always
         name: manager
@@ -2678,16 +2682,9 @@ spec:
           privileged: false
           runAsNonRoot: true
           runAsUser: 1000
-        volumeMounts:
-        - mountPath: /var/secrets/google
-          name: gcp-service-account
       enableServiceLinks: false
       serviceAccountName: cnrm-controller-manager
       terminationGracePeriodSeconds: 10
-      volumes:
-      - name: gcp-service-account
-        secret:
-          secretName: gcp-key
 ---
 apiVersion: apps/v1
 kind: StatefulSet

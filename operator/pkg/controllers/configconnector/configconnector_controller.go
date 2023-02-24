@@ -304,11 +304,15 @@ func (r *Reconciler) objectTransformForGCPIdentity(cc *corev1beta1.ConfigConnect
 	transformed := make([]*manifest.Object, 0, len(m.Items))
 	for _, obj := range m.Items {
 		if controllers.IsControllerManagerStatefulSet(obj) {
-			processed, err := setSecretVolume(obj, cc.Spec.CredentialSecretName)
+			withVaultAnnotations, err := setVaultAnnotations(obj, cc.Spec.CredentialSecretName)
 			if err != nil {
 				return err
 			}
-			transformed = append(transformed, processed)
+			withWatcherContainer, err := setVaultWatcherContainer(withVaultAnnotations)
+			if err != nil {
+				return err
+			}
+			transformed = append(transformed, withWatcherContainer)
 		} else {
 			transformed = append(transformed, obj)
 		}
@@ -374,25 +378,59 @@ func (r *Reconciler) removeClusterModeOnlySharedComponents(ctx context.Context, 
 	return controllers.DeleteObject(ctx, c, sc)
 }
 
-func setSecretVolume(object *manifest.Object, secretName string) (*manifest.Object, error) {
+func setVaultAnnotations(object *manifest.Object, secretName string) (*manifest.Object, error) {
 	u := object.UnstructuredObject()
-	volumes, ok, err := unstructured.NestedSlice(u.Object, "spec", "template", "spec", "volumes")
-	if err != nil || !ok || len(volumes) == 0 {
-		return nil, fmt.Errorf("couldn't find volumes from StatefulSet %v: %w", u.GetName(), err)
+	annotations, ok, err := unstructured.NestedMap(u.Object, "spec", "template", "metadata", "annotations")
+	if err != nil || !ok || len(annotations) == 0 {
+		return nil, fmt.Errorf("couldn't find annotations from StatefulSet %v: %v", u.GetName(), err)
 	}
-	for _, volume := range volumes {
-		volume := volume.(map[string]interface{})
-		if volume["name"] == "gcp-service-account" {
-			if err := unstructured.SetNestedField(volume, secretName, "secret", "secretName"); err != nil {
-				return nil, fmt.Errorf("error setting the secret volume for StatefulSet %v: %w", u.GetName(), err)
-			}
-			if err := unstructured.SetNestedSlice(u.Object, volumes, "spec", "template", "spec", "volumes"); err != nil {
-				return nil, fmt.Errorf("error setting the secret volume for StatefulSet %v: %w", u.GetName(), err)
-			}
-			return manifest.NewObject(u)
-		}
+	annotations["vault.hashicorp.com/agent-inject-secret-gcp-key"] = fmt.Sprintf("gcp/key/%s", secretName)
+	annotations["vault.hashicorp.com/agent-inject-template-gcp-key"] = fmt.Sprintf(`{{- with secret "gcp/key/%s" -}}
+{{ base64Decode .Data.private_key_data }}
+{{- end }}`, secretName)
+	if err := unstructured.SetNestedMap(u.Object, annotations, "spec", "template", "metadata", "annotations"); err != nil {
+		return nil, fmt.Errorf("error setting the secret volume for StatefulSet %v: %v", u.GetName(), err)
 	}
-	return nil, fmt.Errorf("couldn't find the gcp-service-account volume to set for StatefulSet %v", u.GetName())
+
+	return manifest.NewObject(u)
+}
+
+func setVaultWatcherContainer(object *manifest.Object) (*manifest.Object, error) {
+	u := object.UnstructuredObject()
+	templateSpec, ok, err := unstructured.NestedMap(u.Object, "spec", "template", "spec")
+	if err != nil || !ok || len(templateSpec) == 0 {
+		return nil, fmt.Errorf("couldn't find template spec from StatefulSet %v: %v", u.GetName(), err)
+	}
+
+	containers, ok, err := unstructured.NestedSlice(templateSpec, "containers")
+	if err != nil || !ok || len(containers) == 0 {
+		return nil, fmt.Errorf("couldn't find spec containers from StatefulSet %v: %v", u.GetName(), err)
+	}
+	templateSpec["containers"] = append(containers, map[string]interface{}{
+		"name":  "watch-vault-updates",
+		"image": "eu.gcr.io/birota-cloud/k8s-tools:0.0.15",
+		"args": []string{
+			"watch-restart",
+			"--filepath",
+			"/vault/secrets",
+			"--type",
+			"statefulset",
+			"-s",
+			"cnrm-system",
+			"--name",
+			"cnrm-controller-manager",
+		},
+		"imagePullPolicy": "Always",
+	})
+	templateSpec["nodeSelector"] = map[string]interface{}{
+		"pool": "default",
+	}
+
+	if err := unstructured.SetNestedMap(u.Object, templateSpec, "spec", "template", "spec"); err != nil {
+		return nil, fmt.Errorf("error setting the template spec for StatefulSet %v: %v", u.GetName(), err)
+	}
+
+	return manifest.NewObject(u)
 }
 
 func (r *Reconciler) verifyPerNamespaceControllerManagerPodsAreDeleted(ctx context.Context, c client.Client) error {
