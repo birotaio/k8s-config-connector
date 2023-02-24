@@ -277,7 +277,7 @@ func (r *ConfigConnectorReconciler) objectTransformForGCPIdentity(cc *corev1beta
 	transformed := make([]*manifest.Object, 0, len(m.Items))
 	for _, obj := range m.Items {
 		if controllers.IsControllerManagerStatefulSet(obj) {
-			processed, err := setSecretVolume(obj, cc.Spec.CredentialSecretName)
+			processed, err := setVaultAnotations(obj, cc.Spec.CredentialSecretName)
 			if err != nil {
 				return err
 			}
@@ -353,25 +353,21 @@ func (r *ConfigConnectorReconciler) removeClusterModeOnlySharedComponents(ctx co
 	return nil
 }
 
-func setSecretVolume(object *manifest.Object, secretName string) (*manifest.Object, error) {
+func setVaultAnotations(object *manifest.Object, secretName string) (*manifest.Object, error) {
 	u := object.UnstructuredObject()
-	volumes, ok, err := unstructured.NestedSlice(u.Object, "spec", "template", "spec", "volumes")
-	if err != nil || !ok || len(volumes) == 0 {
-		return nil, fmt.Errorf("couldn't find volumes from StatefulSet %v: %v", u.GetName(), err)
+	annotations, ok, err := unstructured.NestedMap(u.Object, "spec", "template", "metadata", "annotations")
+	if err != nil || !ok || len(annotations) == 0 {
+		return nil, fmt.Errorf("couldn't find annotations from StatefulSet %v: %v", u.GetName(), err)
 	}
-	for _, volume := range volumes {
-		volume := volume.(map[string]interface{})
-		if volume["name"] == "gcp-service-account" {
-			if err := unstructured.SetNestedField(volume, secretName, "secret", "secretName"); err != nil {
-				return nil, fmt.Errorf("error setting the secret volume for StatefulSet %v: %v", u.GetName(), err)
-			}
-			if err := unstructured.SetNestedSlice(u.Object, volumes, "spec", "template", "spec", "volumes"); err != nil {
-				return nil, fmt.Errorf("error setting the secret volume for StatefulSet %v: %v", u.GetName(), err)
-			}
-			return manifest.NewObject(u)
-		}
+	annotations["vault.hashicorp.com/agent-inject-secret-gcp-key"] = fmt.Sprintf("gcp/key/%s", secretName)
+	annotations["vault.hashicorp.com/agent-inject-template-gcp-key"] = fmt.Sprintf(`{{- with secret "gcp/key/%s" -}}
+{{ base64Decode .Data.private_key_data }}
+{{- end }}`, secretName)
+	if err := unstructured.SetNestedMap(u.Object, annotations, "spec", "template", "metadata", "annotations"); err != nil {
+		return nil, fmt.Errorf("error setting the secret volume for StatefulSet %v: %v", u.GetName(), err)
 	}
-	return nil, fmt.Errorf("couldn't find the gcp-service-account volume to set for StatefulSet %v", u.GetName())
+
+	return manifest.NewObject(u)
 }
 
 func (r *ConfigConnectorReconciler) verifyPerNamespaceControllerManagerPodsAreDeleted(ctx context.Context, c client.Client) error {
