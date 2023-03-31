@@ -1,5 +1,5 @@
-ALLOWED_CRDS := "ComputeAddress,ComputeForwardingRule,ComputeServiceAttachment,RunService,CloudSchedulerJob,IAMPolicyMember"
-OPERATOR_TAG := 0.1.1
+ALLOWED_CRDS := "ComputeAddress,ComputeForwardingRule,ComputeServiceAttachment,RunService,CloudSchedulerJob,IAMPolicyMember,IAMPartialPolicy"
+OPERATOR_TAG := 0.1.2
 IMAGE := eu.gcr.io/birota-cloud/cnrm-operator:${OPERATOR_TAG}
 
 fix-crds:
