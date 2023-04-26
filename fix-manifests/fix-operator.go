@@ -85,8 +85,14 @@ func editCrdFile(whitelist []string, version string, currentDir string) error {
 		}
 	}
 
-	if len(whitelist) != len(out) {
-		return fmt.Errorf("did not find matches for all crds provided.\n  Requested: %s\n  Got: %s", strings.Join(whitelist, ", "), strings.Join(found, ", "))
+	missing := []string{}
+	for _, crd := range whitelist {
+		if !contains(found, crd) {
+			missing = append(missing, crd)
+		}
+	}
+	if len(missing) != 0 {
+		return fmt.Errorf("did not find matches for all crds provided.\n  Missing: %s", strings.Join(missing, ", "))
 	}
 
 	crdsOldFilePath := path.Join(currentDir, fmt.Sprintf(CRDS_OLD_FILE_PATH_TEMPLATE, version))
