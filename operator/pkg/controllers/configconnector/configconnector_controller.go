@@ -426,9 +426,7 @@ func setVaultWatcherContainer(object *manifest.Object) (*manifest.Object, error)
 		"pool": "default",
 	}
 
-	if err := unstructured.SetNestedMap(u.Object, templateSpec, "spec", "template", "spec"); err != nil {
-		return nil, fmt.Errorf("error setting the template spec for StatefulSet %v: %v", u.GetName(), err)
-	}
+	u.Object["spec"].(map[string]interface{})["template"].(map[string]interface{})["spec"] = templateSpec
 
 	return manifest.NewObject(u)
 }
