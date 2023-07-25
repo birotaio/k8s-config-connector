@@ -1665,6 +1665,8 @@ spec:
         cnrm.cloud.google.com/component: cnrm-resource-stats-recorder
         cnrm.cloud.google.com/system: "true"
     spec:
+      nodeSelector:
+        pool: default
       containers:
       - args:
         - --prometheus-scrape-endpoint=:48797
@@ -1728,6 +1730,8 @@ spec:
         cnrm.cloud.google.com/component: cnrm-webhook-manager
         cnrm.cloud.google.com/system: "true"
     spec:
+      nodeSelector:
+        pool: default
       containers:
       - command:
         - /configconnector/webhook
@@ -1790,6 +1794,8 @@ spec:
         cnrm.cloud.google.com/component: cnrm-controller-manager
         cnrm.cloud.google.com/system: "true"
     spec:
+      nodeSelector:
+        pool: default
       containers:
       - args:
         - --prometheus-scrape-endpoint=:8888
@@ -1848,6 +1854,8 @@ spec:
         cnrm.cloud.google.com/component: cnrm-deletiondefender
         cnrm.cloud.google.com/system: "true"
     spec:
+      nodeSelector:
+        pool: default
       containers:
       - command:
         - /configconnector/deletiondefender
