@@ -33,8 +33,8 @@ COPY go.mod  go.mod
 COPY go.sum  go.sum
 
 # Build the binary from source
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager github.com/GoogleCloudPlatform/k8s-config-connector/operator/cmd/manager
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o gke_addon_poststart github.com/GoogleCloudPlatform/k8s-config-connector/operator/cmd/gke_addon_poststart
+# RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager github.com/GoogleCloudPlatform/k8s-config-connector/operator/cmd/manager
+# RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o gke_addon_poststart github.com/GoogleCloudPlatform/k8s-config-connector/operator/cmd/gke_addon_poststart
 RUN go run scripts/generate-third-party-licenses/main.go
 
 # Build a specific version of kubectl to be used by the
@@ -46,8 +46,10 @@ RUN chmod a+rx kubectl
 # configure any required permissions
 FROM alpine:latest AS packager
 WORKDIR /configconnector-operator/
-COPY --from=builder /go/src/github.com/GoogleCloudPlatform/k8s-config-connector/manager .
-COPY --from=builder /go/src/github.com/GoogleCloudPlatform/k8s-config-connector/gke_addon_poststart .
+COPY operator/manager .
+COPY operator/gke_addon_poststart .
+# COPY --from=builder /go/src/github.com/GoogleCloudPlatform/k8s-config-connector/manager .
+# COPY --from=builder /go/src/github.com/GoogleCloudPlatform/k8s-config-connector/gke_addon_poststart .
 COPY --from=builder /go/src/github.com/GoogleCloudPlatform/k8s-config-connector/operator/channels/ channels/
 COPY --from=builder /go/src/github.com/GoogleCloudPlatform/k8s-config-connector/kubectl kubectl
 COPY --from=builder /go/src/github.com/GoogleCloudPlatform/k8s-config-connector/THIRD_PARTY_NOTICES/ THIRD_PARTY_NOTICES/
