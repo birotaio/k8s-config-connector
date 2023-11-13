@@ -1,5 +1,5 @@
-ALLOWED_CRDS := "ComputeAddress,ComputeForwardingRule,ComputeServiceAttachment,RunService,CloudSchedulerJob,IAMServiceAccount,IAMPolicyMember,IAMPartialPolicy,ComputeRegionNetworkEndpointGroup,ComputeBackendService,ComputeURLMap,ComputeTargetHTTPProxy,DNSRecordSet,PubSubTopic,EventarcTrigger"
-OPERATOR_TAG := 1.0.1
+ALLOWED_CRDS := "ComputeAddress,ComputeForwardingRule,ComputeServiceAttachment,ComputeSubnetwork,RunService,CloudSchedulerJob,IAMServiceAccount,IAMPolicyMember,IAMPartialPolicy,ComputeRegionNetworkEndpointGroup,ComputeBackendService,ComputeURLMap,ComputeTargetHTTPProxy,DNSRecordSet,PubSubTopic,EventarcTrigger"
+OPERATOR_TAG := 1.0.2
 IMAGE := eu.gcr.io/birota-cloud/cnrm-operator:${OPERATOR_TAG}
 
 fix-crds:
