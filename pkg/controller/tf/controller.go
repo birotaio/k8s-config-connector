@@ -21,11 +21,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/kccstate"
 	corekccv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/core/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/jitter"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/lifecyclehandler"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/metrics"
-	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/predicate"
+	kccpredicate "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/predicate"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/ratelimiter"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/resourceactuation"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/resourcewatcher"
@@ -35,9 +37,9 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/label"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/lease/leaser"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/resourceoverrides"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/resourceoverrides/operations"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
 	tfresource "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/tf/resource"
-
 	"github.com/go-logr/logr"
 	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -54,6 +56,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	klog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -63,25 +66,27 @@ var logger = klog.Log
 type Reconciler struct {
 	lifecyclehandler.LifecycleHandler
 	metrics.ReconcilerMetrics
-	resourceLeaser *leaser.ResourceLeaser
-	mgr            manager.Manager
-	schemaRef      *k8s.SchemaReference
-	schemaRefMu    sync.RWMutex
-	provider       *tfschema.Provider
-	smLoader       *servicemappingloader.ServiceMappingLoader
-	logger         logr.Logger
+	resourceLeaser  *leaser.ResourceLeaser
+	defaulters      []k8s.Defaulter
+	mgr             manager.Manager
+	schemaRef       *k8s.SchemaReference
+	schemaRefMu     sync.RWMutex
+	provider        *tfschema.Provider
+	smLoader        *servicemappingloader.ServiceMappingLoader
+	logger          logr.Logger
+	jitterGenerator jitter.Generator
 	// Fields used for triggering reconciliations when dependencies are ready
 	immediateReconcileRequests chan event.GenericEvent
 	resourceWatcherRoutines    *semaphore.Weighted // Used to cap number of goroutines watching unready dependencies
 }
 
-func Add(mgr manager.Manager, crd *apiextensions.CustomResourceDefinition, provider *tfschema.Provider, smLoader *servicemappingloader.ServiceMappingLoader) (k8s.SchemaReferenceUpdater, error) {
+func Add(mgr manager.Manager, crd *apiextensions.CustomResourceDefinition, provider *tfschema.Provider, smLoader *servicemappingloader.ServiceMappingLoader, defaulters []k8s.Defaulter, jitterGenerator jitter.Generator, irp predicate.Predicate) (k8s.SchemaReferenceUpdater, error) {
 	kind := crd.Spec.Names.Kind
 	apiVersion := k8s.GetAPIVersionFromCRD(crd)
 	controllerName := fmt.Sprintf("%v-controller", strings.ToLower(kind))
 	immediateReconcileRequests := make(chan event.GenericEvent, k8s.ImmediateReconcileRequestsBufferSize)
 	resourceWatcherRoutines := semaphore.NewWeighted(k8s.MaxNumResourceWatcherRoutines)
-	r, err := NewReconciler(mgr, crd, provider, smLoader, immediateReconcileRequests, resourceWatcherRoutines)
+	r, err := NewReconciler(mgr, crd, provider, smLoader, immediateReconcileRequests, resourceWatcherRoutines, defaulters, jitterGenerator)
 	if err != nil {
 		return nil, err
 	}
@@ -91,21 +96,38 @@ func Add(mgr manager.Manager, crd *apiextensions.CustomResourceDefinition, provi
 			"apiVersion": apiVersion,
 		},
 	}
+	predicateList := []predicate.Predicate{kccpredicate.UnderlyingResourceOutOfSyncPredicate{}}
+	if irp != nil {
+		predicateList = append(predicateList, irp)
+	}
 	_, err = builder.
 		ControllerManagedBy(mgr).
 		Named(controllerName).
 		WithOptions(controller.Options{MaxConcurrentReconciles: k8s.ControllerMaxConcurrentReconciles, RateLimiter: ratelimiter.NewRateLimiter()}).
-		Watches(&source.Channel{Source: immediateReconcileRequests}, &handler.EnqueueRequestForObject{}).
-		For(obj, builder.OnlyMetadata, builder.WithPredicates(predicate.UnderlyingResourceOutOfSyncPredicate{})).
+		WatchesRawSource(&source.Channel{Source: immediateReconcileRequests}, &handler.EnqueueRequestForObject{}).
+		For(obj, builder.OnlyMetadata, builder.WithPredicates(predicateList...)).
 		Build(r)
 	if err != nil {
-		return nil, fmt.Errorf("error creating new controller: %v", err)
+		return nil, fmt.Errorf("error creating new controller: %w", err)
 	}
-	logger.Info("Registered controller", "kind", kind, "apiVersion", apiVersion)
+	log := mgr.GetLogger()
+	log.Info("Registered controller", "kind", kind, "apiVersion", apiVersion)
 	return r, nil
 }
 
-func NewReconciler(mgr manager.Manager, crd *apiextensions.CustomResourceDefinition, p *tfschema.Provider, smLoader *servicemappingloader.ServiceMappingLoader, immediateReconcileRequests chan event.GenericEvent, resourceWatcherRoutines *semaphore.Weighted) (*Reconciler, error) {
+func NewReconciler(mgr manager.Manager,
+	crd *apiextensions.CustomResourceDefinition,
+	p *tfschema.Provider,
+	smLoader *servicemappingloader.ServiceMappingLoader,
+	immediateReconcileRequests chan event.GenericEvent,
+	resourceWatcherRoutines *semaphore.Weighted,
+	defaulters []k8s.Defaulter,
+	jitterGenerator jitter.Generator) (*Reconciler, error) {
+
+	if jitterGenerator == nil {
+		return nil, fmt.Errorf("jitterGenerator must not be nil")
+	}
+
 	controllerName := fmt.Sprintf("%v-controller", strings.ToLower(crd.Spec.Names.Kind))
 	return &Reconciler{
 		LifecycleHandler: lifecyclehandler.NewLifecycleHandler(
@@ -113,10 +135,11 @@ func NewReconciler(mgr manager.Manager, crd *apiextensions.CustomResourceDefinit
 			mgr.GetEventRecorderFor(controllerName),
 		),
 		resourceLeaser: leaser.NewResourceLeaser(p, smLoader, mgr.GetClient()),
+		defaulters:     defaulters,
 		mgr:            mgr,
 		schemaRef: &k8s.SchemaReference{
 			CRD:        crd,
-			JsonSchema: k8s.GetOpenAPIV3SchemaFromCRD(crd),
+			JSONSchema: k8s.GetOpenAPIV3SchemaFromCRD(crd),
 			GVK: schema.GroupVersionKind{
 				Group:   crd.Spec.Group,
 				Version: k8s.GetVersionFromCRD(crd),
@@ -131,6 +154,7 @@ func NewReconciler(mgr manager.Manager, crd *apiextensions.CustomResourceDefinit
 		logger:                     logger.WithName(controllerName),
 		immediateReconcileRequests: immediateReconcileRequests,
 		resourceWatcherRoutines:    resourceWatcherRoutines,
+		jitterGenerator:            jitterGenerator,
 	}, nil
 }
 
@@ -161,6 +185,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (res 
 		r.logger.Info("Skipping reconcile as nothing has changed and 0 reconcile period is set", "resource", req.NamespacedName)
 		return reconcile.Result{}, nil
 	}
+
 	sm, err := r.smLoader.GetServiceMapping(u.GroupVersionKind().Group)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -171,10 +196,41 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (res 
 	}
 	resource, err := krmtotf.NewResource(u, sm, r.provider)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("could not parse resource %s: %v", req.NamespacedName.String(), err)
+		return reconcile.Result{}, fmt.Errorf("could not parse resource %s: %w", req.NamespacedName.String(), err)
+	}
+	if err := r.handleDefaults(ctx, resource); err != nil {
+		return reconcile.Result{}, fmt.Errorf("error handling default values for resource '%v': %w", k8s.GetNamespacedName(resource), err)
 	}
 	if err := r.applyChangesForBackwardsCompatibility(ctx, resource); err != nil {
-		return reconcile.Result{}, fmt.Errorf("error applying changes to resource '%v' for backwards compatibility: %v", k8s.GetNamespacedName(resource), err)
+		return reconcile.Result{}, fmt.Errorf("error applying changes to resource '%v' for backwards compatibility: %w", k8s.GetNamespacedName(resource), err)
+	}
+
+	cc, ccc, err := kccstate.FetchLiveKCCState(ctx, r.mgr.GetClient(), req.NamespacedName)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	am := resourceactuation.DecideActuationMode(cc, ccc)
+	switch am {
+	case v1beta1.Reconciling:
+		r.logger.V(2).Info("Actuating a resource as actuation mode is \"Reconciling\"", "resource", req.NamespacedName)
+	case v1beta1.Paused:
+		jitteredPeriod, err := r.jitterGenerator.JitteredReenqueue(r.schemaRef.GVK, u)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// add finalizers for deletion defender to make sure we don't delete cloud provider resources when uninstalling
+		if resource.GetDeletionTimestamp().IsZero() {
+			if err := r.EnsureFinalizers(ctx, resource.Original, &resource.Resource, k8s.ControllerFinalizerName, k8s.DeletionDefenderFinalizerName); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
+		r.logger.Info("Skipping actuation of resource as actuation mode is \"Paused\"", "resource", req.NamespacedName, "time to next reconciliation", jitteredPeriod)
+		return reconcile.Result{RequeueAfter: jitteredPeriod}, nil
+	default:
+		return reconcile.Result{}, fmt.Errorf("unknown actuation mode %v", am)
 	}
 
 	// Apply pre-actuation transformation.
@@ -188,7 +244,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (res 
 	if requeue {
 		return reconcile.Result{Requeue: true}, nil
 	}
-	jitteredPeriod, err := jitter.GenerateJitteredReenqueuePeriod(r.schemaRef.GVK, r.smLoader, nil, u)
+	jitteredPeriod, err := r.jitterGenerator.JitteredReenqueue(r.schemaRef.GVK, u)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -197,7 +253,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (res 
 }
 
 func (r *Reconciler) sync(ctx context.Context, krmResource *krmtotf.Resource) (requeue bool, err error) {
-
 	// isolate any panics to only this function
 	defer execution.RecoverWithInternalError(&err)
 	if !krmResource.GetDeletionTimestamp().IsZero() {
@@ -219,23 +274,30 @@ func (r *Reconciler) sync(ctx context.Context, krmResource *krmtotf.Resource) (r
 			r.logger.Info("deletion policy set to abandon; abandoning underlying resource", "resource", k8s.GetNamespacedName(krmResource))
 			return false, r.handleDeleted(ctx, krmResource)
 		}
-		orphaned, parent, err := r.isOrphaned(ctx, krmResource)
+
+		if krmtotf.ShouldResolveParentForDelete(krmResource) {
+			orphaned, parent, err := r.isOrphaned(krmResource)
+			// Handle orphaned resources
+			if err != nil {
+				return false, err
+			}
+			if orphaned {
+				r.logger.Info("resource has been orphaned; no API call necessary", "resource", k8s.GetNamespacedName(krmResource))
+				return false, r.handleDeleted(ctx, krmResource)
+			}
+
+			if parent != nil && !k8s.IsResourceReady(parent) {
+				if krmtotf.ShouldCheckParentReadyForDelete(krmResource, parent) {
+					// If this resource has a parent and is not orphaned, ensure its parent
+					// is ready before attempting deletion.
+					// Requeue resource for reconciliation with exponential backoff applied
+					return true, r.HandleUnresolvableDeps(ctx, &krmResource.Resource, k8s.NewReferenceNotReadyErrorForResource(parent))
+				}
+			}
+		}
+		liveState, err := krmtotf.FetchLiveStateForDelete(ctx, krmResource, r.provider, r, r.smLoader)
 		if err != nil {
-			return false, err
-		}
-		if orphaned {
-			r.logger.Info("resource has been orphaned; no API call necessary", "resource", k8s.GetNamespacedName(krmResource))
-			return false, r.handleDeleted(ctx, krmResource)
-		}
-		if parent != nil && !k8s.IsResourceReady(parent) {
-			// If this resource has a parent and is not orphaned, ensure its parent
-			// is ready before attempting deletion.
-			// Requeue resource for reconciliation with exponential backoff applied
-			return true, r.HandleUnresolvableDeps(ctx, &krmResource.Resource, k8s.NewReferenceNotReadyErrorForResource(parent))
-		}
-		liveState, err := krmtotf.FetchLiveState(ctx, krmResource, r.provider, r, r.smLoader)
-		if err != nil {
-			return false, r.HandleDeleteFailed(ctx, &krmResource.Resource, fmt.Errorf("error fetching live state: %v", err))
+			return false, r.HandleDeleteFailed(ctx, &krmResource.Resource, fmt.Errorf("error fetching live state: %w", err))
 		}
 		if liveState.Empty() {
 			r.logger.Info("underlying resource does not exist; no API call necessary", "resource", k8s.GetNamespacedName(krmResource))
@@ -256,7 +318,7 @@ func (r *Reconciler) sync(ctx context.Context, krmResource *krmtotf.Resource) (r
 			r.logger.Info(unwrappedErr.Error(), "resource", k8s.GetNamespacedName(krmResource))
 			return r.handleUnresolvableDeps(ctx, &krmResource.Resource, unwrappedErr)
 		}
-		return false, r.HandleUpdateFailed(ctx, &krmResource.Resource, fmt.Errorf("error fetching live state: %v", err))
+		return false, r.HandleUpdateFailed(ctx, &krmResource.Resource, fmt.Errorf("error fetching live state: %w", err))
 	}
 	if err := r.obtainResourceLeaseIfNecessary(ctx, krmResource, liveState); err != nil {
 		return false, err
@@ -274,18 +336,22 @@ func (r *Reconciler) sync(ctx context.Context, krmResource *krmtotf.Resource) (r
 			fmt.Errorf("underlying resource no longer exists and can't be recreated without creating a brand new resource"))
 	}
 	config, secretVersions, err := krmtotf.KRMResourceToTFResourceConfigFull(
-		krmResource, r, r.smLoader, liveState, r.schemaRef.JsonSchema, true, label.GetDefaultLabels(),
+		krmResource, r, r.smLoader, liveState, r.schemaRef.JSONSchema, true, label.GetDefaultLabels(),
 	)
 	if err != nil {
 		if unwrappedErr, ok := lifecyclehandler.CausedByUnresolvableDeps(err); ok {
 			r.logger.Info(unwrappedErr.Error(), "resource", k8s.GetNamespacedName(krmResource))
 			return r.handleUnresolvableDeps(ctx, &krmResource.Resource, unwrappedErr)
 		}
-		return false, r.HandleUpdateFailed(ctx, &krmResource.Resource, fmt.Errorf("error expanding resource configuration for kind %s: %v", krmResource.Kind, err))
+		return false, r.HandleUpdateFailed(ctx, &krmResource.Resource, fmt.Errorf("error expanding resource configuration for kind %s: %w", krmResource.Kind, err))
+	}
+	// Apply last-minute apply overrides
+	if err := resourceoverrides.Handler.PreTerraformApply(ctx, krmResource.GroupVersionKind(), &operations.PreTerraformApply{KRMResource: krmResource, TerraformConfig: config, LiveState: liveState}); err != nil {
+		return false, r.HandleUpdateFailed(ctx, &krmResource.Resource, fmt.Errorf("error applying pre-apply transformation to resource: %w", err))
 	}
 	diff, err := krmResource.TFResource.Diff(ctx, liveState, config, r.provider.Meta())
 	if err != nil {
-		return false, r.HandleUpdateFailed(ctx, &krmResource.Resource, fmt.Errorf("error calculating diff: %v", err))
+		return false, r.HandleUpdateFailed(ctx, &krmResource.Resource, fmt.Errorf("error calculating diff: %w", err))
 	}
 	if !liveState.Empty() && diff.RequiresNew() {
 		return false, r.HandleUpdateFailed(ctx, &krmResource.Resource,
@@ -356,7 +422,8 @@ func (r *Reconciler) handleUnresolvableDeps(ctx context.Context, resource *k8s.R
 		// Decrement the count of active resource watches after
 		// the watch finishes
 		defer r.resourceWatcherRoutines.Release(1)
-		timeoutPeriod := jitter.GenerateWatchJitteredTimeoutPeriod()
+
+		timeoutPeriod := r.jitterGenerator.WatchJitteredTimeout()
 		ctx, cancel := context.WithTimeout(ctx, timeoutPeriod)
 		defer cancel()
 		logger.Info("starting wait with timeout on resource's reference", "timeout", timeoutPeriod)
@@ -386,28 +453,30 @@ func (r *Reconciler) enqueueForImmediateReconciliation(resourceNN types.Namespac
 	r.immediateReconcileRequests <- genEvent
 }
 
+func (r *Reconciler) handleDefaults(ctx context.Context, resource *krmtotf.Resource) error {
+	for _, defaulter := range r.defaulters {
+		if _, err := defaulter.ApplyDefaults(ctx, resource); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *Reconciler) applyChangesForBackwardsCompatibility(ctx context.Context, resource *krmtotf.Resource) error {
 	rc := resource.ResourceConfig
 
 	// Ensure the resource has a management-conflict-prevention-policy
 	// annotation. This is done to be backwards compatible with resources
 	// created before the webhook for defaulting the annotation was added.
-	if err := k8s.EnsureManagementConflictPreventionAnnotationForTFBasedResource(r.Client, ctx, resource, &rc, r.provider.ResourcesMap); err != nil {
-		return fmt.Errorf("error ensuring resource '%v' has a management conflict policy: %v", k8s.GetNamespacedName(resource), err)
+	if err := k8s.EnsureManagementConflictPreventionAnnotationForTFBasedResource(ctx, r.Client, resource, &rc, r.provider.ResourcesMap); err != nil {
+		return fmt.Errorf("error ensuring resource '%v' has a management conflict policy: %w", k8s.GetNamespacedName(resource), err)
 	}
 
 	// Ensure the resource has a hierarchical reference. This is done to be
 	// backwards compatible with resources created before the webhook for
 	// defaulting hierarchical references was added.
 	if err := k8s.EnsureHierarchicalReference(ctx, &resource.Resource, rc.HierarchicalReferences, rc.Containers, r.Client); err != nil {
-		return fmt.Errorf("error ensuring resource '%v' has a hierarchical reference: %v", k8s.GetNamespacedName(resource), err)
-	}
-
-	// Ensure the resource has a state-into-spec annotation.
-	// This is done to be backwards compatible with resources
-	// created before the webhook for defaulting the annotation was added.
-	if err := k8s.EnsureSpecIntoSateAnnotation(&resource.Resource); err != nil {
-		return fmt.Errorf("error ensuring resource '%v' has a '%v' annotation: %v", k8s.GetNamespacedName(resource), k8s.StateIntoSpecAnnotation, err)
+		return fmt.Errorf("error ensuring resource '%v' has a hierarchical reference: %w", k8s.GetNamespacedName(resource), err)
 	}
 	return nil
 }
@@ -432,7 +501,7 @@ func (r *Reconciler) obtainResourceLeaseIfNecessary(ctx context.Context, krmReso
 	// to GCP. The reason to do that is to reduce the number of writes to GCP and therefore improve performance and reduce errors.
 	// The labels are written to GCP by the main sync(...) function because the changes to the labels show up in the diff.
 	if err := r.resourceLeaser.SoftObtain(ctx, &krmResource.Resource, krmtotf.GetLabelsFromState(krmResource, liveState)); err != nil {
-		return r.HandleObtainLeaseFailed(ctx, &krmResource.Resource, fmt.Errorf("error obtaining lease on '%v': %v",
+		return r.HandleObtainLeaseFailed(ctx, &krmResource.Resource, fmt.Errorf("error obtaining lease on '%v': %w",
 			k8s.GetNamespacedName(krmResource), err))
 	}
 	return nil
@@ -471,7 +540,7 @@ func (r *Reconciler) handleUpToDate(ctx context.Context, resource *krmtotf.Resou
 // * Hierarchical resources are also considered parents.
 // It is assumed that parent and hierarchical references are always at the top
 // level.
-func (r *Reconciler) isOrphaned(ctx context.Context, resource *krmtotf.Resource) (orphaned bool, parent *k8s.Resource, err error) {
+func (r *Reconciler) isOrphaned(resource *krmtotf.Resource) (orphaned bool, parent *k8s.Resource, err error) {
 	// Currently, it's assumed that parent reference fields only support one resource type.
 	parentConfigs := make([]corekccv1alpha1.TypeConfig, 0)
 	for _, ref := range resource.ResourceConfig.ResourceReferences {
@@ -515,7 +584,7 @@ func updateMutableButUnreadableFieldsAnnotationFor(resource *krmtotf.Resource) e
 	}
 	annotationVal, err := krmtotf.MutableButUnreadableFieldsAnnotationFor(resource)
 	if err != nil {
-		return fmt.Errorf("error constructing value for %v: %v", k8s.MutableButUnreadableFieldsAnnotation, err)
+		return fmt.Errorf("error constructing value for %v: %w", k8s.MutableButUnreadableFieldsAnnotation, err)
 	}
 	k8s.SetAnnotation(k8s.MutableButUnreadableFieldsAnnotation, annotationVal, resource)
 	return nil

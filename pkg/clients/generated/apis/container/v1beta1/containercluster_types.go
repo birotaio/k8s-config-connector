@@ -35,6 +35,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ClusterAdditionalPodRangesConfig struct {
+	/* Name for pod secondary ipv4 range which has the actual range defined ahead. */
+	PodRangeNames []string `json:"podRangeNames"`
+}
+
 type ClusterAddonsConfig struct {
 	/* The status of the CloudRun addon. It is disabled by default. Set disabled = false to enable. */
 	// +optional
@@ -48,13 +53,17 @@ type ClusterAddonsConfig struct {
 	// +optional
 	DnsCacheConfig *ClusterDnsCacheConfig `json:"dnsCacheConfig,omitempty"`
 
-	/* Whether this cluster should enable the Google Compute Engine Persistent Disk Container Storage Interface (CSI) Driver. Defaults to enabled; set disabled = true to disable. */
+	/* Whether this cluster should enable the Google Compute Engine Persistent Disk Container Storage Interface (CSI) Driver. Set enabled = true to enable. The Compute Engine persistent disk CSI Driver is enabled by default on newly created clusters for the following versions: Linux clusters: GKE version 1.18.10-gke.2100 or later, or 1.19.3-gke.2100 or later. */
 	// +optional
 	GcePersistentDiskCsiDriverConfig *ClusterGcePersistentDiskCsiDriverConfig `json:"gcePersistentDiskCsiDriverConfig,omitempty"`
 
 	/* The status of the Filestore CSI driver addon, which allows the usage of filestore instance as volumes. Defaults to disabled; set enabled = true to enable. */
 	// +optional
 	GcpFilestoreCsiDriverConfig *ClusterGcpFilestoreCsiDriverConfig `json:"gcpFilestoreCsiDriverConfig,omitempty"`
+
+	/* The status of the GCS Fuse CSI driver addon, which allows the usage of gcs bucket as volumes. Defaults to disabled; set enabled = true to enable. */
+	// +optional
+	GcsFuseCsiDriverConfig *ClusterGcsFuseCsiDriverConfig `json:"gcsFuseCsiDriverConfig,omitempty"`
 
 	/* The status of the Backup for GKE Agent addon. It is disabled by default. Set enabled = true to enable. */
 	// +optional
@@ -81,9 +90,18 @@ type ClusterAddonsConfig struct {
 	NetworkPolicyConfig *ClusterNetworkPolicyConfig `json:"networkPolicyConfig,omitempty"`
 }
 
+type ClusterAdvancedDatapathObservabilityConfig struct {
+	/* Whether or not the advanced datapath metrics are enabled. */
+	EnableMetrics bool `json:"enableMetrics"`
+
+	/* Mode used to make Relay available. */
+	// +optional
+	RelayMode *string `json:"relayMode,omitempty"`
+}
+
 type ClusterAdvancedMachineFeatures struct {
 	/* Immutable. The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. */
-	ThreadsPerCore int `json:"threadsPerCore"`
+	ThreadsPerCore int64 `json:"threadsPerCore"`
 }
 
 type ClusterAuthenticatorGroupsConfig struct {
@@ -99,7 +117,7 @@ type ClusterAutoProvisioningDefaults struct {
 
 	/* Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. */
 	// +optional
-	DiskSize *int `json:"diskSize,omitempty"`
+	DiskSize *int64 `json:"diskSize,omitempty"`
 
 	/* The default image type used by NAP once a new node pool is being created. */
 	// +optional
@@ -201,7 +219,7 @@ type ClusterClusterTelemetry struct {
 }
 
 type ClusterConfidentialNodes struct {
-	/* Immutable. Whether Confidential Nodes feature is enabled for all nodes in this cluster. */
+	/* Immutable. Whether Confidential Nodes feature is enabled for all nodes in this pool. */
 	Enabled bool `json:"enabled"`
 }
 
@@ -253,19 +271,29 @@ type ClusterDnsConfig struct {
 	ClusterDnsScope *string `json:"clusterDnsScope,omitempty"`
 }
 
+type ClusterEnableK8sBetaApis struct {
+	/* Enabled Kubernetes Beta APIs. */
+	EnabledApis []string `json:"enabledApis"`
+}
+
 type ClusterEphemeralStorageConfig struct {
 	/* Immutable. Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. */
-	LocalSsdCount int `json:"localSsdCount"`
+	LocalSsdCount int64 `json:"localSsdCount"`
 }
 
 type ClusterEphemeralStorageLocalSsdConfig struct {
 	/* Immutable. Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. */
-	LocalSsdCount int `json:"localSsdCount"`
+	LocalSsdCount int64 `json:"localSsdCount"`
 }
 
 type ClusterExclusionOptions struct {
 	/* The scope of automatic upgrades to restrict in the exclusion window. */
 	Scope string `json:"scope"`
+}
+
+type ClusterFastSocket struct {
+	/* Whether or not NCCL Fast Socket is enabled. */
+	Enabled bool `json:"enabled"`
 }
 
 type ClusterFilter struct {
@@ -291,8 +319,17 @@ type ClusterGcpFilestoreCsiDriverConfig struct {
 	Enabled bool `json:"enabled"`
 }
 
+type ClusterGcsFuseCsiDriverConfig struct {
+	Enabled bool `json:"enabled"`
+}
+
 type ClusterGkeBackupAgentConfig struct {
 	Enabled bool `json:"enabled"`
+}
+
+type ClusterGpuDriverInstallationConfig struct {
+	/* Immutable. Mode for how the GPU driver is installed. */
+	GpuDriverVersion string `json:"gpuDriverVersion"`
 }
 
 type ClusterGpuSharingConfig struct {
@@ -300,12 +337,16 @@ type ClusterGpuSharingConfig struct {
 	GpuSharingStrategy string `json:"gpuSharingStrategy"`
 
 	/* Immutable. The maximum number of containers that can share a GPU. */
-	MaxSharedClientsPerGpu int `json:"maxSharedClientsPerGpu"`
+	MaxSharedClientsPerGpu int64 `json:"maxSharedClientsPerGpu"`
 }
 
 type ClusterGuestAccelerator struct {
 	/* Immutable. The number of the accelerator cards exposed to an instance. */
-	Count int `json:"count"`
+	Count int64 `json:"count"`
+
+	/* Immutable. Configuration for auto installation of GPU driver. */
+	// +optional
+	GpuDriverInstallationConfig *ClusterGpuDriverInstallationConfig `json:"gpuDriverInstallationConfig,omitempty"`
 
 	/* Immutable. Size of partitions to create on the GPU. Valid values are described in the NVIDIA mig user guide (https://docs.nvidia.com/datacenter/tesla/mig-user-guide/#partitioning). */
 	// +optional
@@ -328,6 +369,11 @@ type ClusterHorizontalPodAutoscaling struct {
 	Disabled bool `json:"disabled"`
 }
 
+type ClusterHostMaintenancePolicy struct {
+	/* Immutable. . */
+	MaintenanceInterval string `json:"maintenanceInterval"`
+}
+
 type ClusterHttpLoadBalancing struct {
 	Disabled bool `json:"disabled"`
 }
@@ -339,6 +385,10 @@ type ClusterIdentityServiceConfig struct {
 }
 
 type ClusterIpAllocationPolicy struct {
+	/* AdditionalPodRangesConfig is the configuration for additional pod secondary ranges supporting the ClusterUpdate message. */
+	// +optional
+	AdditionalPodRangesConfig *ClusterAdditionalPodRangesConfig `json:"additionalPodRangesConfig,omitempty"`
+
 	/* Immutable. The IP address range for the cluster pod IPs. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) from the RFC-1918 private networks (e.g. 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) to pick a specific range to use. */
 	// +optional
 	ClusterIpv4CidrBlock *string `json:"clusterIpv4CidrBlock,omitempty"`
@@ -391,17 +441,22 @@ type ClusterKubeletConfig struct {
 
 	/* Controls the maximum number of processes allowed to run in a pod. */
 	// +optional
-	PodPidsLimit *int `json:"podPidsLimit,omitempty"`
+	PodPidsLimit *int64 `json:"podPidsLimit,omitempty"`
 }
 
 type ClusterLinuxNodeConfig struct {
+	/* cgroupMode specifies the cgroup mode to be used on the node. */
+	// +optional
+	CgroupMode *string `json:"cgroupMode,omitempty"`
+
 	/* The Linux kernel parameters to be applied to the nodes and all pods running on the nodes. */
-	Sysctls map[string]string `json:"sysctls"`
+	// +optional
+	Sysctls map[string]string `json:"sysctls,omitempty"`
 }
 
 type ClusterLocalNvmeSsdBlockConfig struct {
 	/* Immutable. Number of raw-block local NVMe SSD disks to be attached to the node. Each local SSD is 375 GB in size. */
-	LocalSsdCount int `json:"localSsdCount"`
+	LocalSsdCount int64 `json:"localSsdCount"`
 }
 
 type ClusterLoggingConfig struct {
@@ -501,7 +556,11 @@ type ClusterMeshCertificates struct {
 }
 
 type ClusterMonitoringConfig struct {
-	/* GKE components exposing metrics. Valid values include SYSTEM_COMPONENTS, APISERVER, CONTROLLER_MANAGER, SCHEDULER, and WORKLOADS. */
+	/* Configuration of Advanced Datapath Observability features. */
+	// +optional
+	AdvancedDatapathObservabilityConfig []ClusterAdvancedDatapathObservabilityConfig `json:"advancedDatapathObservabilityConfig,omitempty"`
+
+	/* GKE components exposing metrics. Valid values include SYSTEM_COMPONENTS, APISERVER, SCHEDULER, CONTROLLER_MANAGER, STORAGE, HPA, POD, DAEMONSET, DEPLOYMENT, STATEFULSET and WORKLOADS. */
 	// +optional
 	EnableComponents []string `json:"enableComponents,omitempty"`
 
@@ -529,6 +588,17 @@ type ClusterNetworkTags struct {
 	Tags []string `json:"tags,omitempty"`
 }
 
+type ClusterNodeAffinity struct {
+	/* Immutable. . */
+	Key string `json:"key"`
+
+	/* Immutable. . */
+	Operator string `json:"operator"`
+
+	/* Immutable. . */
+	Values []string `json:"values"`
+}
+
 type ClusterNodeConfig struct {
 	/* Immutable. Specifies options for controlling advanced machine features. */
 	// +optional
@@ -537,9 +607,13 @@ type ClusterNodeConfig struct {
 	// +optional
 	BootDiskKMSCryptoKeyRef *v1alpha1.ResourceRef `json:"bootDiskKMSCryptoKeyRef,omitempty"`
 
+	/* Immutable. Configuration for the confidential nodes feature, which makes nodes run on confidential VMs. Warning: This configuration can't be changed (or added/removed) after pool creation without deleting and recreating the entire pool. */
+	// +optional
+	ConfidentialNodes *ClusterConfidentialNodes `json:"confidentialNodes,omitempty"`
+
 	/* Immutable. Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. */
 	// +optional
-	DiskSizeGb *int `json:"diskSizeGb,omitempty"`
+	DiskSizeGb *int64 `json:"diskSizeGb,omitempty"`
 
 	/* Immutable. Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. */
 	// +optional
@@ -553,6 +627,10 @@ type ClusterNodeConfig struct {
 	// +optional
 	EphemeralStorageLocalSsdConfig *ClusterEphemeralStorageLocalSsdConfig `json:"ephemeralStorageLocalSsdConfig,omitempty"`
 
+	/* Enable or disable NCCL Fast Socket in the node pool. */
+	// +optional
+	FastSocket *ClusterFastSocket `json:"fastSocket,omitempty"`
+
 	/* Immutable. GCFS configuration for this node. */
 	// +optional
 	GcfsConfig *ClusterGcfsConfig `json:"gcfsConfig,omitempty"`
@@ -564,6 +642,10 @@ type ClusterNodeConfig struct {
 	/* Immutable. Enable or disable gvnic in the node pool. */
 	// +optional
 	Gvnic *ClusterGvnic `json:"gvnic,omitempty"`
+
+	/* Immutable. The maintenance policy for the hosts on which the GKE VMs run on. */
+	// +optional
+	HostMaintenancePolicy *ClusterHostMaintenancePolicy `json:"hostMaintenancePolicy,omitempty"`
 
 	/* The image type to use for this node. Note that for a given image type, the latest version of it will be used. */
 	// +optional
@@ -587,7 +669,7 @@ type ClusterNodeConfig struct {
 
 	/* Immutable. The number of local SSD disks to be attached to the node. */
 	// +optional
-	LocalSsdCount *int `json:"localSsdCount,omitempty"`
+	LocalSsdCount *int64 `json:"localSsdCount,omitempty"`
 
 	/* Type of logging agent that is used as the default value for node pools in the cluster. Valid values include DEFAULT and MAX_THROUGHPUT. */
 	// +optional
@@ -638,6 +720,10 @@ type ClusterNodeConfig struct {
 	// +optional
 	ShieldedInstanceConfig *ClusterShieldedInstanceConfig `json:"shieldedInstanceConfig,omitempty"`
 
+	/* Immutable. Node affinity options for sole tenant node pools. */
+	// +optional
+	SoleTenantConfig *ClusterSoleTenantConfig `json:"soleTenantConfig,omitempty"`
+
 	/* Immutable. Whether the nodes are created as spot VM instances. */
 	// +optional
 	Spot *bool `json:"spot,omitempty"`
@@ -646,7 +732,7 @@ type ClusterNodeConfig struct {
 	// +optional
 	Tags []string `json:"tags,omitempty"`
 
-	/* Immutable. List of Kubernetes taints to be applied to each node. */
+	/* List of Kubernetes taints to be applied to each node. */
 	// +optional
 	Taint []ClusterTaint `json:"taint,omitempty"`
 
@@ -702,7 +788,7 @@ type ClusterPodSecurityPolicyConfig struct {
 }
 
 type ClusterPrivateClusterConfig struct {
-	/* When true, the cluster's private endpoint is used as the cluster endpoint and access through the public endpoint is disabled. When false, either endpoint can be used. This field only applies to private clusters, when enable_private_nodes is true. */
+	/* When true, the cluster's private endpoint is used as the cluster endpoint and access through the public endpoint is disabled. When false, either endpoint can be used. */
 	// +optional
 	EnablePrivateEndpoint *bool `json:"enablePrivateEndpoint,omitempty"`
 
@@ -792,11 +878,11 @@ type ClusterReservationAffinity struct {
 type ClusterResourceLimits struct {
 	/* Maximum amount of the resource in the cluster. */
 	// +optional
-	Maximum *int `json:"maximum,omitempty"`
+	Maximum *int64 `json:"maximum,omitempty"`
 
 	/* Minimum amount of the resource in the cluster. */
 	// +optional
-	Minimum *int `json:"minimum,omitempty"`
+	Minimum *int64 `json:"minimum,omitempty"`
 
 	/* The type of the resource. For example, cpu and memory. See the guide to using Node Auto-Provisioning for a list of types. */
 	ResourceType string `json:"resourceType"`
@@ -820,6 +906,16 @@ type ClusterSandboxConfig struct {
 	SandboxType string `json:"sandboxType"`
 }
 
+type ClusterSecurityPostureConfig struct {
+	/* Sets the mode of the Kubernetes security posture API's off-cluster features. Available options include DISABLED and BASIC. */
+	// +optional
+	Mode *string `json:"mode,omitempty"`
+
+	/* Sets the mode of the Kubernetes security posture API's workload vulnerability scanning. Available options include VULNERABILITY_DISABLED and VULNERABILITY_BASIC. */
+	// +optional
+	VulnerabilityMode *string `json:"vulnerabilityMode,omitempty"`
+}
+
 type ClusterServiceExternalIpsConfig struct {
 	/* When enabled, services with exterenal ips specified will be allowed. */
 	Enabled bool `json:"enabled"`
@@ -835,10 +931,15 @@ type ClusterShieldedInstanceConfig struct {
 	EnableSecureBoot *bool `json:"enableSecureBoot,omitempty"`
 }
 
+type ClusterSoleTenantConfig struct {
+	/* Immutable. . */
+	NodeAffinity []ClusterNodeAffinity `json:"nodeAffinity"`
+}
+
 type ClusterStandardRolloutPolicy struct {
 	/* Number of blue nodes to drain in a batch. */
 	// +optional
-	BatchNodeCount *int `json:"batchNodeCount,omitempty"`
+	BatchNodeCount *int64 `json:"batchNodeCount,omitempty"`
 
 	/* Percentage of the bool pool nodes to drain in a batch. The range of this field should be (0.0, 1.0]. */
 	// +optional
@@ -852,13 +953,13 @@ type ClusterStandardRolloutPolicy struct {
 }
 
 type ClusterTaint struct {
-	/* Immutable. Effect for taint. */
+	/* Effect for taint. */
 	Effect string `json:"effect"`
 
-	/* Immutable. Key for taint. */
+	/* Key for taint. */
 	Key string `json:"key"`
 
-	/* Immutable. Value for taint. */
+	/* Value for taint. */
 	Value string `json:"value"`
 }
 
@@ -879,11 +980,11 @@ type ClusterUpgradeSettings struct {
 
 	/* The maximum number of nodes that can be created beyond the current size of the node pool during the upgrade process. */
 	// +optional
-	MaxSurge *int `json:"maxSurge,omitempty"`
+	MaxSurge *int64 `json:"maxSurge,omitempty"`
 
 	/* The maximum number of nodes that can be simultaneously unavailable during the upgrade process. */
 	// +optional
-	MaxUnavailable *int `json:"maxUnavailable,omitempty"`
+	MaxUnavailable *int64 `json:"maxUnavailable,omitempty"`
 
 	/* Update strategy of the node pool. */
 	// +optional
@@ -893,7 +994,7 @@ type ClusterUpgradeSettings struct {
 type ClusterValueFrom struct {
 	/* Reference to a value with the given key in the given Secret in the resource's namespace. */
 	// +optional
-	SecretKeyRef *v1alpha1.ResourceRef `json:"secretKeyRef,omitempty"`
+	SecretKeyRef *v1alpha1.SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
 type ClusterVerticalPodAutoscaling struct {
@@ -931,6 +1032,10 @@ type ContainerClusterSpec struct {
 	/* The configuration for addons supported by GKE. */
 	// +optional
 	AddonsConfig *ClusterAddonsConfig `json:"addonsConfig,omitempty"`
+
+	/* Enable NET_ADMIN for this cluster. */
+	// +optional
+	AllowNetAdmin *bool `json:"allowNetAdmin,omitempty"`
 
 	/* Configuration for the Google Groups for GKE feature. */
 	// +optional
@@ -970,7 +1075,7 @@ type ContainerClusterSpec struct {
 
 	/* Immutable. The default maximum number of pods per node in this cluster. This doesn't work on "routes-based" clusters, clusters that don't have IP Aliasing enabled. */
 	// +optional
-	DefaultMaxPodsPerNode *int `json:"defaultMaxPodsPerNode,omitempty"`
+	DefaultMaxPodsPerNode *int64 `json:"defaultMaxPodsPerNode,omitempty"`
 
 	/* Whether the cluster disables default in-node sNAT rules. In-node sNAT rules will be disabled when defaultSnatStatus is disabled. */
 	// +optional
@@ -992,9 +1097,17 @@ type ContainerClusterSpec struct {
 	// +optional
 	EnableBinaryAuthorization *bool `json:"enableBinaryAuthorization,omitempty"`
 
+	/* Whether FQDN Network Policy is enabled on this cluster. */
+	// +optional
+	EnableFqdnNetworkPolicy *bool `json:"enableFqdnNetworkPolicy,omitempty"`
+
 	/* Whether Intra-node visibility is enabled for this cluster. This makes same node pod to pod traffic visible for VPC network. */
 	// +optional
 	EnableIntranodeVisibility *bool `json:"enableIntranodeVisibility,omitempty"`
+
+	/* Configuration for Kubernetes Beta APIs. */
+	// +optional
+	EnableK8sBetaApis *ClusterEnableK8sBetaApis `json:"enableK8sBetaApis,omitempty"`
 
 	/* Immutable. Whether to enable Kubernetes Alpha features for this cluster. Note that when this option is enabled, the cluster cannot be upgraded and will be automatically deleted after 30 days. */
 	// +optional
@@ -1007,6 +1120,10 @@ type ContainerClusterSpec struct {
 	/* Whether the ABAC authorizer is enabled for this cluster. When enabled, identities in the system, including service accounts, nodes, and controllers, will have statically granted permissions beyond those provided by the RBAC configuration or IAM. Defaults to false. */
 	// +optional
 	EnableLegacyAbac *bool `json:"enableLegacyAbac,omitempty"`
+
+	/* Immutable. Whether multi-networking is enabled for this cluster. */
+	// +optional
+	EnableMultiNetworking *bool `json:"enableMultiNetworking,omitempty"`
 
 	/* Enable Shielded Nodes features on all nodes in this cluster. Defaults to true. */
 	// +optional
@@ -1026,7 +1143,7 @@ type ContainerClusterSpec struct {
 
 	/* Immutable. The number of nodes to create in this cluster's default node pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Must be set if node_pool is not set. If you're using google_container_node_pool objects with no default node pool, you'll need to set this to a value of at least 1, alongside setting remove_default_node_pool to true. */
 	// +optional
-	InitialNodeCount *int `json:"initialNodeCount,omitempty"`
+	InitialNodeCount *int64 `json:"initialNodeCount,omitempty"`
 
 	/* Immutable. Configuration of cluster IP allocation for VPC-native clusters. Adding this block enables IP aliasing, making the cluster VPC-native instead of routes-based. */
 	// +optional
@@ -1133,6 +1250,10 @@ type ContainerClusterSpec struct {
 	// +optional
 	ResourceUsageExportConfig *ClusterResourceUsageExportConfig `json:"resourceUsageExportConfig,omitempty"`
 
+	/* Defines the config needed to enable/disable features for the Security Posture API. */
+	// +optional
+	SecurityPostureConfig *ClusterSecurityPostureConfig `json:"securityPostureConfig,omitempty"`
+
 	/* If set, and enabled=true, services with external ips field will not be blocked. */
 	// +optional
 	ServiceExternalIpsConfig *ClusterServiceExternalIpsConfig `json:"serviceExternalIpsConfig,omitempty"`
@@ -1147,6 +1268,36 @@ type ContainerClusterSpec struct {
 	/* Configuration for the use of Kubernetes Service Accounts in GCP IAM policies. */
 	// +optional
 	WorkloadIdentityConfig *ClusterWorkloadIdentityConfig `json:"workloadIdentityConfig,omitempty"`
+}
+
+type ClusterMasterAuthStatus struct {
+	/* Base64 encoded public certificate used by clients to authenticate to the cluster endpoint. */
+	// +optional
+	ClientCertificate *string `json:"clientCertificate,omitempty"`
+
+	/* Base64 encoded public certificate that is the root of trust for the cluster. */
+	// +optional
+	ClusterCaCertificate *string `json:"clusterCaCertificate,omitempty"`
+}
+
+type ClusterObservedStateStatus struct {
+	/* DEPRECATED. Basic authentication was removed for GKE cluster versions >= 1.19. The authentication information for accessing the Kubernetes master. Some values in this block are only returned by the API if your service account has permission to get credentials for your GKE cluster. If you see an unexpected diff unsetting your client cert, ensure you have the container.clusters.getCredentials permission. */
+	// +optional
+	MasterAuth *ClusterMasterAuthStatus `json:"masterAuth,omitempty"`
+
+	/* Configuration for private clusters, clusters with private nodes. */
+	// +optional
+	PrivateClusterConfig *ClusterPrivateClusterConfigStatus `json:"privateClusterConfig,omitempty"`
+}
+
+type ClusterPrivateClusterConfigStatus struct {
+	/* The internal IP address of this cluster's master endpoint. */
+	// +optional
+	PrivateEndpoint *string `json:"privateEndpoint,omitempty"`
+
+	/* The external IP address of this cluster's master endpoint. */
+	// +optional
+	PublicEndpoint *string `json:"publicEndpoint,omitempty"`
 }
 
 type ContainerClusterStatus struct {
@@ -1167,7 +1318,11 @@ type ContainerClusterStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+	/* The observed state of the underlying GCP resource. */
+	// +optional
+	ObservedState *ClusterObservedStateStatus `json:"observedState,omitempty"`
 
 	// +optional
 	Operation *string `json:"operation,omitempty"`
@@ -1187,6 +1342,13 @@ type ContainerClusterStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcontainercluster;gcpcontainerclusters
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ContainerCluster is the Schema for the container API
 // +k8s:openapi-gen=true

@@ -15,19 +15,23 @@
 package projects
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type ProjectStore struct {
-	mutex            sync.Mutex
-	projectsByID     map[string]*ProjectData
-	projectsByNumber map[int64]*ProjectData
+type ProjectStore interface {
+	GetProject(project *ProjectName) (*ProjectData, error)
+	GetProjectByID(projectID string) (*ProjectData, error)
+
+	// GetProjectByNumber returns the project with the specified project number, or an error if not found.
+	// Note that the project number must still be passed as a string, to keep terraform happy.
+	GetProjectByNumber(projectNumberAsString string) (*ProjectData, error)
+
+	// GetProjectByIDOrNumber will return the project by the id or number provided.
+	GetProjectByIDOrNumber(projectIDOrNumber string) (*ProjectData, error)
 }
 
 type ProjectData struct {
@@ -35,78 +39,40 @@ type ProjectData struct {
 	ID     string
 }
 
-func NewProjectStore() *ProjectStore {
-	return &ProjectStore{
-		projectsByID:     make(map[string]*ProjectData),
-		projectsByNumber: make(map[int64]*ProjectData),
-	}
-}
-
-func projectNotFoundError(project string) error {
-	// This error follows a very specific format
-	// For privacy reasons we don't want to reveal if the project exists.
-	// Terraform also string-matches against the error(!!!)
-
-	msg := fmt.Sprintf("Project '%s' not found or permission denied.", project)
-
-	return status.Error(codes.PermissionDenied, msg)
-}
-
-func (s *ProjectStore) GetProjectByID(projectID string) (*ProjectData, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	project := s.projectsByID[projectID]
-	if project == nil {
-		project = &ProjectData{
-			Number: 123, // TODO: Generate unique project number (and maybe require projects to be created)
-			ID:     projectID,
-		}
-		s.projectsByID[project.ID] = project
-		s.projectsByNumber[project.Number] = project
-	}
-
-	if project == nil {
-		return nil, projectNotFoundError(projectID)
-	}
-	return project, nil
-}
-
-func (s *ProjectStore) GetProjectByNumber(projectNumberAsString string) (*ProjectData, error) {
-	projectNumber, err := strconv.ParseInt(projectNumberAsString, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid project number %q", projectNumberAsString)
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	project := s.projectsByNumber[projectNumber]
-	if project == nil {
-		// Terraform passes the project ID as 0000000 and expects that back in the error, not 0 (!!!)
-		return nil, projectNotFoundError(projectNumberAsString)
-	}
-
-	return project, nil
-}
-
 type ProjectName struct {
-	Project string
+	ProjectID     string
+	ProjectNumber int64
+	OriginalValue string
 }
 
 func (n *ProjectName) String() string {
-	return "projects/" + n.Project
+	return "projects/" + n.OriginalValue
 }
 
+// ParseProjectName parses a string into a ProjectName.
+// The expected form is projects/<projectIDOrNumber>
 func ParseProjectName(name string) (*ProjectName, error) {
 	tokens := strings.Split(name, "/")
 	if len(tokens) == 2 && tokens[0] == "projects" {
-		name := &ProjectName{
-			Project: tokens[1],
-		}
-
-		return name, nil
+		return ParseProjectIDOrNumber(tokens[1])
 	} else {
 		return nil, status.Errorf(codes.InvalidArgument, "name %q is not valid", name)
 	}
+}
+
+// ParseProjectIDOrNumber parses a string into a ProjectName.
+// The expected form is <projectID> or <projectNumber> (without a projects/ prefix)
+func ParseProjectIDOrNumber(s string) (*ProjectName, error) {
+	name := &ProjectName{
+		OriginalValue: s,
+	}
+
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err == nil {
+		name.ProjectNumber = n
+	} else {
+		name.ProjectID = s
+	}
+
+	return name, nil
 }

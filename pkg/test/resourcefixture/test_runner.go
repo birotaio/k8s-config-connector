@@ -15,40 +15,70 @@
 package resourcefixture
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test"
 	testconstants "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/constants"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type ShouldRunFunc func(fixture ResourceFixture) bool
-type TestCaseFunc func(t *testing.T, fixture ResourceFixture)
+type TestCaseFunc func(ctx context.Context, t *testing.T, fixture ResourceFixture)
 
-func RunTests(t *testing.T, shouldRun ShouldRunFunc, testCaseFunc TestCaseFunc) {
+func RunTests(ctx context.Context, t *testing.T, shouldRun ShouldRunFunc, testCaseFunc TestCaseFunc) {
 	testCases := Load(t)
+
+	var filtered []ResourceFixture
 	for _, tc := range testCases {
 		if !shouldRun(tc) {
 			continue
 		}
-		runTestCase(t, tc, testCaseFunc)
+		filtered = append(filtered, tc)
+	}
+	if len(filtered) == 0 {
+		t.Logf("No test case were run")
+		return
+	}
+
+	// Run tests grouped by the group of the GVK
+	groups := sets.NewString()
+	for _, tc := range filtered {
+		groups.Insert(tc.GVK.Group)
+	}
+
+	for _, group := range groups.List() {
+		group := group
+		groupTestName := strings.TrimSuffix(group, ".cnrm.cloud.google.com")
+		t.Run(groupTestName, func(t *testing.T) {
+			t.Parallel()
+			for _, tc := range filtered {
+				if tc.GVK.Group != group {
+					continue
+				}
+				runTestCase(ctx, t, tc, testCaseFunc)
+			}
+		})
 	}
 }
 
-func RunSpecificTests(t *testing.T, fixtures []ResourceFixture, testCaseFunc TestCaseFunc) {
+func RunSpecificTests(ctx context.Context, t *testing.T, fixtures []ResourceFixture, testCaseFunc TestCaseFunc) {
 	for _, f := range fixtures {
-		runTestCase(t, f, testCaseFunc)
+		runTestCase(ctx, t, f, testCaseFunc)
 	}
 }
 
-func runTestCase(t *testing.T, fixture ResourceFixture, testCaseFunc TestCaseFunc) {
+func runTestCase(ctx context.Context, t *testing.T, fixture ResourceFixture, testCaseFunc TestCaseFunc) {
 	testName := FormatTestName(fixture)
 	if test.StringMatchesRegexList(t, testconstants.TestNameRegexesToSkip, testName) {
 		return
 	}
 	t.Run(FormatTestName(fixture), func(t *testing.T) {
 		t.Parallel()
-		testCaseFunc(t, fixture)
+		ctx = test.WithContext(ctx, t)
+		testCaseFunc(ctx, t, fixture)
 		// note, this function, runTestCase(...) almost always returns before testCaseFunc(...) returns
 	})
 }

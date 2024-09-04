@@ -16,6 +16,7 @@ package bulkexport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,6 +29,7 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/outputsink"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/stream"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/tf"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -37,16 +39,23 @@ func Execute(ctx context.Context, params *parameters.Parameters) error {
 	if err != nil {
 		return err
 	}
-	tfProvider, err := tf.NewProvider(params.OAuth2Token)
+	tfProvider, err := tf.NewProvider(ctx, params.OAuth2Token)
 	if err != nil {
 		return err
 	}
-	assetStream, err := newFilteredAssetStream(params, tfProvider)
+
+	// Initialize direct controllers/exporters
+	controllerConfig := params.ControllerConfig()
+	if err := registry.Init(ctx, controllerConfig); err != nil {
+		return err
+	}
+
+	assetStream, err := newFilteredAssetStream(ctx, params, tfProvider)
 	if err != nil {
 		return err
 	}
 	defer assetStream.Close()
-	yamlStream, err := outputstream.NewResourceByteStream(params, assetStream)
+	yamlStream, err := outputstream.NewResourceByteStream(tfProvider, params, assetStream)
 	if err != nil {
 		return err
 	}
@@ -56,9 +65,9 @@ func Execute(ctx context.Context, params *parameters.Parameters) error {
 		return err
 	}
 	defer outputSink.Close()
-	for bytes, unstructured, err := recoverableStream.Next(ctx); err != io.EOF; bytes, unstructured, err = recoverableStream.Next(ctx) {
+	for bytes, unstructured, err := recoverableStream.Next(ctx); !errors.Is(err, io.EOF); bytes, unstructured, err = recoverableStream.Next(ctx) {
 		if err != nil {
-			if err := errorHandler.Handle(fmt.Errorf("error getting next YAML: %v", err)); err != nil {
+			if err := errorHandler.Handle(fmt.Errorf("error getting next YAML: %w", err)); err != nil {
 				return err
 			}
 			continue
@@ -72,10 +81,12 @@ func Execute(ctx context.Context, params *parameters.Parameters) error {
 	return nil
 }
 
-func newFilteredAssetStream(params *parameters.Parameters, tfProvider *schema.Provider) (stream.AssetStream, error) {
+func newFilteredAssetStream(ctx context.Context, params *parameters.Parameters, tfProvider *schema.Provider) (stream.AssetStream, error) {
+	config := params.ControllerConfig()
+
 	assetStream, err := inputstream.NewAssetStream(params, os.Stdin)
 	if err != nil {
 		return nil, err
 	}
-	return filteredinputstream.NewFilteredAssetStream(assetStream, tfProvider)
+	return filteredinputstream.NewFilteredAssetStream(ctx, assetStream, tfProvider, config)
 }

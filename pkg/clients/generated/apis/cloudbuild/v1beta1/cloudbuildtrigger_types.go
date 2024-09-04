@@ -158,6 +158,13 @@ type TriggerBuild struct {
 type TriggerGitFileSource struct {
 	/* Only `external` field is supported to configure the reference.
 
+	The full resource name of the bitbucket server config. Format:
+	projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. */
+	// +optional
+	BitbucketServerConfigRef *v1alpha1.ResourceRef `json:"bitbucketServerConfigRef,omitempty"`
+
+	/* Only `external` field is supported to configure the reference.
+
 	The full resource name of the github enterprise config. Format:
 	projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. */
 	// +optional
@@ -169,6 +176,13 @@ type TriggerGitFileSource struct {
 	/* The type of the repo, since it may not be explicit from the repo field (e.g from a URL).
 	Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. */
 	RepoType string `json:"repoType"`
+
+	/* Only `external` field is supported to configure the reference.
+
+	The fully qualified resource name of the Repo API repository. The fully qualified resource name of the Repo API repository.
+	If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path. */
+	// +optional
+	RepositoryRef *v1alpha1.ResourceRef `json:"repositoryRef,omitempty"`
 
 	/* The branch, tag, arbitrary ref, or SHA version of the repo to use when resolving the
 	filename (optional). This field respects the same syntax/resolution as described here: https://git-scm.com/docs/gitrevisions
@@ -233,7 +247,7 @@ type TriggerOptions struct {
 	the build may run with a larger disk than requested. At present, the maximum disk size
 	is 1000GB; builds that request more than the maximum are rejected with an error. */
 	// +optional
-	DiskSizeGb *int `json:"diskSizeGb,omitempty"`
+	DiskSizeGb *int64 `json:"diskSizeGb,omitempty"`
 
 	/* Option to specify whether or not to apply bash style string operations to the substitutions.
 
@@ -257,7 +271,7 @@ type TriggerOptions struct {
 	// +optional
 	Logging *string `json:"logging,omitempty"`
 
-	/* Compute Engine machine type on which to run the build. Possible values: ["UNSPECIFIED", "N1_HIGHCPU_8", "N1_HIGHCPU_32", "E2_HIGHCPU_8", "E2_HIGHCPU_32"]. */
+	/* Compute Engine machine type on which to run the build. */
 	// +optional
 	MachineType *string `json:"machineType,omitempty"`
 
@@ -445,6 +459,13 @@ type TriggerSource struct {
 type TriggerSourceToBuild struct {
 	/* Only `external` field is supported to configure the reference.
 
+	The full resource name of the bitbucket server config. Format:
+	projects/{project}/locations/{location}/bitbucketServerConfigs/{id}. */
+	// +optional
+	BitbucketServerConfigRef *v1alpha1.ResourceRef `json:"bitbucketServerConfigRef,omitempty"`
+
+	/* Only `external` field is supported to configure the reference.
+
 	The full resource name of the github enterprise config. Format:
 	projects/{project}/locations/{location}/githubEnterpriseConfigs/{id}. */
 	// +optional
@@ -457,11 +478,35 @@ type TriggerSourceToBuild struct {
 	Values can be UNKNOWN, CLOUD_SOURCE_REPOSITORIES, GITHUB, BITBUCKET_SERVER Possible values: ["UNKNOWN", "CLOUD_SOURCE_REPOSITORIES", "GITHUB", "BITBUCKET_SERVER"]. */
 	RepoType string `json:"repoType"`
 
-	/* The URI of the repo (required). */
-	Uri string `json:"uri"`
+	/* Only `external` field is supported to configure the reference.
+
+	The qualified resource name of the Repo API repository.
+	Either uri or repository can be specified and is required. */
+	// +optional
+	RepositoryRef *v1alpha1.ResourceRef `json:"repositoryRef,omitempty"`
+
+	/* The URI of the repo. */
+	// +optional
+	Uri *string `json:"uri,omitempty"`
 }
 
 type TriggerStep struct {
+	/* Allow this build step to fail without failing the entire build if and
+	only if the exit code is one of the specified codes.
+
+	If 'allowFailure' is also specified, this field will take precedence. */
+	// +optional
+	AllowExitCodes []int64 `json:"allowExitCodes,omitempty"`
+
+	/* Allow this build step to fail without failing the entire build.
+	If false, the entire build will fail if this step fails. Otherwise, the
+	build will succeed, but this step will still have a failure status.
+	Error information will be reported in the 'failureDetail' field.
+
+	'allowExitCodes' takes precedence over this field. */
+	// +optional
+	AllowFailure *bool `json:"allowFailure,omitempty"`
+
 	/* A list of arguments that will be presented to the step when it is started.
 
 	If the image used to run the step's container has an entrypoint, the args
@@ -801,7 +846,7 @@ type CloudBuildTriggerStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	/* The unique identifier for the trigger. */
 	// +optional
@@ -810,6 +855,13 @@ type CloudBuildTriggerStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcloudbuildtrigger;gcpcloudbuildtriggers
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // CloudBuildTrigger is the Schema for the cloudbuild API
 // +k8s:openapi-gen=true

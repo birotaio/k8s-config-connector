@@ -18,11 +18,15 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/logger"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gcp"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test"
 
 	"github.com/GoogleCloudPlatform/declarative-resource-client-library/dcl"
 	"golang.org/x/oauth2/google"
@@ -33,23 +37,10 @@ import (
 var nonretryable = dcl.Retryability{Retryable: false}
 
 type Options struct {
-	UserAgent string
-
-	// UserProjectOverride provides the option to use the resource project for preconditions, quota, and billing,
-	// instead of the project the credentials belong to; false by default
-	UserProjectOverride bool
-
-	// BillingProject is the project used by the TF provider and DCL client to determine preconditions,
-	// quota, and billing if UserProjectOverride is set to true. If this field is empty,
-	// but UserProjectOverride is set to true, resource project will be used.
-	BillingProject string
-
-	// HTTPClient allows us to specify the HTTP client to use with DCL.
-	// This is particularly useful in mocks/tests.
-	HTTPClient *http.Client
+	config.ControllerConfig
 }
 
-func New(ctx context.Context, opt Options) (*dcl.Config, error) {
+func newConfigAndClient(ctx context.Context, opt Options) (*dcl.Config, *http.Client, error) {
 	if opt.UserAgent == "" {
 		opt.UserAgent = gcp.KCCUserAgent
 	}
@@ -57,7 +48,7 @@ func New(ctx context.Context, opt Options) (*dcl.Config, error) {
 	if opt.HTTPClient == nil {
 		httpClient, err := google.DefaultClient(ctx, gcp.ClientScopes...)
 		if err != nil {
-			return nil, fmt.Errorf("error creating the http client to be used by DCL: %w", err)
+			return nil, nil, fmt.Errorf("error creating the http client to be used by DCL: %w", err)
 		}
 		opt.HTTPClient = httpClient
 	}
@@ -86,22 +77,56 @@ func New(ctx context.Context, opt Options) (*dcl.Config, error) {
 		configOptions = append(configOptions, dcl.WithBillingProject(opt.BillingProject))
 	}
 	dclConfig := dcl.NewConfig(configOptions...)
+	return dclConfig, opt.HTTPClient, nil
+}
+
+func New(ctx context.Context, opt Options) (*dcl.Config, error) {
+	dclConfig, _, err := newConfigAndClient(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+
 	return dclConfig, nil
 }
 
 // NewForIntegrationTest creates a dcl.Config for use in integration tests.
 // Deprecated: Prefer using a harness.
 func NewForIntegrationTest() *dcl.Config {
+	dclConfig, _ := NewConfigAndClientForIntegrationTest()
+	return dclConfig
+}
+
+func NewConfigAndClientForIntegrationTest() (*dcl.Config, *http.Client) {
 	ctx := context.TODO()
-	opt := Options{
-		UserAgent: "kcc/dev",
+	eventSinks := test.EventSinksFromContext(ctx)
+
+	if artifacts := os.Getenv("ARTIFACTS"); artifacts != "" {
+		outputDir := filepath.Join(artifacts, "http-logs")
+
+		eventSinks = append(eventSinks, test.NewDirectoryEventSink(outputDir))
 	}
 
-	config, err := New(ctx, opt)
+	opt := Options{}
+	opt.UserAgent = "kcc/dev"
+
+	// Log DCL requests
+	if len(eventSinks) != 0 {
+		if opt.HTTPClient == nil {
+			httpClient, err := google.DefaultClient(ctx, gcp.ClientScopes...)
+			if err != nil {
+				klog.Fatalf("error creating the http client to be used by DCL: %v", err)
+			}
+			opt.HTTPClient = httpClient
+		}
+		t := test.NewHTTPRecorder(opt.HTTPClient.Transport, eventSinks...)
+		opt.HTTPClient = &http.Client{Transport: t}
+	}
+
+	config, httpClient, err := newConfigAndClient(ctx, opt)
 	if err != nil {
 		klog.Fatalf("error from NewForIntegrationTest: %v", err)
 	}
-	return config
+	return config, httpClient
 }
 
 func CopyAndModifyForKind(dclConfig *dcl.Config, kind string) *dcl.Config {

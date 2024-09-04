@@ -15,6 +15,7 @@
 package apply
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -25,24 +26,24 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
 )
 
-func Execute(params *parameters.Parameters, output io.Writer) error {
-	tfProvider, err := tf.NewProvider(params.OAuth2Token)
+func Execute(ctx context.Context, params *parameters.Parameters, output io.Writer) error {
+	tfProvider, err := tf.NewProvider(ctx, params.OAuth2Token)
 	if err != nil {
 		return err
 	}
 	smLoader, err := servicemappingloader.New()
 	if err != nil {
-		return fmt.Errorf("error loading service mappings: %v", err)
+		return fmt.Errorf("error loading service mappings: %w", err)
 	}
 
 	usFromFile, err := yamlresource.UnstructuredFromYamlFile(params.Input)
 	if err != nil {
-		return fmt.Errorf("error loading resource from file: %v", err)
+		return fmt.Errorf("error loading resource from file: %w", err)
 	}
 	client := gcpclient.New(tfProvider, smLoader)
 	appliedResource, err := client.Apply(usFromFile)
 	if err != nil {
-		return fmt.Errorf("error applying resource from file: %v", err)
+		return fmt.Errorf("error applying resource from file: %w", err)
 	}
 
 	return yamlresource.RenderJSON(appliedResource, output)

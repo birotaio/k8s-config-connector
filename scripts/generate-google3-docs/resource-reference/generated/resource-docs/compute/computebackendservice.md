@@ -79,9 +79,6 @@ the `spec.location` field. To manage a regional ComputeBackendService, use a reg
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -112,6 +109,8 @@ backend:
   maxRatePerInstance: float
   maxUtilization: float
 cdnPolicy:
+  bypassCacheOnRequestHeaders:
+  - headerName: string
   cacheKeyPolicy:
     includeHost: boolean
     includeHttpHeaders:
@@ -147,6 +146,7 @@ compressionMode: string
 connectionDrainingTimeoutSec: integer
 connectionTrackingPolicy:
   connectionPersistenceOnUnhealthyBackends: string
+  enableStrongAffinity: boolean
   idleTimeoutSec: integer
   trackingMode: string
 consistentHash:
@@ -229,6 +229,7 @@ outlierDetection:
 portName: string
 protocol: string
 resourceID: string
+securityPolicy: string
 securityPolicyRef:
   external: string
   name: string
@@ -555,6 +556,37 @@ CPU utilization target for the group. Valid range is [0.0, 1.0].{% endverbatim %
         <td>
             <p><code class="apitype">object</code></p>
             <p>{% verbatim %}Cloud CDN configuration for this BackendService.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cdnPolicy.bypassCacheOnRequestHeaders</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}Bypass the cache when the specified request headers are matched - e.g. Pragma or Authorization headers. Up to 5 headers can be specified.
+The cache is bypassed for all cdnPolicy.cacheMode settings.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cdnPolicy.bypassCacheOnRequestHeaders[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cdnPolicy.bypassCacheOnRequestHeaders[].headerName</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The header field name to match on when bypassing cache. Values are case-insensitive.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -976,6 +1008,16 @@ backend. They are always diverted to newly selected healthy backends
 If set to 'ALWAYS_PERSIST', existing connections always persist on
 unhealthy backends regardless of protocol and session affinity. It is
 generally not recommended to use this mode overriding the default. Default value: "DEFAULT_FOR_PROTOCOL" Possible values: ["DEFAULT_FOR_PROTOCOL", "NEVER_PERSIST", "ALWAYS_PERSIST"].{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>connectionTrackingPolicy.enableStrongAffinity</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Enable Strong Session Affinity for Network Load Balancing. This option is not available publicly.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1520,7 +1562,7 @@ specified, and a health check is required.{% endverbatim %}</p>
             <p>{% verbatim %}Immutable. Indicates whether the backend service will be used with internal or
 external load balancing. A backend service created for one type of
 load balancing cannot be used with the other. For more information, refer to
-[Choosing a load balancer](https://cloud.google.com/load-balancing/docs/backend-service). Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL_SELF_MANAGED", "EXTERNAL_MANAGED"].{% endverbatim %}</p>
+[Choosing a load balancer](https://cloud.google.com/load-balancing/docs/backend-service). Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL_SELF_MANAGED", "INTERNAL_MANAGED", "EXTERNAL_MANAGED"].{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2010,7 +2052,9 @@ scheme is EXTERNAL.{% endverbatim %}</p>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}The protocol this BackendService uses to communicate with backends.
 The default is HTTP. **NOTE**: HTTP2 is only valid for beta HTTP/2 load balancer
-types and may result in errors if used with the GA API. Possible values: ["HTTP", "HTTPS", "HTTP2", "TCP", "SSL", "GRPC"].{% endverbatim %}</p>
+types and may result in errors if used with the GA API. **NOTE**: With protocol “UNSPECIFIED”,
+the backend service can be used by Layer 4 Internal Load Balancing or Network Load Balancing
+with TCP/UDP/L3_DEFAULT Forwarding Rule protocol. Possible values: ["HTTP", "HTTPS", "HTTP2", "TCP", "SSL", "GRPC", "UNSPECIFIED"].{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2021,6 +2065,16 @@ types and may result in errors if used with the GA API. Possible values: ["HTTP"
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>securityPolicy</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The security policy associated with this backend service.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2187,7 +2241,7 @@ failed request. Default is 30 seconds. Valid range is [1, 86400].{% endverbatim 
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -2442,7 +2496,7 @@ spec:
   localityLbPolicy: MAGLEV
   timeoutSec: 86400
   consistentHash:
-    httpHeaderName: "Hash string"
+    httpHeaderName: "Hash_String"
   healthChecks:
   - healthCheckRef:
       name: computebackendservice-dep-internalmanagedloadbalancing
@@ -2633,5 +2687,7 @@ spec:
     name: computebackendservice-dep-oauth2clientid
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

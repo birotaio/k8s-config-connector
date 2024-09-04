@@ -49,6 +49,11 @@ type DatasetAccess struct {
 	// +optional
 	GroupByEmail *string `json:"groupByEmail,omitempty"`
 
+	/* Some other type of member that appears in the IAM Policy but isn't a user,
+	group, domain, or special group. For example: 'allUsers'. */
+	// +optional
+	IamMember *string `json:"iamMember,omitempty"`
+
 	/* Describes the rights granted to the user specified by the other
 	member of the access object. Basic, predefined, and custom roles
 	are supported. Predefined roles that have equivalent basic roles
@@ -56,6 +61,14 @@ type DatasetAccess struct {
 	[official docs](https://cloud.google.com/bigquery/docs/access-control). */
 	// +optional
 	Role *string `json:"role,omitempty"`
+
+	/* A routine from a different dataset to grant access to. Queries
+	executed against that routine will have read access to tables in
+	this dataset. The role field is not required when this field is
+	set. If that routine is updated by any user, access to the routine
+	needs to be granted again via an update operation. */
+	// +optional
+	Routine *DatasetRoutine `json:"routine,omitempty"`
 
 	/* A special group to grant access to. Possible values include:
 
@@ -100,6 +113,19 @@ type DatasetDefaultEncryptionConfiguration struct {
 	BigQuery table. The BigQuery Service Account associated with your project requires
 	access to this encryption key. */
 	KmsKeyRef v1alpha1.ResourceRef `json:"kmsKeyRef"`
+}
+
+type DatasetRoutine struct {
+	/* The ID of the dataset containing this table. */
+	DatasetId string `json:"datasetId"`
+
+	/* The ID of the project containing this table. */
+	ProjectId string `json:"projectId"`
+
+	/* The ID of the routine. The ID must contain only letters (a-z,
+	A-Z), numbers (0-9), or underscores (_). The maximum length
+	is 256 characters. */
+	RoutineId string `json:"routineId"`
 }
 
 type DatasetView struct {
@@ -155,7 +181,7 @@ type BigQueryDatasetSpec struct {
 	creating or updating a partitioned table, that value takes precedence
 	over the default partition expiration time indicated by this property. */
 	// +optional
-	DefaultPartitionExpirationMs *int `json:"defaultPartitionExpirationMs,omitempty"`
+	DefaultPartitionExpirationMs *int64 `json:"defaultPartitionExpirationMs,omitempty"`
 
 	/* The default lifetime of all tables in the dataset, in milliseconds.
 	The minimum value is 3600000 milliseconds (one hour).
@@ -171,7 +197,7 @@ type BigQueryDatasetSpec struct {
 	creating a table, that value takes precedence over the default
 	expiration time indicated by this property. */
 	// +optional
-	DefaultTableExpirationMs *int `json:"defaultTableExpirationMs,omitempty"`
+	DefaultTableExpirationMs *int64 `json:"defaultTableExpirationMs,omitempty"`
 
 	/* A user-friendly description of the dataset. */
 	// +optional
@@ -213,6 +239,14 @@ type BigQueryDatasetSpec struct {
 	/* Immutable. Optional. The datasetId of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default. */
 	// +optional
 	ResourceID *string `json:"resourceID,omitempty"`
+
+	/* Specifies the storage billing model for the dataset.
+	Set this flag value to LOGICAL to use logical bytes for storage billing,
+	or to PHYSICAL to use physical bytes instead.
+
+	LOGICAL is the default if this flag isn't specified. */
+	// +optional
+	StorageBillingModel *string `json:"storageBillingModel,omitempty"`
 }
 
 type BigQueryDatasetStatus struct {
@@ -222,7 +256,7 @@ type BigQueryDatasetStatus struct {
 	/* The time when this dataset was created, in milliseconds since the
 	epoch. */
 	// +optional
-	CreationTime *int `json:"creationTime,omitempty"`
+	CreationTime *int64 `json:"creationTime,omitempty"`
 
 	/* A hash of the resource. */
 	// +optional
@@ -231,11 +265,11 @@ type BigQueryDatasetStatus struct {
 	/* The date when this dataset or any of its tables was last modified, in
 	milliseconds since the epoch. */
 	// +optional
-	LastModifiedTime *int `json:"lastModifiedTime,omitempty"`
+	LastModifiedTime *int64 `json:"lastModifiedTime,omitempty"`
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	// +optional
 	SelfLink *string `json:"selfLink,omitempty"`
@@ -243,6 +277,13 @@ type BigQueryDatasetStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpbigquerydataset;gcpbigquerydatasets
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // BigQueryDataset is the Schema for the bigquery API
 // +k8s:openapi-gen=true

@@ -91,9 +91,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -424,7 +421,7 @@ zone. The value of this field contains the network to peer with.{% endverbatim %
         <td>
             <p><code class="apitype">object</code></p>
             <p>{% verbatim %}For privately visible zones, the set of Virtual Private Cloud
-resources that the zone is visible from.{% endverbatim %}</p>
+resources that the zone is visible from. At least one of 'gke_clusters' or 'networks' must be specified.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -492,7 +489,7 @@ This should be specified in the format like
     <tr>
         <td>
             <p><code>privateVisibilityConfig.networks</code></p>
-            <p><i>Required*</i></p>
+            <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">list (object)</code></p>
@@ -502,7 +499,7 @@ This should be specified in the format like
     <tr>
         <td>
             <p><code>privateVisibilityConfig.networks[]</code></p>
-            <p><i>Required*</i></p>
+            <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">object</code></p>
@@ -620,7 +617,7 @@ while private zones are visible only to Virtual Private Cloud resources. Default
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -776,5 +773,7 @@ spec:
   autoCreateSubnetworks: false
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

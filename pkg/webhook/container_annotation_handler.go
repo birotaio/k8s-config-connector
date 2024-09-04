@@ -33,7 +33,7 @@ import (
 	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -44,21 +44,15 @@ type containerAnnotationHandler struct {
 	smLoader              *servicemappingloader.ServiceMappingLoader
 }
 
-func NewContainerAnnotationHandler(smLoader *servicemappingloader.ServiceMappingLoader, dclSchemaLoader dclschemaloader.DCLSchemaLoader, serviceMetadataLoader dclmetadata.ServiceMetadataLoader) *containerAnnotationHandler {
-	return &containerAnnotationHandler{
-		smLoader:              smLoader,
-		serviceMetadataLoader: serviceMetadataLoader,
-		dclSchemaLoader:       dclSchemaLoader,
+func NewContainerAnnotationHandler(smLoader *servicemappingloader.ServiceMappingLoader, dclSchemaLoader dclschemaloader.DCLSchemaLoader, serviceMetadataLoader dclmetadata.ServiceMetadataLoader) HandlerFunc {
+	return func(mgr manager.Manager) admission.Handler {
+		return &containerAnnotationHandler{
+			client:                mgr.GetClient(),
+			smLoader:              smLoader,
+			serviceMetadataLoader: serviceMetadataLoader,
+			dclSchemaLoader:       dclSchemaLoader,
+		}
 	}
-}
-
-// containerAnnotationHandler implements inject.Client.
-var _ inject.Client = &containerAnnotationHandler{}
-
-// InjectClient injects the client into the containerAnnotationHandler
-func (a *containerAnnotationHandler) InjectClient(c client.Client) error {
-	a.client = c
-	return nil
 }
 
 func (a *containerAnnotationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
@@ -67,12 +61,12 @@ func (a *containerAnnotationHandler) Handle(ctx context.Context, req admission.R
 	if _, _, err := deserializer.Decode(req.AdmissionRequest.Object.Raw, nil, obj); err != nil {
 		klog.Error(err)
 		return admission.Errored(http.StatusBadRequest,
-			fmt.Errorf("error decoding object: %v", err))
+			fmt.Errorf("error decoding object: %w", err))
 	}
 	ns := &corev1.Namespace{}
 	if err := a.client.Get(ctx, apimachinerytypes.NamespacedName{Name: obj.GetNamespace()}, ns); err != nil {
 		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("error getting Namespace %v: %v", obj.GetNamespace(), err))
+			fmt.Errorf("error getting Namespace %v: %w", obj.GetNamespace(), err))
 	}
 	if dclmetadata.IsDCLBasedResourceKind(obj.GroupVersionKind(), a.serviceMetadataLoader) {
 		return handleContainerAnnotationsForDCLBasedResources(obj, ns, a.dclSchemaLoader, a.serviceMetadataLoader)
@@ -90,7 +84,7 @@ func handleContainerAnnotationsForDCLBasedResources(obj *unstructured.Unstructur
 	containers, err := dclcontainer.GetContainersForGVK(gvk, serviceMetadataLoader, dclSchemaLoader)
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("error getting containers supported by GroupVersionKind %v: %v", gvk, err))
+			fmt.Errorf("error getting containers supported by GroupVersionKind %v: %w", gvk, err))
 	}
 
 	// TODO(b/186159460): Delete this if-block once all resources support
@@ -102,7 +96,7 @@ func handleContainerAnnotationsForDCLBasedResources(obj *unstructured.Unstructur
 	hierarchicalRefs, err := dcl.GetHierarchicalReferencesForGVK(gvk, serviceMetadataLoader, dclSchemaLoader)
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("error getting hierarchical references supported by GroupVersionKind %v: %v", gvk, err))
+			fmt.Errorf("error getting hierarchical references supported by GroupVersionKind %v: %w", gvk, err))
 	}
 	return setDefaultHierarchicalReference(obj, ns, hierarchicalRefs, containers)
 }
@@ -111,7 +105,7 @@ func handleContainerAnnotationsForTFBasedResources(obj *unstructured.Unstructure
 	rc, err := smLoader.GetResourceConfig(obj)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest,
-			fmt.Errorf("error getting ResourceConfig for kind %v: %v", obj.GetKind(), err))
+			fmt.Errorf("error getting ResourceConfig for kind %v: %w", obj.GetKind(), err))
 	}
 
 	// TODO(b/193177782): Delete this if-block once all resources support
@@ -125,7 +119,7 @@ func handleContainerAnnotationsForTFBasedResources(obj *unstructured.Unstructure
 func setDefaultContainerAnnotation(obj *unstructured.Unstructured, ns *corev1.Namespace, containers []corekccv1alpha1.Container) admission.Response {
 	newObj := obj.DeepCopy()
 	if err := k8s.SetDefaultContainerAnnotation(newObj, ns, containers); err != nil {
-		return admission.Errored(http.StatusBadRequest, fmt.Errorf("error setting container annotation: %v", err))
+		return admission.Errored(http.StatusBadRequest, fmt.Errorf("error setting container annotation: %w", err))
 	}
 	return constructPatchResponse(obj, newObj)
 }
@@ -133,14 +127,14 @@ func setDefaultContainerAnnotation(obj *unstructured.Unstructured, ns *corev1.Na
 func setDefaultHierarchicalReference(obj *unstructured.Unstructured, ns *corev1.Namespace, hierarchicalRefs []corekccv1alpha1.HierarchicalReference, containers []corekccv1alpha1.Container) admission.Response {
 	resource, err := k8s.NewResource(obj)
 	if err != nil {
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("error converting object to k8s resource: %v", err))
+		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("error converting object to k8s resource: %w", err))
 	}
 	if err := k8s.SetDefaultHierarchicalReference(resource, ns, hierarchicalRefs, containers); err != nil {
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("error setting hierarchical reference: %v", err))
+		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("error setting hierarchical reference: %w", err))
 	}
 	newObj, err := resource.MarshalAsUnstructured()
 	if err != nil {
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("error marshalling k8s resource to unstructured: %v", err))
+		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("error marshalling k8s resource to unstructured: %w", err))
 	}
 	return constructPatchResponse(obj, newObj)
 }

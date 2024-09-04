@@ -122,9 +122,16 @@ func ImmutableFieldsFromDiff(diff *terraform.InstanceDiff) []string {
 		if rd != nil && rd.RequiresNew {
 			// TODO(kcc-eng): more deeply KRM-ify the fields coming back (use reference keys, remove ".0." from
 			//  MaxItems==1 lists)
-			fieldDiff := fmt.Sprintf("Field Name: %s, Got: %s, Wanted: %s", text.SnakeCaseToLowerCamelCase(field), rd.New, rd.Old)
+			fieldDiff := fmt.Sprintf("Field Name: %s, Got: [redacted], Wanted: [redacted]", text.SnakeCaseToLowerCamelCase(field))
+			if !rd.Sensitive {
+				fieldDiff = fmt.Sprintf("Field Name: %s, Got: %s, Wanted: %s", text.SnakeCaseToLowerCamelCase(field), rd.New, rd.Old)
+			}
 			fields = append(fields, fieldDiff)
 		}
 	}
 	return fields
+}
+
+func IsSensitiveField(tfSchema *tfschema.Schema) bool {
+	return tfSchema.Sensitive
 }

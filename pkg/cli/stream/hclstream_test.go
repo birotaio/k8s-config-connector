@@ -16,6 +16,7 @@ package stream_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -33,7 +34,7 @@ const hclStreamFile = "testdata/expected-hcl-stream.golden.yaml"
 
 func TestHCLStream(t *testing.T) {
 	smLoader := testservicemappingloader.New(t)
-	tfProvider := tfprovider.NewOrLogFatal(tfprovider.NewConfig())
+	tfProvider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
 	hclStream := stream.NewHCLStream(newTestUnstructuredResourceStreamFromAsset(t, newTestAssetStream(t)), smLoader, tfProvider)
 	bytes := hclStreamToBytes(t, hclStream)
 	validateHCLBytesMatchesExpectedFile(t, bytes)
@@ -43,7 +44,7 @@ func hclStreamToBytes(t *testing.T, stream *stream.HCLStream) []byte {
 	ctx := context.TODO()
 
 	results := make([]byte, 0)
-	for bytes, _, err := stream.Next(ctx); err != io.EOF; bytes, _, err = stream.Next(ctx) {
+	for bytes, _, err := stream.Next(ctx); !errors.Is(err, io.EOF); bytes, _, err = stream.Next(ctx) {
 		if err != nil {
 			t.Fatalf("error reading next terraform file: %v", err)
 		}

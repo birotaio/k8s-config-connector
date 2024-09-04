@@ -70,9 +70,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -82,6 +79,10 @@
 ```yaml
 alertStrategy:
   autoClose: string
+  notificationChannelStrategy:
+  - notificationChannelNames:
+    - string
+    renotifyInterval: string
   notificationRateLimit:
     period: string
 combiner: string
@@ -109,6 +110,14 @@ conditions:
     trigger:
       count: integer
       percent: float
+  conditionPrometheusQueryLanguage:
+    alertRule: string
+    duration: string
+    evaluationInterval: string
+    labels:
+      string: string
+    query: string
+    ruleGroup: string
   conditionThreshold:
     aggregations:
     - alignmentPeriod: string
@@ -127,6 +136,8 @@ conditions:
     duration: string
     evaluationMissingData: string
     filter: string
+    forecastOptions:
+      forecastHorizon: string
     thresholdValue: float
     trigger:
       count: integer
@@ -143,6 +154,7 @@ notificationChannels:
   name: string
   namespace: string
 resourceID: string
+severity: string
 ```
 
 <table class="properties responsive">
@@ -170,6 +182,60 @@ resourceID: string
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}If an alert policy that was active has no data for this long, any open incidents will close.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>alertStrategy.notificationChannelStrategy</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}Control over how the notification channels in 'notification_channels'
+are notified when this alert fires, on a per-channel basis.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>alertStrategy.notificationChannelStrategy[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>alertStrategy.notificationChannelStrategy[].notificationChannelNames</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}The notification channels that these settings apply to. Each of these
+correspond to the name field in one of the NotificationChannel objects
+referenced in the notification_channels field of this AlertPolicy. The format is
+'projects/[PROJECT_ID_OR_NUMBER]/notificationChannels/[CHANNEL_ID]'.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>alertStrategy.notificationChannelStrategy[].notificationChannelNames[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>alertStrategy.notificationChannelStrategy[].renotifyInterval</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The frequency at which to send reminder notifications for open incidents.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -595,6 +661,117 @@ condition to be triggered.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>conditions[].conditionPrometheusQueryLanguage</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}A Monitoring Query Language query that outputs a boolean stream
+
+A condition type that allows alert policies to be defined using
+Prometheus Query Language (PromQL).
+
+The PrometheusQueryLanguageCondition message contains information
+from a Prometheus alerting rule and its associated rule group.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>conditions[].conditionPrometheusQueryLanguage.alertRule</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The alerting rule name of this alert in the corresponding Prometheus
+configuration file.
+
+Some external tools may require this field to be populated correctly
+in order to refer to the original Prometheus configuration file.
+The rule group name and the alert name are necessary to update the
+relevant AlertPolicies in case the definition of the rule group changes
+in the future.
+
+This field is optional. If this field is not empty, then it must be a
+valid Prometheus label name.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>conditions[].conditionPrometheusQueryLanguage.duration</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Alerts are considered firing once their PromQL expression evaluated
+to be "true" for this long. Alerts whose PromQL expression was not
+evaluated to be "true" for long enough are considered pending. The
+default value is zero. Must be zero or positive.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>conditions[].conditionPrometheusQueryLanguage.evaluationInterval</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}How often this rule should be evaluated. Must be a positive multiple
+of 30 seconds or missing. The default value is 30 seconds. If this
+PrometheusQueryLanguageCondition was generated from a Prometheus
+alerting rule, then this value should be taken from the enclosing
+rule group.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>conditions[].conditionPrometheusQueryLanguage.labels</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">map (key: string, value: string)</code></p>
+            <p>{% verbatim %}Labels to add to or overwrite in the PromQL query result. Label names
+must be valid.
+
+Label values can be templatized by using variables. The only available
+variable names are the names of the labels in the PromQL result, including
+"__name__" and "value". "labels" may be empty. This field is intended to be
+used for organizing and identifying the AlertPolicy.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>conditions[].conditionPrometheusQueryLanguage.query</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The PromQL expression to evaluate. Every evaluation cycle this
+expression is evaluated at the current time, and all resultant time
+series become pending/firing alerts. This field must not be empty.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>conditions[].conditionPrometheusQueryLanguage.ruleGroup</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The rule group name of this alert in the corresponding Prometheus
+configuration file.
+
+Some external tools may require this field to be populated correctly
+in order to refer to the original Prometheus configuration file.
+The rule group name and the alert name are necessary to update the
+relevant AlertPolicies in case the definition of the rule group changes
+in the future.
+
+This field is optional. If this field is not empty, then it must be a
+valid Prometheus label name.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>conditions[].conditionThreshold</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -1009,6 +1186,36 @@ in length.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>conditions[].conditionThreshold.forecastOptions</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}When this field is present, the 'MetricThreshold'
+condition forecasts whether the time series is
+predicted to violate the threshold within the
+'forecastHorizon'. When this field is not set, the
+'MetricThreshold' tests the current value of the
+timeseries against the threshold.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>conditions[].conditionThreshold.forecastOptions.forecastHorizon</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The length of time into the future to forecast
+whether a timeseries will violate the threshold.
+If the predicted value is found to violate the
+threshold, and the violation is observed in all
+forecasts made for the Configured 'duration',
+then the timeseries is considered to be failing.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>conditions[].conditionThreshold.thresholdValue</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -1209,11 +1416,23 @@ whichever is smaller.{% endverbatim %}</p>
             <p>{% verbatim %}Immutable. Optional. The service-generated name of the resource. Used for acquisition only. Leave unset to create a new resource.{% endverbatim %}</p>
         </td>
     </tr>
+    <tr>
+        <td>
+            <p><code>severity</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The severity of an alert policy indicates how important
+incidents generated by that policy are. The severity level will be displayed on
+the Incident detail page and in notifications. Possible values: ["CRITICAL", "ERROR", "WARNING"].{% endverbatim %}</p>
+        </td>
+    </tr>
 </tbody>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -1559,5 +1778,7 @@ spec:
     email_address: dev@example.com
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

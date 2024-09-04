@@ -16,7 +16,6 @@ package webhook
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -40,7 +39,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -57,7 +55,7 @@ func RegisterCommonWebhooks(mgr manager.Manager, nocacheClient client.Client) er
 	fmt.Println("starting up webhooks")
 	whCfgs, err := GetCommonWebhookConfigs()
 	if err != nil {
-		return fmt.Errorf("error getting common wehbook configs: %v", err)
+		return fmt.Errorf("error getting common wehbook configs: %w", err)
 	}
 	return register(
 		ValidatingWebhookConfigurationName,
@@ -70,7 +68,7 @@ func RegisterCommonWebhooks(mgr manager.Manager, nocacheClient client.Client) er
 	)
 }
 
-func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
+func GetCommonWebhookConfigs() ([]Config, error) {
 	smLoader, err := servicemappingloader.New()
 	if err != nil {
 		return nil, fmt.Errorf("error getting new service mapping loader: %w", err)
@@ -85,12 +83,12 @@ func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
 	dynamicResourcesRules := getRulesFromResources(supportedgvks.AllDynamicTypes(smLoader, serviceMetadataLoader))
 	handwrittenIamResourcesRules := getRulesFromResources(supportedgvks.BasedOnHandwrittenIAMTypes())
 	resourcesWithOverridesRules := getRulesForResourcesWithCustomValidation(allGVKs)
-	whCfgs := []WebhookConfig{
+	whCfgs := []Config{
 		{
 			Name:          "deny-immutable-field-updates.cnrm.cloud.google.com",
 			Path:          "/deny-immutable-field-updates",
 			Type:          Validating,
-			Handler:       NewRequestLoggingHandler(NewImmutableFieldsValidatorHandler(smLoader, dclSchemaLoader, serviceMetadataLoader), "immutable fields validation"),
+			HandlerFunc:   NewRequestLoggingHandler(NewImmutableFieldsValidatorHandler(smLoader, dclSchemaLoader, serviceMetadataLoader), "immutable fields validation"),
 			FailurePolicy: admissionregistration.Fail,
 			Rules: getRulesForOperationTypes(
 				allResourcesRules,
@@ -102,7 +100,7 @@ func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
 			Name:          "deny-unknown-fields.cnrm.cloud.google.com",
 			Path:          "/deny-unknown-fields",
 			Type:          Validating,
-			Handler:       NewRequestLoggingHandler(NewNoUnknownFieldsValidatorHandler(smLoader), "unknown fields validation"),
+			HandlerFunc:   NewRequestLoggingHandler(NewNoUnknownFieldsValidatorHandler(smLoader), "unknown fields validation"),
 			FailurePolicy: admissionregistration.Fail,
 			Rules: getRulesForOperationTypes(
 				allResourcesRules,
@@ -115,7 +113,7 @@ func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
 			Name:          "iam-validation.cnrm.cloud.google.com",
 			Path:          "/iam-validation",
 			Type:          Validating,
-			Handler:       NewRequestLoggingHandler(NewIAMValidatorHandler(smLoader, serviceMetadataLoader, dclSchemaLoader), "iam validation"),
+			HandlerFunc:   NewRequestLoggingHandler(NewIAMValidatorHandler(smLoader, serviceMetadataLoader, dclSchemaLoader), "iam validation"),
 			FailurePolicy: admissionregistration.Fail,
 			Rules: getRulesForOperationTypes(handwrittenIamResourcesRules,
 				admissionregistration.Create,
@@ -127,7 +125,7 @@ func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
 			Name:          "iam-defaulter.cnrm.cloud.google.com",
 			Path:          "/iam-defaulter",
 			Type:          Mutating,
-			Handler:       NewRequestLoggingHandler(NewIAMDefaulter(smLoader, serviceMetadataLoader), "iam defaulter"),
+			HandlerFunc:   NewRequestLoggingHandler(NewIAMDefaulter(smLoader, serviceMetadataLoader), "iam defaulter"),
 			FailurePolicy: admissionregistration.Fail,
 			Rules: getRulesForOperationTypes(handwrittenIamResourcesRules,
 				admissionregistration.Create,
@@ -138,7 +136,7 @@ func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
 			Name:          "container-annotation-handler.cnrm.cloud.google.com",
 			Path:          "/container-annotation-handler",
 			Type:          Mutating,
-			Handler:       NewRequestLoggingHandler(NewContainerAnnotationHandler(smLoader, dclSchemaLoader, serviceMetadataLoader), "container annotation handler"),
+			HandlerFunc:   NewRequestLoggingHandler(NewContainerAnnotationHandler(smLoader, dclSchemaLoader, serviceMetadataLoader), "container annotation handler"),
 			FailurePolicy: admissionregistration.Fail,
 			Rules: getRulesForOperationTypes(
 				dynamicResourcesRules,
@@ -150,7 +148,7 @@ func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
 			Name:          "management-conflict-annotation-defaulter.cnrm.cloud.google.com",
 			Path:          "/management-conflict-annotation-defaulter",
 			Type:          Mutating,
-			Handler:       NewRequestLoggingHandler(NewManagementConflictAnnotationDefaulter(smLoader, dclSchemaLoader, serviceMetadataLoader), "management conflict annotation defaulter"),
+			HandlerFunc:   NewRequestLoggingHandler(NewManagementConflictAnnotationDefaulter(smLoader, dclSchemaLoader, serviceMetadataLoader), "management conflict annotation defaulter"),
 			FailurePolicy: admissionregistration.Fail,
 			Rules: getRulesForOperationTypes(
 				dynamicResourcesRules,
@@ -162,7 +160,7 @@ func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
 			Name:          "generic-defaulter.cnrm.cloud.google.com",
 			Path:          "/generic-defaulter",
 			Type:          Mutating,
-			Handler:       NewRequestLoggingHandler(NewGenericDefaulter(), "generic defaulter"),
+			HandlerFunc:   NewRequestLoggingHandler(NewGenericDefaulter(), "generic defaulter"),
 			FailurePolicy: admissionregistration.Fail,
 			Rules: getRulesForOperationTypes(
 				dynamicResourcesRules,
@@ -174,9 +172,21 @@ func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
 			Name:          "resource-validation.cnrm.cloud.google.com",
 			Path:          "/resource-validation",
 			Type:          Validating,
-			Handler:       NewRequestLoggingHandler(NewResourceValidatorHandler(), "resource validation"),
+			HandlerFunc:   NewRequestLoggingHandler(NewResourceValidatorHandler(), "resource validation"),
 			FailurePolicy: admissionregistration.Fail,
 			Rules: getRulesForOperationTypes(resourcesWithOverridesRules,
+				admissionregistration.Create,
+				admissionregistration.Update,
+			),
+			SideEffects: admissionregistration.SideEffectClassNone,
+		},
+		{
+			Name:          "state-into-spec-validation.cnrm.cloud.google.com",
+			Path:          "/state-into-spec-validation",
+			Type:          Validating,
+			HandlerFunc:   NewRequestLoggingHandler(NewStateIntoSpecAnnotationValidatorHandler(), "state-into-spec validation"),
+			FailurePolicy: admissionregistration.Fail,
+			Rules: getRulesForOperationTypes(allResourcesRules,
 				admissionregistration.Create,
 				admissionregistration.Update,
 			),
@@ -187,15 +197,18 @@ func GetCommonWebhookConfigs() ([]WebhookConfig, error) {
 }
 
 func RegisterAbandonOnUninstallWebhook(mgr manager.Manager, nocacheClient client.Client) error {
-	whCfgs := []WebhookConfig{
+	whCfgs := []Config{
 		{
-			Name:    "abandon-on-uninstall.cnrm.cloud.google.com",
-			Path:    "/abandon-on-uninstall",
-			Type:    Validating,
-			Handler: &abandonOnCRDUninstallWebhook{},
+			Name:        "abandon-on-uninstall.cnrm.cloud.google.com",
+			Path:        "/abandon-on-uninstall",
+			Type:        Validating,
+			HandlerFunc: NewAbandonOnCRDUninstallWebhook(),
 			ObjectSelector: &metav1.LabelSelector{
+				// The MatchLabels will not match anything with the value "no-op"
+				// specified. We want the webhook to intercept nothing before we
+				// work on cleaning up the webhook from existing clusters.
 				MatchLabels: map[string]string{
-					crdgeneration.ManagedByKCCLabel: "true",
+					crdgeneration.ManagedByKCCLabel: "no-op",
 				},
 			},
 			FailurePolicy: admissionregistration.Fail,
@@ -224,7 +237,7 @@ func RegisterAbandonOnUninstallWebhook(mgr manager.Manager, nocacheClient client
 }
 
 func register(validatingWebhookConfigurationName, mutatingWebhookConfigurationName, serviceName, componentName string,
-	whCfgs []WebhookConfig, mgr manager.Manager, nocacheClient client.Client) error {
+	whCfgs []Config, mgr manager.Manager, nocacheClient client.Client) error {
 	validatingWebhookCfg, mutatingWebhookCfg := GenerateWebhookManifests(
 		validatingWebhookConfigurationName,
 		mutatingWebhookConfigurationName,
@@ -276,14 +289,15 @@ func register(validatingWebhookConfigurationName, mutatingWebhookConfigurationNa
 		return err
 	}
 	// Set up the HTTP server
-	s := &webhook.Server{
+	s := webhook.NewServer(webhook.Options{
 		CertDir:  certDir,
 		CertName: writer.ServerCertName,
 		KeyName:  writer.ServerKeyName,
 		Port:     ServicePort,
-	}
+	})
 	for _, whCfg := range whCfgs {
-		s.Register(whCfg.Path, &admission.Webhook{Handler: whCfg.Handler})
+		handler := whCfg.HandlerFunc(mgr)
+		s.Register(whCfg.Path, &admission.Webhook{Handler: handler})
 	}
 	if err := mgr.Add(s); err != nil {
 		return fmt.Errorf("error adding webhook server to manager: %w", err)
@@ -300,37 +314,35 @@ func formatSecretName(serviceName string) string {
 // the webhook.Server requires the certificates to be present on the local filesystem so fetch them from the API
 // server and persist them to disk
 func persistCertificatesToDisk(certWriter writer.CertWriter, svc *corev1.Service) error {
-	dnsName := getDnsNameForService(svc)
+	dnsName := getDNSNameForService(svc)
 	artifacts, _, err := certWriter.EnsureCert(dnsName)
 	if err != nil {
-		return fmt.Errorf("error ensuring certificate: %v", err)
+		return fmt.Errorf("error ensuring certificate: %w", err)
 	}
-	if err := writeCertificates(artifacts, certDir, writer.ServerCertName, writer.ServerKeyName); err != nil {
-		return err
-	}
-	return nil
+
+	return writeCertificates(artifacts, certDir, writer.ServerCertName, writer.ServerKeyName)
 }
 
 func writeCertificates(artifacts *generator.Artifacts, dir, certName, keyName string) error {
 	if err := os.RemoveAll(dir); err != nil {
-		return fmt.Errorf("error removing cert dir '%v': %v", dir, err)
+		return fmt.Errorf("error removing cert dir '%v': %w", dir, err)
 	}
 	if err := os.MkdirAll(dir, 0777); err != nil {
-		return fmt.Errorf("error creating cert dir '%v': %v", dir, err)
+		return fmt.Errorf("error creating cert dir '%v': %w", dir, err)
 	}
 	perms := os.FileMode(0644)
 	certPath := path.Join(dir, certName)
-	if err := ioutil.WriteFile(certPath, artifacts.Cert, perms); err != nil {
-		return fmt.Errorf("error writing certificate to '%v': %v", certPath, err)
+	if err := os.WriteFile(certPath, artifacts.Cert, perms); err != nil {
+		return fmt.Errorf("error writing certificate to '%v': %w", certPath, err)
 	}
 	keyPath := path.Join(dir, keyName)
-	if err := ioutil.WriteFile(keyPath, artifacts.Key, perms); err != nil {
-		return fmt.Errorf("error writing key to '%v': %v", keyPath, err)
+	if err := os.WriteFile(keyPath, artifacts.Key, perms); err != nil {
+		return fmt.Errorf("error writing key to '%v': %w", keyPath, err)
 	}
 	return nil
 }
 
-func getDnsNameForService(svc *corev1.Service) string {
+func getDNSNameForService(svc *corev1.Service) string {
 	// the following line of logic for calculating the dnsName is taken from provisioner.dnsNameFromClientConfig(...)
 	// that code is not easily reused
 	return generator.ServiceToCommonName(svc.Namespace, svc.Name)

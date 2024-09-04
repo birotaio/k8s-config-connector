@@ -28,7 +28,7 @@
 </tr>
 <tr>
 <td>{{gcp_name_short}} REST Resource Documentation</td>
-<td><a href="/sql/docs/reference/admin-api/rest/v1beta4/sslCerts">/sql/docs/reference/admin-api/rest/v1beta4/sslCerts</a></td>
+<td><a href="/sql/docs/postgres/admin-api/rest/v1beta4/sslCerts">/sql/docs/postgres/admin-api/rest/v1beta4/sslCerts</a></td>
 </tr>
 <tr>
 <td>{{product_name_short}} Resource Short Names</td>
@@ -69,9 +69,6 @@
 <tbody>
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
-    </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
     </tr>
 </tbody>
 </table>
@@ -332,5 +329,7 @@ spec:
     tier: db-f1-micro
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

@@ -59,20 +59,6 @@
 ## Custom Resource Definition Properties
 
 
-### Annotations
-<table class="properties responsive">
-<thead>
-    <tr>
-        <th colspan="2">Fields</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
-</tbody>
-</table>
-
 
 ### Spec
 #### Schema
@@ -96,6 +82,13 @@ linkedRouterApplianceInstances:
       name: string
       namespace: string
   siteToSiteDataTransfer: boolean
+linkedVPCNetwork:
+  excludeExportRanges:
+  - string
+  uriRef:
+    external: string
+    name: string
+    namespace: string
 linkedVpnTunnels:
   siteToSiteDataTransfer: boolean
   uris:
@@ -333,6 +326,78 @@ Allowed value: The `selfLink` field of a `ComputeInstance` resource.{% endverbat
     </tr>
     <tr>
         <td>
+            <p><code>linkedVPCNetwork</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. VPC network that is associated with the spoke.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>linkedVPCNetwork.excludeExportRanges</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}Immutable. IP ranges encompassing the subnets to be excluded from peering.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>linkedVPCNetwork.excludeExportRanges[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>linkedVPCNetwork.uriRef</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>linkedVPCNetwork.uriRef.external</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The URI of the VPC network resource.
+
+Allowed value: The `selfLink` field of a `ComputeNetwork` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>linkedVPCNetwork.uriRef.name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>linkedVPCNetwork.uriRef.namespace</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>linkedVpnTunnels</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -467,7 +532,7 @@ Allowed value: The Google Cloud resource name of a `Project` resource (format: `
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -671,5 +736,7 @@ spec:
   description: "A sample hub"
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

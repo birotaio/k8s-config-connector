@@ -15,7 +15,8 @@
 set -o errexit
 [[ ":$PATH:" != *":${GOPATH}/bin:"* ]] && echo "PATH=\"${GOPATH}/bin:\$PATH\"" >> ~/.profile
 source ~/.profile
-cd ${GOPATH}/src/github.com/GoogleCloudPlatform/k8s-config-connector
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd ${REPO_ROOT}
 GOOS=$(go env GOOS)
 GOARCH=$(go env GOARCH)
 
@@ -49,7 +50,7 @@ KUBE_BIN_DIR=${HOME}/kube/bin
 
 # Downloads and configures kube-apiserver
 mkdir -p $KUBE_BIN_DIR
-curl -sL --retry 5 dl.k8s.io/v$KUBEAPISERVER_VERSION/bin/linux/amd64/kube-apiserver > $KUBE_BIN_DIR/kube-apiserver
+curl -sL --retry 5 https://dl.k8s.io/v$KUBEAPISERVER_VERSION/bin/linux/amd64/kube-apiserver -o "$KUBE_BIN_DIR/kube-apiserver"
 chmod a+rx $KUBE_BIN_DIR/kube-apiserver
 echo "export TEST_ASSET_KUBE_APISERVER=${HOME}/kube/bin/kube-apiserver" >> ~/.profile
 source ~/.profile

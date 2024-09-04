@@ -39,6 +39,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apikeys.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - appengine.cnrm.cloud.google.com
   resources:
   - '*'
@@ -247,6 +255,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - containerattached.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - datacatalog.cnrm.cloud.google.com
   resources:
   - '*'
@@ -344,6 +360,22 @@ rules:
   - watch
 - apiGroups:
   - documentai.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - edgecontainer.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - edgenetwork.cnrm.cloud.google.com
   resources:
   - '*'
   verbs:

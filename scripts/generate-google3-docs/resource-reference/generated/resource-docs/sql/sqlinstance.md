@@ -76,9 +76,6 @@ documentation</a>.
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -86,6 +83,17 @@ documentation</a>.
 ### Spec
 #### Schema
 ```yaml
+cloneSource:
+  binLogCoordinates:
+    binLogFileName: string
+    binLogPosition: integer
+  databaseNames:
+  - string
+  pointInTime: string
+  sqlInstanceRef:
+    external: string
+    name: string
+    namespace: string
 databaseVersion: string
 encryptionKMSCryptoKeyRef:
   external: string
@@ -126,6 +134,8 @@ settings:
   activationPolicy: string
   activeDirectoryConfig:
     domain: string
+  advancedMachineFeatures:
+    threadsPerCore: integer
   authorizedGaeApplications:
   - string
   availabilityType: string
@@ -142,6 +152,8 @@ settings:
   collation: string
   connectorEnforcement: string
   crashSafeReplication: boolean
+  dataCacheConfig:
+    dataCacheEnabled: boolean
   databaseFlags:
   - name: string
     value: string
@@ -154,6 +166,7 @@ settings:
   diskAutoresizeLimit: integer
   diskSize: integer
   diskType: string
+  edition: string
   insightsConfig:
     queryInsightsEnabled: boolean
     queryPlansPerMinute: integer
@@ -172,7 +185,12 @@ settings:
       external: string
       name: string
       namespace: string
+    pscConfig:
+    - allowedConsumerProjects:
+      - string
+      pscEnabled: boolean
     requireSsl: boolean
+    sslMode: string
   locationPreference:
     followGaeApplication: string
     secondaryZone: string
@@ -210,12 +228,122 @@ settings:
 <tbody>
     <tr>
         <td>
+            <p><code>cloneSource</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Create this database as a clone of a source instance. Immutable.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.binLogCoordinates</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Binary log coordinates, if specified, identify the position up to which the source instance is cloned. If not specified, the source instance is cloned up to the most recent binary log coordinates.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.binLogCoordinates.binLogFileName</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Name of the binary log file for a Cloud SQL instance.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.binLogCoordinates.binLogPosition</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">integer</code></p>
+            <p>{% verbatim %}Position (offset) within the binary log file.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.databaseNames</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}(SQL Server only) Clone only the specified databases from the source instance. Clone all databases if empty.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.databaseNames[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.pointInTime</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Timestamp, if specified, identifies the time to which the source instance is cloned.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.sqlInstanceRef</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The source SQLInstance to clone{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.sqlInstanceRef.external</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The SQLInstance selfLink, when not managed by Config Connector.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.sqlInstanceRef.name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The `name` field of a `SQLInstance` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>cloneSource.sqlInstanceRef.namespace</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The `namespace` field of a `SQLInstance` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>databaseVersion</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions.{% endverbatim %}</p>
+            <p>{% verbatim %}The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -235,7 +363,7 @@ settings:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Allowed value: The `selfLink` field of a `KMSCryptoKey` resource.{% endverbatim %}</p>
+            <p>{% verbatim %}A reference to an externally managed KMSCryptoKey. Should be in the format `projects/[kms_project_id]/locations/[region]/keyRings/[key_ring_id]/cryptoKeys/[key]`.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -245,7 +373,7 @@ settings:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+            <p>{% verbatim %}The `name` of a `KMSCryptoKey` resource.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -255,7 +383,7 @@ settings:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+            <p>{% verbatim %}The `namespace` of a `KMSCryptoKey` resource.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -295,7 +423,7 @@ settings:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Allowed value: The `name` field of a `SQLInstance` resource.{% endverbatim %}</p>
+            <p>{% verbatim %}The SQLInstance selfLink, when not managed by Config Connector.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -305,7 +433,7 @@ settings:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+            <p>{% verbatim %}The `name` field of a `SQLInstance` resource.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -315,7 +443,7 @@ settings:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+            <p>{% verbatim %}The `namespace` field of a `SQLInstance` resource.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -395,7 +523,7 @@ settings:
         </td>
         <td>
             <p><code class="apitype">boolean</code></p>
-            <p>{% verbatim %}Immutable. Specifies if the replica is the failover target. If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance.{% endverbatim %}</p>
+            <p>{% verbatim %}Immutable. Specifies if the replica is the failover target. If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance. Not supported for Postgres.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -610,13 +738,32 @@ settings:
     </tr>
     <tr>
         <td>
+            <p><code>settings.advancedMachineFeatures</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.advancedMachineFeatures.threadsPerCore</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">integer</code></p>
+            <p>{% verbatim %}The number of threads per physical core. Can be 1 or 2.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>settings.authorizedGaeApplications</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">list (string)</code></p>
-            <p>{% verbatim %}DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances.
-Specifying this field has no-ops; it's recommended to remove this field from your configuration.{% endverbatim %}</p>
+            <p>{% verbatim %}DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances. Specifying this field has no-ops; it's recommended to remove this field from your configuration.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -636,12 +783,7 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The availability type of the Cloud SQL instance, high availability
-(REGIONAL) or single zone (ZONAL). For all instances, ensure that
-settings.backup_configuration.enabled is set to true.
-For MySQL instances, ensure that settings.backup_configuration.binary_log_enabled is set to true.
-For Postgres instances, ensure that settings.backup_configuration.point_in_time_recovery_enabled
-is set to true. Defaults to ZONAL.{% endverbatim %}</p>
+            <p>{% verbatim %}The availability type of the Cloud SQL instance, high availability (REGIONAL) or single zone (ZONAL). For all instances, ensure that settings.backup_configuration.enabled is set to true. For MySQL instances, ensure that settings.backup_configuration.binary_log_enabled is set to true. For Postgres instances, ensure that settings.backup_configuration.point_in_time_recovery_enabled is set to true. Defaults to ZONAL.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -741,7 +883,7 @@ is set to true. Defaults to ZONAL.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">integer</code></p>
-            <p>{% verbatim %}The number of days of transaction logs we retain for point in time restore, from 1-7.{% endverbatim %}</p>
+            <p>{% verbatim %}The number of days of transaction logs we retain for point in time restore, from 1-7. (For PostgreSQL Enterprise Plus instances, from 1 to 35.).{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -771,8 +913,27 @@ is set to true. Defaults to ZONAL.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">boolean</code></p>
-            <p>{% verbatim %}DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances.
-Specifying this field has no-ops; it's recommended to remove this field from your configuration.{% endverbatim %}</p>
+            <p>{% verbatim %}DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances. Specifying this field has no-ops; it's recommended to remove this field from your configuration.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.dataCacheConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Data cache configurations.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.dataCacheConfig.dataCacheEnabled</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Whether data cache is enabled for the instance.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -903,6 +1064,16 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}Immutable. The type of data disk: PD_SSD or PD_HDD. Defaults to PD_SSD.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.edition</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The edition of the instance, can be ENTERPRISE or ENTERPRISE_PLUS.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1072,7 +1243,7 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Allowed value: The `selfLink` field of a `ComputeNetwork` resource.{% endverbatim %}</p>
+            <p>{% verbatim %}The compute network selflink of form "projects/<project>/global/networks/<network>", when not managed by Config Connector.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1082,7 +1253,7 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+            <p>{% verbatim %}The `name` field of a `ComputeNetwork` resource.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1092,7 +1263,57 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+            <p>{% verbatim %}The `namespace` field of a `ComputeNetwork` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.ipConfiguration.pscConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}PSC settings for a Cloud SQL instance.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.ipConfiguration.pscConfig[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.ipConfiguration.pscConfig[].allowedConsumerProjects</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}List of consumer projects that are allow-listed for PSC connections to this instance. This instance can be connected to with PSC from any network in these projects. Each consumer project in this list may be represented by a project number (numeric) or by a project id (alphanumeric).{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.ipConfiguration.pscConfig[].allowedConsumerProjects[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.ipConfiguration.pscConfig[].pscEnabled</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Whether PSC connectivity is enabled for this instance.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1103,6 +1324,16 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         <td>
             <p><code class="apitype">boolean</code></p>
             <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>settings.ipConfiguration.sslMode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Specify how SSL connection should be enforced in DB connections. This field provides more SSL enforcment options compared to requireSsl. To change this field, also set the correspoding value in requireSsl if it has been set.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1272,8 +1503,7 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances.
-Specifying this field has no-ops; it's recommended to remove this field from your configuration.{% endverbatim %}</p>
+            <p>{% verbatim %}DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances. Specifying this field has no-ops; it's recommended to remove this field from your configuration.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1303,7 +1533,7 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Allowed value: The `url` field of a `StorageBucket` resource.{% endverbatim %}</p>
+            <p>{% verbatim %}The StorageBucket selfLink, when not managed by Config Connector.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1313,7 +1543,7 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+            <p>{% verbatim %}The `name` field of a `StorageBucket` resource.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1323,7 +1553,7 @@ Specifying this field has no-ops; it's recommended to remove this field from you
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+            <p>{% verbatim %}The `namespace` field of a `StorageBucket` resource.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1370,7 +1600,7 @@ Specifying this field has no-ops; it's recommended to remove this field from you
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -1385,6 +1615,7 @@ conditions:
   status: string
   type: string
 connectionName: string
+dnsName: string
 firstIpAddress: string
 instanceType: string
 ipAddress:
@@ -1393,6 +1624,7 @@ ipAddress:
   type: string
 observedGeneration: integer
 privateIpAddress: string
+pscServiceAttachmentLink: string
 publicIpAddress: string
 selfLink: string
 serverCaCert:
@@ -1429,7 +1661,7 @@ serviceAccountEmailAddress: string
         <td><code>conditions</code></td>
         <td>
             <p><code class="apitype">list (object)</code></p>
-            <p>{% verbatim %}Conditions represent the latest available observation of the resource's current state.{% endverbatim %}</p>
+            <p>{% verbatim %}Conditions represent the latest available observations of the SQLInstance's current state.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1479,6 +1711,13 @@ serviceAccountEmailAddress: string
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}The connection name of the instance to be used in connection strings. For example, when connecting with Cloud SQL Proxy.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>dnsName</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The dns name of the instance.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1542,6 +1781,13 @@ serviceAccountEmailAddress: string
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>pscServiceAttachmentLink</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The link to service attachment of PSC instance.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1722,7 +1968,7 @@ spec:
     ipConfiguration:
       requireSsl: true
     locationPreference:
-        zone: us-central1-c
+        zone: us-central1-a
 ```
 
 ### Postgres SQL Instance High Availability
@@ -1857,5 +2103,7 @@ metadata:
   name: ${PROJECT_ID?}-sqlinstance-dep-sqlserver
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

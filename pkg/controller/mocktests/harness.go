@@ -17,15 +17,12 @@ package mocktests
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"strings"
 	"testing"
 
-	iamv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/iam/v1beta1"
-	dclmetadata "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/metadata"
-	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gvks/supportedgvks"
-	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -34,9 +31,14 @@ import (
 	yamlserializer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/mockkubeapiserver"
+
+	operatorv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
+	iamv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/iam/v1beta1"
+	dclmetadata "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/metadata"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gvks/supportedgvks"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
 )
 
 type Harness struct {
@@ -56,7 +58,7 @@ func (h *Harness) RESTConfig() *rest.Config {
 	return h.restConfig
 }
 
-func (h *Harness) NewClient(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
+func (h *Harness) NewClient(_ *rest.Config, _ client.Options) (client.Client, error) {
 	if h.Client == nil {
 		h.Fatalf("WithObjects must be called before NewClient")
 	}
@@ -69,9 +71,16 @@ func NewHarness(t *testing.T) *Harness {
 		Scheme: runtime.NewScheme(),
 		Ctx:    context.Background(),
 	}
-	corev1.AddToScheme(h.Scheme)
+	if err := corev1.AddToScheme(h.Scheme); err != nil {
+		t.Fatal(err)
+	}
 
-	iamv1beta1.SchemeBuilder.AddToScheme(h.Scheme)
+	if err := iamv1beta1.SchemeBuilder.AddToScheme(h.Scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := operatorv1beta1.SchemeBuilder.AddToScheme(h.Scheme); err != nil {
+		t.Fatal(err)
+	}
 
 	t.Cleanup(h.Stop)
 	return h
@@ -86,7 +95,7 @@ func (h *Harness) ParseObjects(y string) []*unstructured.Unstructured {
 	for {
 		var rawObj runtime.RawExtension
 		if err := decoder.Decode(&rawObj); err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				t.Fatalf("error decoding yaml: %v", err)
 			}
 			break
@@ -117,6 +126,8 @@ func (h *Harness) WithObjects(initObjs ...*unstructured.Unstructured) {
 
 	k8s.RegisterType(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}, "namespaces", meta.RESTScopeRoot)
 	k8s.RegisterType(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}, "secrets", meta.RESTScopeNamespace)
+	k8s.RegisterType(operatorv1beta1.ConfigConnectorGroupVersionKind, "configconnectors", meta.RESTScopeRoot)
+	k8s.RegisterType(operatorv1beta1.ConfigConnectorContextGroupVersionKind, "configconnectorcontexts", meta.RESTScopeNamespace)
 
 	smLoader, err := servicemappingloader.New()
 	if err != nil {
@@ -150,7 +161,9 @@ func (h *Harness) WithObjects(initObjs ...*unstructured.Unstructured) {
 		},
 	}
 
-	client, err := client.New(h.restConfig, client.Options{})
+	client, err := client.New(h.restConfig, client.Options{
+		Scheme: h.Scheme,
+	})
 	if err != nil {
 		h.Fatalf("error building client: %v", err)
 	}

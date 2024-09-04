@@ -19,7 +19,11 @@ import (
 	"fmt"
 	"net/http"
 
+	operatorv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/kccmanager/nocache"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/registration"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/clientconfig"
@@ -27,6 +31,7 @@ import (
 	dclmetadata "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/metadata"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/schema/dclschemaloader"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gcp"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
 	tfprovider "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/tf/provider"
 
@@ -35,6 +40,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	// Register direct controllers
+	_ "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
 )
 
 type Config struct {
@@ -55,9 +63,17 @@ type Config struct {
 	// Currently only used in tests.
 	HTTPClient *http.Client
 
-	// AccessToken allows configuration of a static access token.
+	// GCPAccessToken allows configuration of a static access token for accessing GCP.
 	// Currently only used in tests.
-	AccessToken string
+	GCPAccessToken string
+
+	// StateIntoSpecDefaultValue is a required field used as the default value
+	// for 'state-into-spec' annotation if unset.
+	StateIntoSpecDefaultValue string
+
+	// StateIntoSpecUserOverride is an optional field. If specified, it is used
+	// as the default value for 'state-into-spec' annotation if unset.
+	StateIntoSpecUserOverride *string
 }
 
 // Creates a new controller-runtime manager.Manager and starts all of the KCC controllers pointed at the
@@ -66,29 +82,32 @@ type Config struct {
 //
 // This serves as the entry point for the in-cluster main and the Borg service main. Any changes made should be done
 // with care.
-func New(ctx context.Context, restConfig *rest.Config, config Config) (manager.Manager, error) {
-	opts := config.ManagerOptions
+func New(ctx context.Context, restConfig *rest.Config, cfg Config) (manager.Manager, error) {
+	opts := cfg.ManagerOptions
 	if opts.Scheme == nil {
 		// By default, controller-runtime uses the Kubernetes client-go scheme, this can create concurrency bugs as the
 		// the calls to AddToScheme(..) will modify the internal maps
 		opts.Scheme = runtime.NewScheme()
 	}
-	// Disable the cache. The cache causes problems in namespaced mode when trying
-	// to read resources in our system namespace.
-	opts.NewClient = nocache.NoCacheClientFunc
+	opts.BaseContext = func() context.Context {
+		return ctx
+	}
+	if err := addSchemes(opts.Scheme); err != nil {
+		return nil, fmt.Errorf("error adding schemes: %w", err)
+	}
+
+	// only cache CC and CCC resources
+	nocache.OnlyCacheCCAndCCC(&opts)
+
 	mgr, err := manager.New(restConfig, opts)
 	if err != nil {
 		return nil, fmt.Errorf("error creating new manager: %w", err)
 	}
-	if err := addSchemes(mgr); err != nil {
-		return nil, err
-	}
-
 	// Bootstrap the Google Terraform provider
 	tfCfg := tfprovider.NewConfig()
-	tfCfg.UserProjectOverride = config.UserProjectOverride
-	tfCfg.BillingProject = config.BillingProject
-	tfCfg.AccessToken = config.AccessToken
+	tfCfg.UserProjectOverride = cfg.UserProjectOverride
+	tfCfg.BillingProject = cfg.BillingProject
+	tfCfg.GCPAccessToken = cfg.GCPAccessToken
 
 	provider, err := tfprovider.New(ctx, tfCfg)
 	if err != nil {
@@ -106,27 +125,47 @@ func New(ctx context.Context, restConfig *rest.Config, config Config) (manager.M
 	serviceMetadataLoader := dclmetadata.New()
 	dclConverter := dclconversion.New(dclSchemaLoader, serviceMetadataLoader)
 
-	dclOptions := clientconfig.Options{
-		UserProjectOverride: config.UserProjectOverride,
-		BillingProject:      config.BillingProject,
-		HTTPClient:          config.HTTPClient,
-		UserAgent:           gcp.KCCUserAgent,
-	}
+	dclOptions := clientconfig.Options{}
+	dclOptions.UserProjectOverride = cfg.UserProjectOverride
+	dclOptions.BillingProject = cfg.BillingProject
+	dclOptions.HTTPClient = cfg.HTTPClient
+	dclOptions.UserAgent = gcp.KCCUserAgent
+
 	dclConfig, err := clientconfig.New(ctx, dclOptions)
 	if err != nil {
 		return nil, fmt.Errorf("error creating a DCL client config: %w", err)
 	}
 
+	stateIntoSpecDefaulter := k8s.NewStateIntoSpecDefaulter(mgr.GetClient())
+	controllerConfig := &config.ControllerConfig{
+		UserProjectOverride: cfg.UserProjectOverride,
+		BillingProject:      cfg.BillingProject,
+		HTTPClient:          cfg.HTTPClient,
+		UserAgent:           gcp.KCCUserAgent,
+	}
+
+	// Initialize direct controllers
+	if err := registry.Init(ctx, controllerConfig); err != nil {
+		return nil, err
+	}
+
+	rd := controller.Deps{
+		TfProvider:   provider,
+		TfLoader:     smLoader,
+		DclConfig:    dclConfig,
+		DclConverter: dclConverter,
+		Defaulters:   []k8s.Defaulter{stateIntoSpecDefaulter},
+	}
 	// Register the registration controller, which will dynamically create controllers for
 	// all our resources.
-	if err := registration.Add(mgr, provider, smLoader, dclConfig, dclConverter, registration.RegisterDefaultController); err != nil {
+	if err := registration.Add(mgr, &rd,
+		registration.RegisterDefaultController(controllerConfig)); err != nil {
 		return nil, fmt.Errorf("error adding registration controller: %w", err)
 	}
 	return mgr, nil
 }
 
-func addSchemes(mgr manager.Manager) error {
-	scheme := mgr.GetScheme()
+func addSchemes(scheme *runtime.Scheme) error {
 	if err := corev1.AddToScheme(scheme); err != nil {
 		return fmt.Errorf("error adding 'corev1' resources to the scheme: %w", err)
 	}
@@ -135,6 +174,9 @@ func addSchemes(mgr manager.Manager) error {
 	}
 	if err := apis.AddToScheme(scheme); err != nil {
 		return fmt.Errorf("error adding 'apis' resources to the scheme: %w", err)
+	}
+	if err := operatorv1beta1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("error adding 'operatorv1beta1' resources to the scheme: %w", err)
 	}
 	return nil
 }

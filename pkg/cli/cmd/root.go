@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	golog "log"
@@ -23,10 +24,13 @@ import (
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/cmd/bulkexport/parameters"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/log"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/powertools"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/execution"
 
 	tfversion "github.com/hashicorp/terraform-provider-google-beta/version"
 	"github.com/spf13/cobra"
+
+	_ "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/register"
 )
 
 const (
@@ -55,12 +59,16 @@ func init() {
 	rootCmd.AddCommand(exportCmd)
 	rootCmd.AddCommand(bulkExportCmd)
 	rootCmd.AddCommand(printResourcesCmd)
-	rootCmd.AddCommand(versionCmd)
+	AddVersionCommand(rootCmd)
+	AddLicensesCommand(rootCmd)
 	rootCmd.AddCommand(applyCmd)
+
+	powertools.AddCommands(rootCmd)
+
 	rootCmd.SilenceErrors = true
 }
 
-func rootPreRunE(cmd *cobra.Command, args []string) error {
+func rootPreRunE(_ *cobra.Command, _ []string) error {
 	disableGoDefaultLogging()
 	log.SetDefault(log.New(verbose))
 	setTerraformUserAgent()
@@ -84,23 +92,45 @@ func recoverExecute() (err error) {
 }
 
 func execute() error {
-	defaultToBulkExport()
+	defaultToBulkExport(os.Args)
 	return rootCmd.Execute()
 }
 
-func defaultToBulkExport() {
+type TestInvocationOptions struct {
+	Stdout bytes.Buffer
+	Stderr bytes.Buffer
+	Stdin  bytes.Buffer
+	Args   []string
+}
+
+// ExecuteFromTest allows for invocation of the CLI from a test
+func ExecuteFromTest(options *TestInvocationOptions) error {
+	rootCmd.SetIn(&options.Stdin)
+	rootCmd.SetOut(&options.Stdout)
+	rootCmd.SetErr(&options.Stderr)
+	rootCmd.SetArgs(options.Args[1:])
+
+	defaultToBulkExport(options.Args)
+	err := rootCmd.Execute()
+	if err != nil {
+		fmt.Fprintf(&options.Stderr, "%v\n", err)
+	}
+	return err
+}
+
+func defaultToBulkExport(args []string) {
 	// previously this command had no sub-commands and effectively defaulted to the bulk-export command for backwards
 	// compatibility, if there is no sub-command and the flags appear to be the legacy flags format, default to the
 	// bulk-export sub-command
-	if isLegacyArgs() {
-		newArgs := sanitizeArgsForBackwardsCompatibility(os.Args[1:])
+	if isLegacyArgs(args) {
+		newArgs := sanitizeArgsForBackwardsCompatibility(args[1:])
 		newArgs = append([]string{bulkExportCommandName}, newArgs...)
 		rootCmd.SetArgs(newArgs)
 	}
 }
 
-func isLegacyArgs() bool {
-	args := os.Args[1:]
+func isLegacyArgs(args []string) bool {
+	args = args[1:]
 	if len(args) == 0 {
 		// a valid legacy workload was the piping of a list of assets to stdin
 		piped, err := parameters.IsInputPiped(os.Stdin)
@@ -113,7 +143,7 @@ func isLegacyArgs() bool {
 		return false
 	}
 	cmd, _, err := rootCmd.Find(args)
-	if err == nil && cmd.Args != nil {
+	if err == nil && cmd != nil {
 		return false
 	}
 	for i := 0; i < len(args); {
@@ -123,7 +153,7 @@ func isLegacyArgs() bool {
 		case "-h":
 			return false
 		case "-verbose":
-			i += 1
+			i++
 		default:
 			// if a flag starts with "--" then it is a 'new' workload
 			if strings.HasPrefix(args[i], "--") {
@@ -142,7 +172,7 @@ func sanitizeArgsForBackwardsCompatibility(args []string) []string {
 		switch flag {
 		case "-verbose":
 			args[i] = "--verbose"
-			i += 1
+			i++
 		default:
 			// if we encounter a flag add an additional '-'
 			if strings.HasPrefix(flag, "-") && !strings.HasPrefix(flag, "--") {

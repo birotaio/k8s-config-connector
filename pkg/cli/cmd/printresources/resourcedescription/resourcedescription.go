@@ -15,6 +15,7 @@
 package resourcedescription
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -36,6 +37,8 @@ type ResourceDescription struct {
 }
 
 func GetAll() ([]ResourceDescription, error) {
+	ctx := context.TODO()
+
 	smLoader, err := servicemappingloader.New()
 	if err != nil {
 		return nil, fmt.Errorf("error creating service mapping loader: %w", err)
@@ -43,7 +46,7 @@ func GetAll() ([]ResourceDescription, error) {
 	// tfprovider.New(...) configures the provider which requires valid access credentials. This is unnecessary
 	// for the purposes of getting the schema information. To get around this but not create a new codepath for creating
 	// a google provider, pass in an invalid, placeholder oauth2 token.
-	tfProvider, err := tf.NewProvider("invalid token")
+	tfProvider, err := tf.NewProvider(ctx, "invalid token")
 	if err != nil {
 		return nil, fmt.Errorf("error creating tf provider: %w", err)
 	}
@@ -87,7 +90,7 @@ func getResourceNameFormat(sm v1alpha1.ServiceMapping, rc v1alpha1.ResourceConfi
 	return fmt.Sprintf("//%v/%v", sm.Spec.ServiceHostName, idTemplate)
 }
 
-func doesResourceSupportBulkExport(tfProvider *tfschema.Provider, sm v1alpha1.ServiceMapping, rc v1alpha1.ResourceConfig) bool {
+func doesResourceSupportBulkExport(tfProvider *tfschema.Provider, _ v1alpha1.ServiceMapping, rc v1alpha1.ResourceConfig) bool {
 	return rc.ResourceAvailableInAssetInventory && resourceHasTFImporter(rc, tfProvider)
 }
 
@@ -100,6 +103,9 @@ func doesResourceSupportExport(tfProvider *tfschema.Provider, sm v1alpha1.Servic
 
 func resourceHasTFImporter(rc v1alpha1.ResourceConfig, tfProvider *tfschema.Provider) bool {
 	// every value for rc.Name should be in the ResourcesMap
+	if rc.Direct {
+		return false
+	}
 	resource := tfProvider.ResourcesMap[rc.Name]
 	return resource.Importer != nil
 }

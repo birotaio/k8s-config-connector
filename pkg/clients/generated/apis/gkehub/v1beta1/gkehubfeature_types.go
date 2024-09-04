@@ -35,11 +35,43 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type FeatureDefaultConfig struct {
+	/* The logs routing mode Possible values: MODE_UNSPECIFIED, COPY, MOVE */
+	// +optional
+	Mode *string `json:"mode,omitempty"`
+}
+
+type FeatureFleetScopeLogsConfig struct {
+	/* The logs routing mode Possible values: MODE_UNSPECIFIED, COPY, MOVE */
+	// +optional
+	Mode *string `json:"mode,omitempty"`
+}
+
+type FeatureFleetobservability struct {
+	/* Fleet Observability Logging-specific spec. */
+	// +optional
+	LoggingConfig *FeatureLoggingConfig `json:"loggingConfig,omitempty"`
+}
+
+type FeatureLoggingConfig struct {
+	/* Specified if applying the default routing config to logs not specified in other configs. */
+	// +optional
+	DefaultConfig *FeatureDefaultConfig `json:"defaultConfig,omitempty"`
+
+	/* Specified if applying the routing config to all logs for all fleet scopes. */
+	// +optional
+	FleetScopeLogsConfig *FeatureFleetScopeLogsConfig `json:"fleetScopeLogsConfig,omitempty"`
+}
+
 type FeatureMulticlusteringress struct {
 	ConfigMembershipRef v1alpha1.ResourceRef `json:"configMembershipRef"`
 }
 
 type FeatureSpec struct {
+	/* Fleet Observability spec. */
+	// +optional
+	Fleetobservability *FeatureFleetobservability `json:"fleetobservability,omitempty"`
+
 	/* Multicluster Ingress-specific spec. */
 	// +optional
 	Multiclusteringress *FeatureMulticlusteringress `json:"multiclusteringress,omitempty"`
@@ -99,7 +131,7 @@ type GKEHubFeatureStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	/* State of the Feature resource itself. */
 	// +optional
@@ -116,6 +148,13 @@ type GKEHubFeatureStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpgkehubfeature;gcpgkehubfeatures
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/dcl2crd=true";"cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // GKEHubFeature is the Schema for the gkehub API
 // +k8s:openapi-gen=true

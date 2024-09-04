@@ -20,22 +20,17 @@ import (
 	"log"
 	"testing"
 
+	corev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/manifest"
+	testmain "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/test/main"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/test/util/asserts"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/addon/pkg/loaders"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/declarative"
-	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/test/mocks"
-
-	corev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
-	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/k8s"
-)
-
-var (
-	cfg *rest.Config
 )
 
 func init() {
@@ -51,15 +46,15 @@ type FakeRepo struct {
 
 var _ manifest.Repository = &FakeRepo{}
 
-func (r *FakeRepo) LoadManifest(ctx context.Context, component string, id string, o declarative.DeclarativeObject) (map[string]string, error) {
+func (r *FakeRepo) LoadManifest(ctx context.Context, component string, id string, o declarative.DeclarativeObject) (map[string]string, error) { //nolint:revive
 	panic("implement me")
 }
 
-func (r *FakeRepo) LoadChannel(ctx context.Context, name string) (*loaders.Channel, error) {
+func (r *FakeRepo) LoadChannel(ctx context.Context, name string) (*loaders.Channel, error) { //nolint:revive
 	return r.channel, nil
 }
 
-func (r *FakeRepo) LoadNamespacedComponents(ctx context.Context, componentName string, version string) (map[string]string, error) {
+func (r *FakeRepo) LoadNamespacedComponents(ctx context.Context, componentName string, version string) (map[string]string, error) { //nolint:revive
 	panic("implement me")
 }
 
@@ -80,7 +75,6 @@ func TestUpgradeChecker_Preflight(t *testing.T) {
 		ns      *corev1.Namespace
 		channel *loaders.Channel
 		err     error
-		delete  bool
 	}{
 		{
 			name:    "no existing instance, can upgrade/deploy the new version",
@@ -208,12 +202,10 @@ func TestUpgradeChecker_Preflight(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			mgr := mocks.Manager{}
 			ctx := context.Background()
+			mgr, stop := testmain.StartTestManagerFromNewTestEnv()
+			defer stop()
 			client := mgr.GetClient()
-			if err := client.Create(ctx, tc.cc); err != nil {
-				t.Fatalf("error creating %v %v: %v", tc.cc.Kind, tc.cc.Name, err)
-			}
 			if tc.ns != nil {
 				if err := client.Create(ctx, tc.ns); err != nil {
 					t.Fatalf("error creating %v %v: %v", tc.ns.Kind, tc.cc.Name, err)

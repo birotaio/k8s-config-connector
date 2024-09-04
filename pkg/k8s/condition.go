@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/k8s/v1alpha1"
@@ -24,13 +25,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewCustomReadyCondition(status v1.ConditionStatus, rs, msg string) v1alpha1.Condition {
+func NewCustomReadyCondition(status v1.ConditionStatus, reason, message string) v1alpha1.Condition {
 	return v1alpha1.Condition{
 		LastTransitionTime: metav1.Now().Format(time.RFC3339),
 		Type:               v1alpha1.ReadyConditionType,
 		Status:             status,
-		Reason:             rs,
-		Message:            msg,
+		Reason:             reason,
+		Message:            message,
 	}
 }
 
@@ -43,7 +44,8 @@ func NewReadyCondition() v1alpha1.Condition {
 
 func NewReadyConditionWithError(err error) v1alpha1.Condition {
 	var readyCondition v1alpha1.Condition
-	if errWithReason, ok := err.(ErrorWithReason); ok {
+	errWithReason := &ErrorWithReason{}
+	if errors.As(err, errWithReason) {
 		readyCondition = NewCustomReadyCondition(v1.ConditionFalse, errWithReason.Reason, errWithReason.Message)
 	} else {
 		readyCondition = NewReadyCondition()

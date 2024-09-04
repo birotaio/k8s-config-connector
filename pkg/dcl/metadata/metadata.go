@@ -31,7 +31,7 @@ import (
 var serviceList = []ServiceMetadata{
 	{
 		Name:       "Apigee",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -47,7 +47,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "BigQuery",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -62,7 +62,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "BillingBudgets",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -73,7 +73,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "BinaryAuthorization",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -101,7 +101,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "CloudFunctions",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -113,7 +113,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "CloudIdentity",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -129,7 +129,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "CloudScheduler",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -141,7 +141,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "Compute",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -202,6 +202,11 @@ var serviceList = []ServiceMetadata{
 				Releasable: false,
 			},
 			{
+				Kind:       "ComputeNetworkAttachment",
+				DCLType:    "NetworkAttachment",
+				Releasable: false,
+			},
+			{
 				Kind: "ComputeNodeGroup",
 				// This resource is implemented through Terraform/KCC bridge, only load its DCL OpenAPI schema for resource references
 				Releasable: false,
@@ -236,7 +241,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "ConfigController",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "alpha",
 		Resources: []Resource{
 			{
@@ -248,7 +253,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "Container",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -265,7 +270,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "ContainerAnalysis",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -277,7 +282,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "DLP",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -304,7 +309,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "DataFusion",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -316,7 +321,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "Dataproc",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -342,7 +347,7 @@ var serviceList = []ServiceMetadata{
 	{
 		Name:                 "DataprocMetastore",
 		ServiceNameUsedByDCL: "metastore",
-		APIVersion:           k8s.KCCAPIVersion,
+		APIVersion:           k8s.KCCAPIVersionV1Beta1,
 		Resources: []Resource{
 			{
 				Kind: "DataprocMetastoreService",
@@ -353,7 +358,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "Eventarc",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -370,7 +375,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "Filestore",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -387,7 +392,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "GKEHub",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -409,7 +414,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "IAM",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -441,7 +446,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "IAP",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -459,7 +464,7 @@ var serviceList = []ServiceMetadata{
 	{
 		Name:                 "IdentityPlatform",
 		ServiceNameUsedByDCL: "identitytoolkit",
-		APIVersion:           k8s.KCCAPIVersion,
+		APIVersion:           k8s.KCCAPIVersionV1Beta1,
 		DCLVersion:           "ga",
 		Resources: []Resource{
 			{
@@ -488,7 +493,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:                 "KMS",
-		APIVersion:           k8s.KCCAPIVersion,
+		APIVersion:           k8s.KCCAPIVersionV1Beta1,
 		ServiceNameUsedByDCL: "cloudkms",
 		DCLVersion:           "ga",
 		Resources: []Resource{
@@ -506,7 +511,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "Logging",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -533,7 +538,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "Monitoring",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -581,7 +586,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "NetworkConnectivity",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -598,7 +603,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "NetworkSecurity",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -624,7 +629,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "NetworkServices",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -676,7 +681,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "OSConfig",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
@@ -693,7 +698,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "PrivateCA",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -721,7 +726,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "PubSub",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -733,7 +738,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "RecaptchaEnterprise",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -745,7 +750,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:                 "ResourceManager",
-		APIVersion:           k8s.KCCAPIVersion,
+		APIVersion:           k8s.KCCAPIVersionV1Beta1,
 		DCLVersion:           "ga",
 		ServiceNameUsedByDCL: "cloudresourcemanager",
 		Resources: []Resource{
@@ -777,9 +782,9 @@ var serviceList = []ServiceMetadata{
 		DCLVersion: "alpha",
 		Resources: []Resource{
 			{
-				Kind:                           "RunService",
-				Releasable:                     true,
-				SupportsHierarchicalReferences: true,
+				Kind: "RunService",
+				// This resource is migrated to Terraform-based implementation, only load its DCL OpenAPI schema for resource references.
+				Releasable: false,
 			},
 		},
 	},
@@ -814,7 +819,7 @@ var serviceList = []ServiceMetadata{
 	},
 	{
 		Name:       "Storage",
-		APIVersion: k8s.KCCAPIVersion,
+		APIVersion: k8s.KCCAPIVersionV1Beta1,
 		DCLVersion: "ga",
 		Resources: []Resource{
 			{
@@ -830,9 +835,9 @@ var serviceList = []ServiceMetadata{
 		DCLVersion: "beta",
 		Resources: []Resource{
 			{
-				Kind:                           "VPCAccessConnector",
-				Releasable:                     true,
-				SupportsHierarchicalReferences: true,
+				Kind: "VPCAccessConnector",
+				// This resource is migrated to Terraform-based implementation, only load its DCL OpenAPI schema for resource references.
+				Releasable: false,
 			},
 		},
 	},
@@ -885,7 +890,8 @@ type Resource struct {
 	// DCLVersion is the version of DCL client used for this resource, e.g. "ga", "beta" and "alpha".
 	// If omitted, it will default to the DCLVersion specified at the service level.
 	DCLVersion string
-	// DCLType is the resource type named by DCL, see https://source.corp.google.com/piper///depot/google3/cloud/graphite/mmv2/dcl/resource.go
+	// DCLType is the resource type named by DCL, see
+	// https://github.com/GoogleCloudPlatform/declarative-resource-client-library/blob/v1.71.0/dcl/resource.go.
 	// If omitted, it assumes that DCL and KCC use the exact same name (case-sensitive) for this resource.
 	// This field should only be specified if we want to change acronyms in the resource name to consistent capitalization to follow k8s naming conventions
 	// e.g OAuthIdpConfig -> OAuthIDPConfig.
@@ -910,7 +916,7 @@ type Resource struct {
 	// resource supports the x-dcl-parent-container extension.
 	SupportsContainerAnnotations bool
 	// ReconciliationIntervalInSeconds specifies the default mean reconciliation interval for this resource.
-	// Providing the value in DCL metadata config is optional. If not explicity configured a global
+	// Providing the value in DCL metadata config is optional. If not explicitly configured a global
 	// default value of 600 will be used.
 	ReconciliationIntervalInSeconds *uint32
 }

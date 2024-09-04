@@ -55,11 +55,11 @@ type InstancetemplateAdvancedMachineFeatures struct {
 
 	/* Immutable. The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. */
 	// +optional
-	ThreadsPerCore *int `json:"threadsPerCore,omitempty"`
+	ThreadsPerCore *int64 `json:"threadsPerCore,omitempty"`
 
 	/* Immutable. The number of physical cores to expose to an instance. Multiply by the number of threads per core to compute the total number of virtual CPUs to expose to the instance. If unset, the number of cores is inferred from the instance\'s nominal CPU count and the underlying platform\'s SMT width. */
 	// +optional
-	VisibleCoreCount *int `json:"visibleCoreCount,omitempty"`
+	VisibleCoreCount *int64 `json:"visibleCoreCount,omitempty"`
 }
 
 type InstancetemplateAliasIpRange struct {
@@ -99,7 +99,7 @@ type InstancetemplateDisk struct {
 
 	/* Immutable. The size of the image in gigabytes. If not specified, it will inherit the size of its base image. For SCRATCH disks, the size must be one of 375 or 3000 GB, with a default of 375 GB. */
 	// +optional
-	DiskSizeGb *int `json:"diskSizeGb,omitempty"`
+	DiskSizeGb *int64 `json:"diskSizeGb,omitempty"`
 
 	/* Immutable. The Google Compute Engine disk type. Such as "pd-ssd", "local-ssd", "pd-balanced" or "pd-standard". */
 	// +optional
@@ -116,6 +116,10 @@ type InstancetemplateDisk struct {
 	/* Immutable. The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If you are attaching or creating a boot disk, this must read-write mode. */
 	// +optional
 	Mode *string `json:"mode,omitempty"`
+
+	/* Immutable. Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. Values must be between 10,000 and 120,000. For more details, see the [Extreme persistent disk documentation](https://cloud.google.com/compute/docs/disks/extreme-persistent-disk). */
+	// +optional
+	ProvisionedIops *int64 `json:"provisionedIops,omitempty"`
 
 	// +optional
 	ResourcePolicies []v1alpha1.ResourceRef `json:"resourcePolicies,omitempty"`
@@ -159,9 +163,9 @@ type InstancetemplateDiskEncryptionKey struct {
 
 type InstancetemplateGuestAccelerator struct {
 	/* Immutable. The number of the guest accelerator cards exposed to this instance. */
-	Count int `json:"count"`
+	Count int64 `json:"count"`
 
-	/* Immutable. The accelerator type resource to expose to this instance. E.g. nvidia-tesla-k80. */
+	/* Immutable. The accelerator type resource to expose to this instance. E.g. nvidia-tesla-t4. */
 	Type string `json:"type"`
 }
 
@@ -174,6 +178,10 @@ type InstancetemplateIpv6AccessConfig struct {
 	// +optional
 	ExternalIpv6PrefixLength *string `json:"externalIpv6PrefixLength,omitempty"`
 
+	/* The name of this access configuration. */
+	// +optional
+	Name *string `json:"name,omitempty"`
+
 	/* The service-level to be provided for IPv6 traffic when the subnet has an external subnet. Only PREMIUM tier is valid for IPv6. */
 	NetworkTier string `json:"networkTier"`
 
@@ -182,17 +190,30 @@ type InstancetemplateIpv6AccessConfig struct {
 	PublicPtrDomainName *string `json:"publicPtrDomainName,omitempty"`
 }
 
+type InstancetemplateLocalSsdRecoveryTimeout struct {
+	/* Immutable. Span of time that's a fraction of a second at nanosecond
+	resolution. Durations less than one second are represented
+	with a 0 seconds field and a positive nanos field. Must
+	be from 0 to 999,999,999 inclusive. */
+	// +optional
+	Nanos *int64 `json:"nanos,omitempty"`
+
+	/* Immutable. Span of time at a resolution of a second.
+	Must be from 0 to 315,576,000,000 inclusive. */
+	Seconds int64 `json:"seconds"`
+}
+
 type InstancetemplateMaxRunDuration struct {
 	/* Immutable. Span of time that's a fraction of a second at nanosecond
 	resolution. Durations less than one second are represented
 	with a 0 seconds field and a positive nanos field. Must
 	be from 0 to 999,999,999 inclusive. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Immutable. Span of time at a resolution of a second.
 	Must be from 0 to 315,576,000,000 inclusive. */
-	Seconds int `json:"seconds"`
+	Seconds int64 `json:"seconds"`
 }
 
 type InstancetemplateMetadata struct {
@@ -209,6 +230,10 @@ type InstancetemplateNetworkInterface struct {
 	// +optional
 	AliasIpRange []InstancetemplateAliasIpRange `json:"aliasIpRange,omitempty"`
 
+	/* The prefix length of the primary internal IPv6 range. */
+	// +optional
+	InternalIpv6PrefixLength *int64 `json:"internalIpv6PrefixLength,omitempty"`
+
 	/* An array of IPv6 access configurations for this interface. Currently, only one IPv6 access config, DIRECT_IPV6, is supported. If there is no ipv6AccessConfig specified, then this instance will have no external IPv6 Internet access. */
 	// +optional
 	Ipv6AccessConfig []InstancetemplateIpv6AccessConfig `json:"ipv6AccessConfig,omitempty"`
@@ -217,9 +242,17 @@ type InstancetemplateNetworkInterface struct {
 	// +optional
 	Ipv6AccessType *string `json:"ipv6AccessType,omitempty"`
 
+	/* An IPv6 internal network address for this network interface. If not specified, Google Cloud will automatically assign an internal IPv6 address from the instance's subnetwork. */
+	// +optional
+	Ipv6Address *string `json:"ipv6Address,omitempty"`
+
 	/* The name of the network_interface. */
 	// +optional
 	Name *string `json:"name,omitempty"`
+
+	/* Immutable. The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}. */
+	// +optional
+	NetworkAttachment *string `json:"networkAttachment,omitempty"`
 
 	/* Immutable. The private IP address to assign to the instance. If empty, the address will be automatically assigned. */
 	// +optional
@@ -234,7 +267,7 @@ type InstancetemplateNetworkInterface struct {
 
 	/* Immutable. The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified. */
 	// +optional
-	QueueCount *int `json:"queueCount,omitempty"`
+	QueueCount *int64 `json:"queueCount,omitempty"`
 
 	/* The stack type for this network interface to identify whether the IPv6 feature is enabled or not. If not specified, IPV4_ONLY will be used. */
 	// +optional
@@ -276,6 +309,13 @@ type InstancetemplateScheduling struct {
 	// +optional
 	InstanceTerminationAction *string `json:"instanceTerminationAction,omitempty"`
 
+	/* Specifies the maximum amount of time a Local Ssd Vm should wait while
+	recovery of the Local Ssd state is attempted. Its value should be in
+	between 0 and 168 hours with hour granularity and the default value being 1
+	hour. */
+	// +optional
+	LocalSsdRecoveryTimeout []InstancetemplateLocalSsdRecoveryTimeout `json:"localSsdRecoveryTimeout,omitempty"`
+
 	/* Specifies the frequency of planned maintenance events. The accepted values are: PERIODIC. */
 	// +optional
 	MaintenanceInterval *string `json:"maintenanceInterval,omitempty"`
@@ -286,7 +326,7 @@ type InstancetemplateScheduling struct {
 
 	/* Minimum number of cpus for the instance. */
 	// +optional
-	MinNodeCpus *int `json:"minNodeCpus,omitempty"`
+	MinNodeCpus *int64 `json:"minNodeCpus,omitempty"`
 
 	// +optional
 	NodeAffinities []InstancetemplateNodeAffinities `json:"nodeAffinities,omitempty"`
@@ -461,7 +501,7 @@ type ComputeInstanceTemplateStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	/* The URI of the created resource. */
 	// +optional
@@ -478,6 +518,13 @@ type ComputeInstanceTemplateStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcomputeinstancetemplate;gcpcomputeinstancetemplates
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ComputeInstanceTemplate is the Schema for the compute API
 // +k8s:openapi-gen=true

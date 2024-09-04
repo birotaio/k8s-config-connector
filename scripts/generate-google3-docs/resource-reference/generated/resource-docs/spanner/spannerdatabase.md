@@ -50,7 +50,7 @@
 
 <tr>
     <td>Supports IAM Conditions</td>
-    <td>No</td>
+    <td>Yes</td>
 </tr>
 
 <tr>
@@ -88,9 +88,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -101,6 +98,7 @@
 databaseDialect: string
 ddl:
 - string
+enableDropProtection: boolean
 encryptionConfig:
   kmsKeyRef:
     external: string
@@ -152,6 +150,16 @@ error in any statement, the database is not created.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>enableDropProtection</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
             <p>{% verbatim %}{% endverbatim %}</p>
         </td>
     </tr>
@@ -274,7 +282,7 @@ update the database's version_retention_period.{% endverbatim %}</p>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -400,5 +408,7 @@ spec:
   displayName: Spanner Database Dependency
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

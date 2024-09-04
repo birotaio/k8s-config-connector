@@ -6,6 +6,10 @@
 {% block body %}
 
 
+
+<code>ServiceIdentity</code> generates service identity for <a href="/iam/docs/service-agents">supported {{gcp_name_short}} services</a>.
+You can find the emails of the Google-managed service accounts in the status of a <code>ServiceIdentity</code> resource.
+
 <table>
 <thead>
 <tr>
@@ -58,20 +62,6 @@
 
 ## Custom Resource Definition Properties
 
-
-### Annotations
-<table class="properties responsive">
-<thead>
-    <tr>
-        <th colspan="2">Fields</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
-</tbody>
-</table>
 
 
 ### Spec
@@ -261,5 +251,7 @@ spec:
   resourceID: pubsub.googleapis.com
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

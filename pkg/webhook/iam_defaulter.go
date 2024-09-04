@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -40,20 +41,22 @@ type iamDefaulter struct {
 }
 
 func NewIAMDefaulter(smLoader *servicemappingloader.ServiceMappingLoader,
-	serviceMetadataLoader metadata.ServiceMetadataLoader) *iamDefaulter {
-	return &iamDefaulter{
-		smLoader:              smLoader,
-		serviceMetadataLoader: serviceMetadataLoader,
+	serviceMetadataLoader metadata.ServiceMetadataLoader) HandlerFunc {
+	return func(mgr manager.Manager) admission.Handler {
+		return &iamDefaulter{
+			smLoader:              smLoader,
+			serviceMetadataLoader: serviceMetadataLoader,
+		}
 	}
 }
 
-func (a *iamDefaulter) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (a *iamDefaulter) Handle(_ context.Context, req admission.Request) admission.Response {
 	deserializer := codecs.UniversalDeserializer()
 	obj := &unstructured.Unstructured{}
 	if _, _, err := deserializer.Decode(req.AdmissionRequest.Object.Raw, nil, obj); err != nil {
 		klog.Error(err)
 		return admission.Errored(http.StatusBadRequest,
-			fmt.Errorf("error decoding object: %v", err))
+			fmt.Errorf("error decoding object: %w", err))
 	}
 
 	if !isIAMResource(obj) {
@@ -69,7 +72,7 @@ func defaultAPIVersionForIAMResourceRef(obj *unstructured.Unstructured,
 	resourceRef, found, err := unstructured.NestedMap(obj.Object, iamResourceRefPath...)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest,
-			fmt.Errorf("error getting '%v': %v", iamResourceRefField, err))
+			fmt.Errorf("error getting '%v': %w", iamResourceRefField, err))
 	}
 	if !found {
 		return admission.Errored(http.StatusBadRequest,
@@ -94,14 +97,14 @@ func defaultAPIVersionForIAMResourceRef(obj *unstructured.Unstructured,
 	apiVersion, err := apiVersionForKind(kind, smLoader, serviceMetadataLoader)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest,
-			fmt.Errorf("error determining apiVersion for kind '%v': %v", kind, err))
+			fmt.Errorf("error determining apiVersion for kind '%v': %w", kind, err))
 	}
 
 	resourceRef["apiVersion"] = apiVersion
 	newObj := obj.DeepCopy()
 	if err := unstructured.SetNestedMap(newObj.Object, resourceRef, iamResourceRefPath...); err != nil {
 		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("error setting '%v': %v", iamResourceRefField, err))
+			fmt.Errorf("error setting '%v': %w", iamResourceRefField, err))
 	}
 	return constructPatchResponse(obj, newObj)
 

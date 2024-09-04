@@ -45,7 +45,7 @@ func Get(ctx context.Context, u *unstructured.Unstructured, smLoader *servicemap
 	}
 	location, err := getLocation(u)
 	if err != nil {
-		return "", fmt.Errorf("error getting location field for %v '%v': %v", u.GetKind(), u.GetName(), err)
+		return "", fmt.Errorf("error getting location field for %v '%v': %w", u.GetKind(), u.GetName(), err)
 	}
 	return path.Join(parentPrefix, u.GetKind(), location, u.GetName()), nil
 }
@@ -137,6 +137,9 @@ func getParentPrefix(u *unstructured.Unstructured, smLoader *servicemappingloade
 		}
 		// insert the kind of the parent to the path
 		splits := strings.Split(external, "/")
+		if len(splits) < 2 {
+			return "", fmt.Errorf("external name %q was not valid (gvk=%q, name=%q)", external, u.GroupVersionKind(), u.GetName())
+		}
 		newSplits := make([]string, 0, len(splits)+1)
 		newSplits = append(newSplits, splits[0:2]...)
 		newSplits = append(newSplits, refConfig.GVK.Kind)
@@ -266,7 +269,7 @@ func getHierarchalParentPathFromSpec(u *unstructured.Unstructured) (string, bool
 func getHierarchalParentPathFromSpecField(u *unstructured.Unstructured, refFieldName string) (string, bool, error) {
 	val, ok, err := unstructured.NestedMap(u.Object, "spec", refFieldName)
 	if err != nil {
-		return "", false, fmt.Errorf("error retrieving 'spec.%v' from unstructured with kind '%v': '%v'", refFieldName, u.GetKind(), err)
+		return "", false, fmt.Errorf("error retrieving 'spec.%v' from unstructured with kind '%v': '%w'", refFieldName, u.GetKind(), err)
 	}
 	if !ok {
 		return "", false, nil
@@ -282,11 +285,11 @@ func getHierarchalParentPathFromSpecField(u *unstructured.Unstructured, refField
 func toGeneralResourceReference(value map[string]interface{}) (v1alpha1.ResourceReference, error) {
 	bytes, err := yaml.Marshal(value)
 	if err != nil {
-		return v1alpha1.ResourceReference{}, fmt.Errorf("error marshalling '%v' to YAML: %v", value, err)
+		return v1alpha1.ResourceReference{}, fmt.Errorf("error marshalling '%v' to YAML: %w", value, err)
 	}
 	var resourceReference v1alpha1.ResourceReference
 	if err := yaml.Unmarshal(bytes, &resourceReference); err != nil {
-		return v1alpha1.ResourceReference{}, fmt.Errorf("error unmarshalling to resource reference; %v", err)
+		return v1alpha1.ResourceReference{}, fmt.Errorf("error unmarshalling to resource reference; %w", err)
 	}
 	return resourceReference, nil
 }
@@ -294,11 +297,11 @@ func toGeneralResourceReference(value map[string]interface{}) (v1alpha1.Resource
 func toIAMResourceReference(value map[string]interface{}) (iamapi.ResourceReference, error) {
 	bytes, err := yaml.Marshal(value)
 	if err != nil {
-		return iamapi.ResourceReference{}, fmt.Errorf("error marshalling '%v' to YAML: %v", value, err)
+		return iamapi.ResourceReference{}, fmt.Errorf("error marshalling '%v' to YAML: %w", value, err)
 	}
 	var resourceReference iamapi.ResourceReference
 	if err := yaml.Unmarshal(bytes, &resourceReference); err != nil {
-		return iamapi.ResourceReference{}, fmt.Errorf("error unmarshalling to resource reference; %v", err)
+		return iamapi.ResourceReference{}, fmt.Errorf("error unmarshalling to resource reference; %w", err)
 	}
 	return resourceReference, nil
 }
@@ -320,7 +323,7 @@ func getLocation(u *unstructured.Unstructured) (string, error) {
 func getStringField(u *unstructured.Unstructured, path string) (string, bool, error) {
 	val, ok, err := unstructured.NestedString(u.Object, strings.Split(path, ".")...)
 	if err != nil {
-		return "", false, fmt.Errorf("error retrieving '%v' from %v: %v", path, u.GetKind(), err)
+		return "", false, fmt.Errorf("error retrieving '%v' from %v: %w", path, u.GetKind(), err)
 	}
 	if ok {
 		return val, true, nil

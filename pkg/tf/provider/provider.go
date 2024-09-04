@@ -20,18 +20,25 @@ import (
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/deepcopy"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/krmtotf"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/version"
 	"k8s.io/klog/v2"
 
 	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/hashicorp/terraform-provider-google-beta/google-beta"
+	"github.com/hashicorp/terraform-provider-google-beta/google-beta/fwtransport"
+	"github.com/hashicorp/terraform-provider-google-beta/google-beta/provider"
+	transport_tpg "github.com/hashicorp/terraform-provider-google-beta/google-beta/transport"
 )
+
+func init() {
+	fwtransport.KCCVersion = version.GetVersion()
+}
 
 // Config holds additional configuration for the google TF provider
 type Config struct {
-	// AccessToken is the access_token to be passed to the TF provider (if non-empty),
+	// GCPAccessToken is the access_token to be passed to the TF provider (if non-empty),
 	// allowing use of a non-default OAuth2 identity
-	AccessToken string
+	GCPAccessToken string
 
 	// Scopes is the list of OAuth2 scopes to be passed to the TF provider,
 	// allowing use of non-default OAuth2 scopes. If none are specified, then
@@ -55,9 +62,21 @@ type Config struct {
 
 var DefaultConfig = NewConfig()
 
+func UnitTestConfig() Config {
+	return Config{
+		Scopes: append(deepcopy.StringSlice(transport_tpg.DefaultClientScopes),
+
+			// Needed by the KCC controller to be able to create resources that
+			// read Google Drive files.
+			"https://www.googleapis.com/auth/drive.readonly",
+		),
+		GCPAccessToken: "dummyToken",
+	}
+}
+
 func NewConfig() Config {
 	return Config{
-		Scopes: append(deepcopy.StringSlice(google.DefaultClientScopes),
+		Scopes: append(deepcopy.StringSlice(transport_tpg.DefaultClientScopes),
 
 			// Needed by the KCC controller to be able to create resources that
 			// read Google Drive files.
@@ -68,10 +87,10 @@ func NewConfig() Config {
 
 // New builds a new tfschema.Provider for the google provider.
 func New(ctx context.Context, config Config) (*tfschema.Provider, error) {
-	googleProvider := google.Provider()
+	googleProvider := provider.Provider()
 	cfgMap := map[string]interface{}{}
-	if config.AccessToken != "" {
-		cfgMap["access_token"] = config.AccessToken
+	if config.GCPAccessToken != "" {
+		cfgMap["access_token"] = config.GCPAccessToken
 	}
 
 	cfgMap["scopes"] = config.Scopes
@@ -90,6 +109,15 @@ func New(ctx context.Context, config Config) (*tfschema.Provider, error) {
 // deprecated: Prefer New and handle the error
 func NewOrLogFatal(config Config) *tfschema.Provider {
 	ctx := context.TODO()
+	p, err := New(ctx, config)
+	if err != nil {
+		klog.Fatal(err)
+	}
+	return p
+}
+
+// NewOrLogFatalWithContext Calls New with non-empty context
+func NewOrLogFatalWithContext(ctx context.Context, config Config) *tfschema.Provider {
 	p, err := New(ctx, config)
 	if err != nil {
 		klog.Fatal(err)

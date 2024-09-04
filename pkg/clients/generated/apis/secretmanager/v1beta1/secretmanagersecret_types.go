@@ -35,13 +35,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type SecretAuto struct {
+	/* The customer-managed encryption configuration of the Secret.
+	If no configuration is provided, Google-managed default
+	encryption is used. */
+	// +optional
+	CustomerManagedEncryption *SecretCustomerManagedEncryption `json:"customerManagedEncryption,omitempty"`
+}
+
 type SecretCustomerManagedEncryption struct {
 	/* Customer Managed Encryption for the secret. */
 	KmsKeyRef v1alpha1.ResourceRef `json:"kmsKeyRef"`
 }
 
 type SecretReplicas struct {
-	/* Immutable. Customer Managed Encryption for the secret. */
+	/* Customer Managed Encryption for the secret. */
 	// +optional
 	CustomerManagedEncryption *SecretCustomerManagedEncryption `json:"customerManagedEncryption,omitempty"`
 
@@ -50,11 +58,15 @@ type SecretReplicas struct {
 }
 
 type SecretReplication struct {
-	/* Immutable. The Secret will automatically be replicated without any restrictions. */
+	/* The Secret will automatically be replicated without any restrictions. */
+	// +optional
+	Auto *SecretAuto `json:"auto,omitempty"`
+
+	/* The Secret will automatically be replicated without any restrictions. */
 	// +optional
 	Automatic *bool `json:"automatic,omitempty"`
 
-	/* Immutable. The Secret will automatically be replicated without any restrictions. */
+	/* Immutable. The Secret will be replicated to the regions specified by the user. */
 	// +optional
 	UserManaged *SecretUserManaged `json:"userManaged,omitempty"`
 }
@@ -84,6 +96,23 @@ type SecretUserManaged struct {
 }
 
 type SecretManagerSecretSpec struct {
+	/* Custom metadata about the secret.
+
+	Annotations are distinct from various forms of labels. Annotations exist to allow
+	client tools to store their own state information without requiring a database.
+
+	Annotation keys must be between 1 and 63 characters long, have a UTF-8 encoding of
+	maximum 128 bytes, begin and end with an alphanumeric character ([a-z0-9A-Z]), and
+	may have dashes (-), underscores (_), dots (.), and alphanumerics in between these
+	symbols.
+
+	The total size of annotation keys and values must be less than 16KiB.
+
+	An object containing a list of "key": value pairs. Example:
+	{ "name": "wrench", "mass": "1.3kg", "count": "3" }. */
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
 	/* Timestamp in UTC when the Secret is scheduled to expire. This is always provided on output, regardless of what was sent on input.
 	A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z". */
 	// +optional
@@ -109,6 +138,18 @@ type SecretManagerSecretSpec struct {
 	A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". */
 	// +optional
 	Ttl *string `json:"ttl,omitempty"`
+
+	/* Mapping from version alias to version name.
+
+	A version alias is a string with a maximum length of 63 characters and can contain
+	uppercase and lowercase letters, numerals, and the hyphen (-) and underscore ('_')
+	characters. An alias string must start with a letter and cannot be the string
+	'latest' or 'NEW'. No more than 50 aliases can be assigned to a given secret.
+
+	An object containing a list of "key": value pairs. Example:
+	{ "name": "wrench", "mass": "1.3kg", "count": "3" }. */
+	// +optional
+	VersionAliases map[string]string `json:"versionAliases,omitempty"`
 }
 
 type SecretManagerSecretStatus struct {
@@ -126,11 +167,18 @@ type SecretManagerSecretStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpsecretmanagersecret;gcpsecretmanagersecrets
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // SecretManagerSecret is the Schema for the secretmanager API
 // +k8s:openapi-gen=true

@@ -70,9 +70,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -122,6 +119,7 @@ transferSpec:
             key: string
             name: string
     bucketName: string
+    path: string
     roleArn: string
   azureBlobStorageDataSource:
     azureCredentials:
@@ -599,6 +597,16 @@ transferSpec:
     </tr>
     <tr>
         <td>
+            <p><code>transferSpec.awsS3DataSource.path</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}S3 Bucket path in bucket to transfer.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>transferSpec.awsS3DataSource.roleArn</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -1061,7 +1069,7 @@ transferSpec:
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -1264,5 +1272,7 @@ metadata:
   name: ${PROJECT_ID?}-storagetransferjob-dep2
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

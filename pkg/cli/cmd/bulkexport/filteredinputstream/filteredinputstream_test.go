@@ -15,9 +15,11 @@
 package filteredinputstream
 
 import (
+	"context"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/asset"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	testservicemappingloader "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/servicemappingloader"
 	tfprovider "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/tf/provider"
 )
@@ -31,20 +33,23 @@ func TestServiceAccount(t *testing.T) {
 }
 
 func testAssetType(t *testing.T, assetType string, expectedResult bool) {
+	ctx := context.TODO()
+
 	smLoader := testservicemappingloader.New(t)
-	tfProvider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
+	tfProvider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
 	saKeyAsset := asset.Asset{
 		AssetType: assetType,
 	}
-	result := isAssetSupported(smLoader, tfProvider, &saKeyAsset)
+
+	config := &config.ControllerConfig{}
+
+	result := isAssetSupported(ctx, smLoader, tfProvider, config, &saKeyAsset)
 	if result != expectedResult {
 		t.Fatalf("unexpected result for service '%v' asset: got '%v', want '%v'", assetType, result, expectedResult)
 	}
 }
 
 func TestIsDefaultNetworkingAsset(t *testing.T) {
-	smLoader := testservicemappingloader.New(t)
-	tfProvider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
 	testCases := []struct {
 		Name                     string
 		Asset                    *asset.Asset
@@ -137,7 +142,7 @@ func TestIsDefaultNetworkingAsset(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			got := isDefaultNetworkingAsset(smLoader, tfProvider, tc.Asset)
+			got := isDefaultNetworkingAsset(tc.Asset)
 			if got != tc.IsDefaultNetworkingAsset {
 				t.Errorf("isDefaultNetworkingAsset(..., '%v') = '%v', want '%v'", tc.Asset, got, tc.IsDefaultNetworkingAsset)
 			}

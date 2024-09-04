@@ -17,14 +17,16 @@ package webhook
 import (
 	admissionregistration "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-type WebhookConfig struct {
+type Config struct {
 	Type           webhookType
 	Name           string
 	Path           string
-	Handler        admission.Handler
+	HandlerFunc    func(mgr manager.Manager) admission.Handler
 	FailurePolicy  admissionregistration.FailurePolicyType
 	ObjectSelector *metav1.LabelSelector
 	Rules          []admissionregistration.RuleWithOperations
@@ -37,3 +39,8 @@ const (
 	Mutating   webhookType = "Mutating"
 	Validating webhookType = "Validating"
 )
+
+func (c *Config) BuildAdmission(mgr manager.Manager) *webhook.Admission {
+	handler := c.HandlerFunc(mgr)
+	return &webhook.Admission{Handler: handler}
+}

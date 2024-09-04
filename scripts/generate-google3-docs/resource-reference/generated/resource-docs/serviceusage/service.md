@@ -80,9 +80,6 @@ do so using <code>kubectl get gcpservice</code>.
     <tr>
         <td><code>cnrm.cloud.google.com/disable-on-destroy</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -268,5 +265,7 @@ spec:
   resourceID: pubsub.googleapis.com
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

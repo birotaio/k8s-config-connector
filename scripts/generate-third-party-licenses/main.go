@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	inputDir                 = "vendor"
+	inputDir                 = "temp-vendor"
 	thirdPartyNoticeDir      = "THIRD_PARTY_NOTICES"
 	mirroredLibrarySourceDir = "MIRRORED_LIBRARY_SOURCE"
 	dirMode                  = 0700
@@ -53,7 +53,7 @@ func main() {
 	}
 
 	for _, file := range files {
-		licensePath := strings.TrimLeft(file, "vendor/")
+		licensePath := strings.TrimPrefix(file, "temp-vendor/")
 		repo, licenseFilename := splitLicensePath(licensePath)
 		licenseURL := repoToLicenseURL(repo, licenseFilename)
 		fmt.Println(licenseURL)
@@ -87,7 +87,7 @@ func main() {
 			// need to remove the actual dir so 'cp' works
 			os.Remove(outputSourceDir)
 
-			sourceDir := "vendor/" + repo
+			sourceDir := "temp-vendor/" + repo
 			cmd := exec.Command("cp", "-r", sourceDir, outputSourceDir)
 			if output, err := cmd.CombinedOutput(); err != nil {
 				fmt.Printf("error copying source code for '%v': %v", sourceDir, string(output))
@@ -167,6 +167,8 @@ func repoToLicenseURL(repo string, licenseFilename string) string {
 			return fmt.Sprintf("https://github.com/go-yaml/yaml/blob/v2.2.2/%v", licensePathInRepo)
 		case "yaml.v3":
 			return fmt.Sprintf("https://github.com/go-yaml/yaml/blob/v3/%v", licensePathInRepo)
+		case "dnaeon/go-vcr.v3":
+			return fmt.Sprintf("https://github.com/dnaeon/go-vcr/blob/v3/%v", licensePathInRepo)
 		default:
 			panic(fmt.Sprintf("unhandled domain for repo %v", repo))
 		}
@@ -174,8 +176,10 @@ func repoToLicenseURL(repo string, licenseFilename string) string {
 		return fmt.Sprintf("https://github.com/census-instrumentation/opencensus-go/blob/master/%v", licensePathInRepo)
 	case "honnef.co":
 		return fmt.Sprintf("https://github.com/dominikh/go-tools/blob/master/%v", licensePathInRepo)
+	case "go.opentelemetry.io":
+		return fmt.Sprintf("https://github.com/open-telemetry/opentelemetry-go-contrib/blob/main/%v", licensePathInRepo)
 	default:
-		panic(fmt.Sprintf("unhandled domain for repo %v", repo))
+		panic(fmt.Sprintf("unhandled domain %q for repo %q", domain, repo))
 	}
 }
 
@@ -196,8 +200,10 @@ func splitRepo(repo string) (domain string, repoRoot string, subrepoPath string)
 
 var manualLicenseURLMapping = map[string]string{
 	"bitbucket.org/creachadair/stringset":                     "https://bitbucket.org/creachadair/stringset/src/master/LICENSE",
+	"cel.dev/expr":                                            "https://github.com/google/cel-spec/blob/master/LICENSE",
 	"cloud.google.com/go":                                     "https://github.com/googleapis/google-cloud-go/blob/master/LICENSE",
 	"contrib.go.opencensus.io/exporter/prometheus":            "https://github.com/census-ecosystem/opencensus-go-exporter-prometheus/blob/master/LICENSE",
+	"dario.cat/mergo":                                         "https://github.com/darccio/mergo/blob/master/LICENSE",
 	"go.starlark.net":                                         "https://github.com/google/starlark-go/blob/master/LICENSE",
 	"gomodules.xyz/jsonpatch/v2":                              "https://https://github.com/gomodules/jsonpatch/blob/master/LICENSE",
 	"google.golang.org/api":                                   "https://github.com/googleapis/google-api-go-client/blob/master/LICENSE",
@@ -205,6 +211,9 @@ var manualLicenseURLMapping = map[string]string{
 	"google.golang.org/api/internal/third_party/uritemplates": "https://github.com/googleapis/google-api-go-client/blob/master/internal/third_party/uritemplates/LICENSE",
 	"google.golang.org/appengine":                             "https://github.com/golang/appengine/blob/master/LICENSE",
 	"google.golang.org/genproto":                              "https://github.com/google/go-genproto/blob/master/LICENSE",
+	"google.golang.org/genproto/googleapis/api":               "https://github.com/google/go-genproto/blob/master/LICENSE",
+	"google.golang.org/genproto/googleapis/api/serviceusage":  "https://github.com/google/go-genproto/blob/master/LICENSE",
+	"google.golang.org/genproto/googleapis/rpc":               "https://github.com/google/go-genproto/blob/master/LICENSE",
 	"google.golang.org/grpc":                                  "https://github.com/grpc/grpc-go/blob/master/LICENSE",
 	"google.golang.org/protobuf":                              "https://github.com/protocolbuffers/protobuf-go/blob/master/LICENSE",
 	"gopkg.in/fsnotify.v1":                                    "https://github.com/fsnotify/fsnotify/blob/master/LICENSE",

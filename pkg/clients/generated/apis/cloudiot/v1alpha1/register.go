@@ -45,7 +45,7 @@ import (
 
 var (
 	// SchemeGroupVersion is the group version used to register these objects.
-	SchemeGroupVersion = schema.GroupVersion{Group: "cloudiot.cnrm.cloud.google.com", Version: "v1beta1"}
+	SchemeGroupVersion = schema.GroupVersion{Group: "cloudiot.cnrm.cloud.google.com", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
@@ -57,6 +57,12 @@ var (
 		Group:   SchemeGroupVersion.Group,
 		Version: SchemeGroupVersion.Version,
 		Kind:    reflect.TypeOf(CloudIOTDevice{}).Name(),
+	}
+
+	CloudIOTDeviceRegistryGVK = schema.GroupVersionKind{
+		Group:   SchemeGroupVersion.Group,
+		Version: SchemeGroupVersion.Version,
+		Kind:    reflect.TypeOf(CloudIOTDeviceRegistry{}).Name(),
 	}
 
 	cloudiotAPIVersion = SchemeGroupVersion.String()

@@ -21,6 +21,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	transport_tpg "github.com/hashicorp/terraform-provider-google-beta/google-beta/transport"
+	cloudresourcemanagerv1 "google.golang.org/api/cloudresourcemanager/v1"
+	"google.golang.org/api/option"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/pkg/storage"
@@ -28,10 +36,6 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test"
 	testreconciler "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/controller/reconciler"
 	tfprovider "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/tf/provider"
-	tfgooglebeta "github.com/hashicorp/terraform-provider-google-beta/google-beta"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type httpRoundTripperKeyType int
@@ -62,24 +66,53 @@ func TestSecretManagerSecretVersion(t *testing.T) {
 	} else {
 		outputDir := filepath.Join(artifacts, "http-logs")
 
-		roundTripper = test.NewHTTPRecorder(mockCloud, outputDir)
+		roundTripper = test.NewHTTPRecorder(mockCloud, test.NewDirectoryEventSink(outputDir))
 	}
+
+	gcpHTTPClient := &http.Client{Transport: roundTripper}
 
 	h.Ctx = context.WithValue(h.Ctx, httpRoundTripperKey, roundTripper)
 
-	tfgooglebeta.DefaultHTTPClientTransformer = func(ctx context.Context, inner *http.Client) *http.Client {
+	transport_tpg.DefaultHTTPClientTransformer = func(ctx context.Context, inner *http.Client) *http.Client {
 		t := ctx.Value(httpRoundTripperKey)
 		if t != nil {
 			return &http.Client{Transport: t.(http.RoundTripper)}
 		}
 		return inner
 	}
-	tfgooglebeta.OAuth2HTTPClientTransformer = func(ctx context.Context, inner *http.Client) *http.Client {
+	transport_tpg.OAuth2HTTPClientTransformer = func(ctx context.Context, inner *http.Client) *http.Client {
 		t := ctx.Value(httpRoundTripperKey)
 		if t != nil {
 			return &http.Client{Transport: t.(http.RoundTripper)}
 		}
 		return inner
+	}
+
+	t.Logf("creating project")
+	crm, err := cloudresourcemanagerv1.NewService(h.Ctx, option.WithHTTPClient(gcpHTTPClient), option.WithAPIKey("fake"))
+	if err != nil {
+		h.Fatalf("error building cloudresourcemanagerv1 client: %v", err)
+	}
+	req := &cloudresourcemanagerv1.Project{
+		ProjectId: "mock-project",
+	}
+	op, err := crm.Projects.Create(req).Context(h.Ctx).Do()
+	if err != nil {
+		t.Fatalf("error creating project: %v", err)
+	}
+	for i := 0; i < 10; i++ {
+		if op.Done {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+		latest, err := crm.Operations.Get(op.Name).Context(h.Ctx).Do()
+		if err != nil {
+			t.Fatalf("error getting operation %q: %v", op.Name, err)
+		}
+		op = latest
+	}
+	if !op.Done {
+		t.Fatalf("expected mock create project operation to be done")
 	}
 
 	t.Logf("creating controller")
@@ -87,13 +120,13 @@ func TestSecretManagerSecretVersion(t *testing.T) {
 		MetricsBindAddress: "0",
 		NewClient:          h.NewClient,
 	})
+
 	if err != nil {
 		t.Fatalf("NewManager failed: %v", err)
 	}
 
 	t.Logf("creating tfprovider config")
-	tfConfig := tfprovider.NewConfig()
-	tfConfig.AccessToken = "dummytoken"
+	tfConfig := tfprovider.UnitTestConfig()
 
 	t.Logf("creating tfprovider")
 	tfProvider, err := tfprovider.New(h.Ctx, tfConfig)
@@ -101,9 +134,16 @@ func TestSecretManagerSecretVersion(t *testing.T) {
 		t.Fatalf("error from tfprovider.New: %v", err)
 	}
 	t.Logf("creating dclconfig")
-	dclConfig := clientconfig.NewForIntegrationTest()
+	dclOptions := clientconfig.Options{}
+	dclOptions.UserAgent = "kcc/dev"
+	dclOptions.HTTPClient = gcpHTTPClient
+	dclConfig, err := clientconfig.New(h.Ctx, dclOptions)
+	if err != nil {
+		t.Fatalf("error from clientconfig.New: %v", err)
+	}
+
 	t.Logf("creating testreconciler")
-	testhelper := testreconciler.NewForDCLAndTFTestReconciler(t, mgr, tfProvider, dclConfig)
+	testhelper := testreconciler.NewTestReconciler(t, mgr, tfProvider, dclConfig, nil)
 
 	for _, object := range objects {
 		gvk := object.GetObjectKind().GroupVersionKind()

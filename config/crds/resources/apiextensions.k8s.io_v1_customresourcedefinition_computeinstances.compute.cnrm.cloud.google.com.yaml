@@ -268,10 +268,20 @@ spec:
                           to the disk.
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
+                      resourceManagerTags:
+                        description: Immutable. A map of resource manager tags. Resource
+                          manager tag keys and values have the same definition as
+                          resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+                          and values are in the format tagValues/456. The field is
+                          ignored (both PUT & PATCH) when empty.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
                       size:
                         description: Immutable. The size of the image in gigabytes.
                         type: integer
                       sourceImageRef:
+                        description: Immutable. The image from which to initialize
+                          this disk.
                         oneOf:
                         - not:
                             required:
@@ -335,6 +345,7 @@ spec:
                       or "READ_WRITE".
                     type: string
                   sourceDiskRef:
+                    description: Immutable. The source disk used to create this disk.
                     oneOf:
                     - not:
                         required:
@@ -401,7 +412,7 @@ spec:
                       type: integer
                     type:
                       description: Immutable. The accelerator type resource exposed
-                        to this instance. E.g. nvidia-tesla-k80.
+                        to this instance. E.g. nvidia-tesla-t4.
                       type: string
                   required:
                   - count
@@ -532,6 +543,10 @@ spec:
                         - ipCidrRange
                         type: object
                       type: array
+                    internalIpv6PrefixLength:
+                      description: The prefix length of the primary internal IPv6
+                        range.
+                      type: integer
                     ipv6AccessConfig:
                       description: An array of IPv6 access configurations for this
                         interface. Currently, only one IPv6 access config, DIRECT_IPV6,
@@ -540,14 +555,22 @@ spec:
                       items:
                         properties:
                           externalIpv6:
-                            description: The first IPv6 address of the external IPv6
-                              range associated with this instance, prefix length is
-                              stored in externalIpv6PrefixLength in ipv6AccessConfig.
-                              The field is output only, an IPv6 address from a subnetwork
-                              associated with the instance will be allocated dynamically.
+                            description: Immutable. The first IPv6 address of the
+                              external IPv6 range associated with this instance, prefix
+                              length is stored in externalIpv6PrefixLength in ipv6AccessConfig.
+                              To use a static external IP address, it must be unused
+                              and in the same region as the instance's zone. If not
+                              specified, Google Cloud will automatically assign an
+                              external IPv6 address from the instance's subnetwork.
                             type: string
                           externalIpv6PrefixLength:
-                            description: The prefix length of the external IPv6 range.
+                            description: Immutable. The prefix length of the external
+                              IPv6 range.
+                            type: string
+                          name:
+                            description: Immutable. The name of this access configuration.
+                              In ipv6AccessConfigs, the recommended name is External
+                              IPv6.
                             type: string
                           networkTier:
                             description: The service-level to be provided for IPv6
@@ -566,6 +589,11 @@ spec:
                       description: One of EXTERNAL, INTERNAL to indicate whether the
                         IP can be accessed from the Internet. This field is always
                         inherited from its subnetwork.
+                      type: string
+                    ipv6Address:
+                      description: An IPv6 internal network address for this network
+                        interface. If not specified, Google Cloud will automatically
+                        assign an internal IPv6 address from the instance's subnetwork.
                       type: string
                     name:
                       description: The name of the interface.
@@ -693,6 +721,19 @@ spec:
                 required:
                 - totalEgressBandwidthTier
                 type: object
+              params:
+                description: Immutable. Stores additional params passed with the request,
+                  but not persisted as part of resource payload.
+                properties:
+                  resourceManagerTags:
+                    description: Immutable. A map of resource manager tags. Resource
+                      manager tag keys and values have the same definition as resource
+                      manager tags. Keys must be in the format tagKeys/{tag_key_id},
+                      and values are in the format tagValues/456. The field is ignored
+                      (both PUT & PATCH) when empty.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
               reservationAffinity:
                 description: Immutable. Specifies the reservations that this instance
                   can consume from.
@@ -770,6 +811,28 @@ spec:
                     description: Specifies the action GCE should take when SPOT VM
                       is preempted.
                     type: string
+                  localSsdRecoveryTimeout:
+                    description: |-
+                      Immutable. Specifies the maximum amount of time a Local Ssd Vm should wait while
+                        recovery of the Local Ssd state is attempted. Its value should be in
+                        between 0 and 168 hours with hour granularity and the default value being 1
+                        hour.
+                    properties:
+                      nanos:
+                        description: |-
+                          Immutable. Span of time that's a fraction of a second at nanosecond
+                          resolution. Durations less than one second are represented
+                          with a 0 seconds field and a positive nanos field. Must
+                          be from 0 to 999,999,999 inclusive.
+                        type: integer
+                      seconds:
+                        description: |-
+                          Immutable. Span of time at a resolution of a second.
+                          Must be from 0 to 315,576,000,000 inclusive.
+                        type: integer
+                    required:
+                    - seconds
+                    type: object
                   maintenanceInterval:
                     description: 'Specifies the frequency of planned maintenance events.
                       The accepted values are: PERIODIC.'
@@ -925,7 +988,11 @@ spec:
                 description: The CPU platform used by this instance.
                 type: string
               currentStatus:
-                description: Current status of the instance.
+                description: "\n\t\t\t\t\tCurrent status of the instance.\n\t\t\t\t\tThis
+                  could be one of the following values: PROVISIONING, STAGING, RUNNING,
+                  STOPPING, SUSPENDING, SUSPENDED, REPAIRING, and TERMINATED.\n\t\t\t\t\tFor
+                  more information about the status of the instance, see [Instance
+                  life cycle](https://cloud.google.com/compute/docs/instances/instance-life-cycle)."
                 type: string
               instanceId:
                 description: The server-assigned unique identifier of this instance.

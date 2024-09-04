@@ -18,12 +18,7 @@
 - ExpectedSkeleton: null
   ResourceConfigId: CloudIdentityGroup
   URI: "https://cloudidentity.googleapis.com/v1/groups:lookup?groupKey.id=test@example.com"
-- ExpectedSkeleton:
-    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
-    kind: Folder
-    metadata: {}
-    status:
-      name: folders/1234567890
+- ExpectedSkeleton: null
   ResourceConfigId: Folder
   URI: "https://cloudresourcemanager.googleapis.com/folders/1234567890"
 - ExpectedSkeleton:
@@ -35,14 +30,7 @@
       name: kcc-test
   ResourceConfigId: Project
   URI: "https://cloudresourcemanager.googleapis.com/v1/projects/kcc-test"
-- ExpectedSkeleton:
-    apiVersion: kms.cnrm.cloud.google.com/v1beta1
-    kind: KMSCryptoKey
-    metadata:
-      name: edagywbbqe
-    spec:
-      keyRingRef:
-        external: projects/kcc-test/locations/us-central1/keyRings/boazjqsuop
+- ExpectedSkeleton: null
   ResourceConfigId: KMSCryptoKey
   URI: "https://cloudkms.googleapis.com/v1/projects/kcc-test/locations/us-central1/keyRings/boazjqsuop/cryptoKeys/edagywbbqe"
 - ExpectedSkeleton:
@@ -68,6 +56,9 @@
   ResourceConfigId: ContainerCluster
   URI: "https://container.googleapis.com/v1/projects/kcc-test/locations/us-central1-c/clusters/twenty-namespace-big-workload"
 - ExpectedSkeleton: null
+  ResourceConfigId: ContainerAttachedCluster
+  URI: "https://us-west1-gkemulticloud.googleapis.com/v1/projects/kcc-test/locations/us-west1/attachedClusters/containerattachedcluster-test"
+- ExpectedSkeleton: null
   ResourceConfigId: ContainerNodePool
   URI: "https://container.googleapis.com/v1/projects/kcc-test/zones/us-central1-c/clusters/twenty-namespace-big-workload/nodePools/default-pool"
 - ExpectedSkeleton:
@@ -82,6 +73,28 @@
 - ExpectedSkeleton: null
   ResourceConfigId: FirestoreIndex
   URI: ""
+- ExpectedSkeleton: null
+  ResourceConfigId: AlloyDBBackup
+  URI: ""
+- ExpectedSkeleton: null
+  ResourceConfigId: AlloyDBCluster
+  URI: ""
+- ExpectedSkeleton: null
+  ResourceConfigId: AlloyDBInstance
+  URI: ""
+- ExpectedSkeleton: null
+  ResourceConfigId: AlloyDBUser
+  URI: ""
+- ExpectedSkeleton:
+    apiVersion: apikeys.cnrm.cloud.google.com/v1alpha1
+    kind: APIKeysKey
+    metadata:
+      name: keyname
+    spec:
+      projectRef:
+        external: kcc-test-project
+  ResourceConfigId: APIKeysKey
+  URI: "https://apikeys.googleapis.com/v2/projects/kcc-test-project/locations/global/keys/keyname"
 - ExpectedSkeleton:
     apiVersion: artifactregistry.cnrm.cloud.google.com/v1beta1
     kind: ArtifactRegistryRepository
@@ -300,6 +313,22 @@
       location: us-central1-a
   ResourceConfigId: ComputeNetworkEndpointGroup:zonal
   URI: "https://compute.googleapis.com/batch/compute/v1/compute/v1/projects/kcc-test/zones/us-central1-a/networkEndpointGroups/computeneg"
+- ExpectedSkeleton:
+    apiVersion: compute.cnrm.cloud.google.com/v1beta1
+    kind: ComputeNetworkFirewallPolicy
+    metadata:
+      name: networkfirewallpolicy
+    spec:
+      projectRef:
+        external: kcc-test
+  ResourceConfigId: ComputeNetworkFirewallPolicy
+  URI: "https://compute.googleapis.com/batch.compute/v1/compute/v1/projects/kcc-test/global/firewallPolicies/networkfirewallpolicy"
+- ExpectedSkeleton: null
+  ResourceConfigId: ComputeNetworkFirewallPolicyAssociation
+  URI: "https://compute.googleapis.com/batch.compute/v1/compute/v1/projects/kcc-test/global/firewallPolicies/networkfirewallpolicy/associations/networkfirewallpolicyassociation"
+- ExpectedSkeleton: null
+  ResourceConfigId: ComputeNetworkFirewallPolicyRule
+  URI: ""
 - ExpectedSkeleton: null
   ResourceConfigId: ComputeNetworkPeering
   URI: ""
@@ -733,6 +762,9 @@
         external: bigquerydatasetsamplehnf4t2squ1g1ghnendt0
   ResourceConfigId: BigQueryTable
   URI: "https://bigquery.googleapis.com/bigquery/v2/projects/kcc-test/datasets/bigquerydatasetsamplehnf4t2squ1g1ghnendt0/tables/bigquerytablesamplehnf4t2squ1g1ghnendt0"
+- ExpectedSkeleton: null
+  ResourceConfigId: BigQueryConnectionConnection
+  URI: "https://bigqueryconnection.googleapis.com/v1/projects/kcc-test/locations/us-central1/connections/my-connection"
 - ExpectedSkeleton:
     apiVersion: secretmanager.cnrm.cloud.google.com/v1beta1
     kind: SecretManagerSecret
@@ -848,6 +880,9 @@
 - ExpectedSkeleton: null
   ResourceConfigId: AccessContextManagerServicePerimeter
   URI: "https://accesscontextmanager.googleapis.com/v1/accessPolicies/578359180191/servicePerimeters/test-service-perimeter?alt=json"
+- ExpectedSkeleton: null
+  ResourceConfigId: AccessContextManagerServicePerimeterResource
+  URI: ""
 - ExpectedSkeleton:
     apiVersion: dns.cnrm.cloud.google.com/v1beta1
     kind: DNSManagedZone
@@ -951,3 +986,70 @@
       name: projects/kcc-test/locations/us-central1/namespaces/zzzzaaa/services/zzzzbbb/endpoints/endpoint-aaa
   ResourceConfigId: ServiceDirectoryEndpoint
   URI: "https://servicedirectory.googleapis.com/projects/kcc-test/locations/us-central1/namespaces/zzzzaaa/services/zzzzbbb/endpoints/endpoint-aaa"
+- ExpectedSkeleton: null
+  ResourceConfigId: RunJob
+  URI: ""
+- ExpectedSkeleton:
+    apiVersion: vpcaccess.cnrm.cloud.google.com/v1beta1
+    kind: VPCAccessConnector
+    metadata:
+      name: vpcaccessconnector-test
+    spec:
+      location: us-west2
+      projectRef:
+        external: kcc-test
+  ResourceConfigId: VPCAccessConnector:regional
+  URI: "https://vpcaccess.googleapis.com/v1/projects/kcc-test/locations/us-west2/connectors/vpcaccessconnector-test?alt=json"
+- ExpectedSkeleton: null
+  ResourceConfigId: RunService
+  URI: ""
+- ExpectedSkeleton: null
+  ResourceConfigId: CertificateManagerCertificate
+  URI: "https://certificatemanager.googleapis.com/v1/projects/kcc-test/locations/europe-west1/certificates/certificate-test?alt=json"
+- ExpectedSkeleton: null
+  ResourceConfigId: CertificateManagerCertificateMap
+  URI: "https://certificatemanager.googleapis.com/v1/projects/kcc-test/locations/global/certificateMaps/certificatemap-test?alt=json"
+- ExpectedSkeleton: null
+  ResourceConfigId: CertificateManagerCertificateMapEntry
+  URI: "https://certificatemanager.googleapis.com/v1/projects/kcc-test/locations/global/certificateMaps/certificatemap-test/certificateMapEntries/certificatemapentry-test?alt=json"
+- ExpectedSkeleton: null
+  ResourceConfigId: CertificateManagerDNSAuthorization
+  URI: "https://certificatemanager.googleapis.com/v1/projects/kcc-test/locations/global/dnsAuthorizations/dnsauthorization-test?alt=json"
+- ExpectedSkeleton: null
+  ResourceConfigId: EdgeNetworkNetwork
+  URI: ""
+- ExpectedSkeleton: null
+  ResourceConfigId: EdgeNetworkSubnet
+  URI: ""
+- ExpectedSkeleton: null
+  ResourceConfigId: EdgeContainerCluster
+  URI: "https://edgecontainer.googleapis.com/v1/projects/kcc-test/locations/us-central1/clusters/edgecontainercluster-test"
+- ExpectedSkeleton: null
+  ResourceConfigId: EdgeContainerNodePool
+  URI: "https://edgecontainer.googleapis.com/v1/projects/kcc-test/locations/us-central1/clusters/edgecontainercluster-test/nodePools/edgecontainernodepool-test"
+- ExpectedSkeleton: null
+  ResourceConfigId: EdgeContainerVpnConnection
+  URI: "https://edgecontainer.googleapis.com/v1/projects/kcc-test/locations/us-central1/vpnConnections/edgecontainervpnconnection-test"
+- ExpectedSkeleton: null # VertexAIDataset does not support import
+  ResourceConfigId: VertexAIDataset
+  URI: ""
+- ExpectedSkeleton:
+    apiVersion: vertexai.cnrm.cloud.google.com/v1beta1
+    kind: VertexAIEndpoint
+    metadata:
+      name: vertexaiendpoint-test
+    spec:
+      projectRef:
+        external: kcc-test
+      region: us-central1
+  ResourceConfigId: VertexAIEndpoint
+  URI: "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/kcc-test/locations/us-central1/endpoints/vertexaiendpoint-test"
+- ExpectedSkeleton: null # https://github.com/GoogleCloudPlatform/k8s-config-connector/pull/2244/files#r1674798837
+  ResourceConfigId: VertexAIIndex
+  URI: "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/kcc-test/locations/us-central1/indexes/vertexaiindex-test"
+- ExpectedSkeleton: null
+  ResourceConfigId: CloudIDSEndpoint
+  URI: "https://ids.googleapis.com/projects/kcc-test/locations/us-west2-a/endpoints/cloudidsendpoint-ppdtifqxy4vqi4ezx7la"
+- ExpectedSkeleton: null
+  ResourceConfigId: ComputeManagedSSLCertificate
+  URI: "https://www.googleapis.com/compute/v1/projects/kcc-test/global/sslCertificates/computemanagedsslcertificate-wj6kvvmztb67xscbzd5a"

@@ -12,6 +12,13 @@ Note: The ContainerCluster annotation can include
 If set to <code>true</code>, the <code>remove-default-node-pool</code> directive
 removes the default node pool created during cluster creation.
 
+Note: In <code>maintenancePolicy</code>, specify <code>startTime</code> and
+<code>endTime</code> in RFC3339 Zulu date format. Specify <code>recurrence</code>
+in RFC5545 RRULE format. GKE may accept other formats, but will return values in UTC,
+causing a permanent diff. For more details on how to debug and fix an issue which
+could lead to a permanent diff, please refer to the
+<a href="/config-connector/docs/troubleshooting#resource_keeps_updating_every_5-15_mins">Config Connector Troubleshooting page</a>
+
 <table>
 <thead>
 <tr>
@@ -79,9 +86,6 @@ removes the default node pool created during cluster creation.
     <tr>
         <td><code>cnrm.cloud.google.com/remove-default-node-pool</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -101,6 +105,8 @@ addonsConfig:
     enabled: boolean
   gcpFilestoreCsiDriverConfig:
     enabled: boolean
+  gcsFuseCsiDriverConfig:
+    enabled: boolean
   gkeBackupAgentConfig:
     enabled: boolean
   horizontalPodAutoscaling:
@@ -114,6 +120,7 @@ addonsConfig:
     enabled: boolean
   networkPolicyConfig:
     disabled: boolean
+allowNetAdmin: boolean
 authenticatorGroupsConfig:
   securityGroup: string
 binaryAuthorization:
@@ -180,10 +187,15 @@ dnsConfig:
   clusterDnsScope: string
 enableAutopilot: boolean
 enableBinaryAuthorization: boolean
+enableFqdnNetworkPolicy: boolean
 enableIntranodeVisibility: boolean
+enableK8sBetaApis:
+  enabledApis:
+  - string
 enableKubernetesAlpha: boolean
 enableL4IlbSubsetting: boolean
 enableLegacyAbac: boolean
+enableMultiNetworking: boolean
 enableShieldedNodes: boolean
 enableTpu: boolean
 gatewayApiConfig:
@@ -192,6 +204,9 @@ identityServiceConfig:
   enabled: boolean
 initialNodeCount: integer
 ipAllocationPolicy:
+  additionalPodRangesConfig:
+    podRangeNames:
+    - string
   clusterIpv4CidrBlock: string
   clusterSecondaryRangeName: string
   podCidrOverprovisionConfig:
@@ -240,6 +255,9 @@ meshCertificates:
   enableCertificates: boolean
 minMasterVersion: string
 monitoringConfig:
+  advancedDatapathObservabilityConfig:
+  - enableMetrics: boolean
+    relayMode: string
   enableComponents:
   - string
   managedPrometheus:
@@ -260,16 +278,22 @@ nodeConfig:
     external: string
     name: string
     namespace: string
+  confidentialNodes:
+    enabled: boolean
   diskSizeGb: integer
   diskType: string
   ephemeralStorageConfig:
     localSsdCount: integer
   ephemeralStorageLocalSsdConfig:
     localSsdCount: integer
+  fastSocket:
+    enabled: boolean
   gcfsConfig:
     enabled: boolean
   guestAccelerator:
   - count: integer
+    gpuDriverInstallationConfig:
+      gpuDriverVersion: string
     gpuPartitionSize: string
     gpuSharingConfig:
       gpuSharingStrategy: string
@@ -277,6 +301,8 @@ nodeConfig:
     type: string
   gvnic:
     enabled: boolean
+  hostMaintenancePolicy:
+    maintenanceInterval: string
   imageType: string
   kubeletConfig:
     cpuCfsQuota: boolean
@@ -286,6 +312,7 @@ nodeConfig:
   labels:
     string: string
   linuxNodeConfig:
+    cgroupMode: string
     sysctls:
       string: string
   localNvmeSsdBlockConfig:
@@ -319,6 +346,12 @@ nodeConfig:
   shieldedInstanceConfig:
     enableIntegrityMonitoring: boolean
     enableSecureBoot: boolean
+  soleTenantConfig:
+    nodeAffinity:
+    - key: string
+      operator: string
+      values:
+      - string
   spot: boolean
   tags:
   - string
@@ -379,6 +412,9 @@ resourceUsageExportConfig:
     datasetId: string
   enableNetworkEgressMetering: boolean
   enableResourceConsumptionMetering: boolean
+securityPostureConfig:
+  mode: string
+  vulnerabilityMode: string
 serviceExternalIpsConfig:
   enabled: boolean
 subnetworkRef:
@@ -486,7 +522,7 @@ workloadIdentityConfig:
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}Whether this cluster should enable the Google Compute Engine Persistent Disk Container Storage Interface (CSI) Driver. Defaults to enabled; set disabled = true to disable.{% endverbatim %}</p>
+            <p>{% verbatim %}Whether this cluster should enable the Google Compute Engine Persistent Disk Container Storage Interface (CSI) Driver. Set enabled = true to enable. The Compute Engine persistent disk CSI Driver is enabled by default on newly created clusters for the following versions: Linux clusters: GKE version 1.18.10-gke.2100 or later, or 1.19.3-gke.2100 or later.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -512,6 +548,26 @@ workloadIdentityConfig:
     <tr>
         <td>
             <p><code>addonsConfig.gcpFilestoreCsiDriverConfig.enabled</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>addonsConfig.gcsFuseCsiDriverConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The status of the GCS Fuse CSI driver addon, which allows the usage of gcs bucket as volumes. Defaults to disabled; set enabled = true to enable.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>addonsConfig.gcsFuseCsiDriverConfig.enabled</code></p>
             <p><i>Required*</i></p>
         </td>
         <td>
@@ -647,6 +703,16 @@ workloadIdentityConfig:
         <td>
             <p><code class="apitype">boolean</code></p>
             <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>allowNetAdmin</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Enable NET_ADMIN for this cluster.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1336,12 +1402,52 @@ boot disk attached to each node in the node pool.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>enableFqdnNetworkPolicy</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Whether FQDN Network Policy is enabled on this cluster.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>enableIntranodeVisibility</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">boolean</code></p>
             <p>{% verbatim %}Whether Intra-node visibility is enabled for this cluster. This makes same node pod to pod traffic visible for VPC network.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>enableK8sBetaApis</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Configuration for Kubernetes Beta APIs.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>enableK8sBetaApis.enabledApis</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}Enabled Kubernetes Beta APIs.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>enableK8sBetaApis.enabledApis[]</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1372,6 +1478,16 @@ boot disk attached to each node in the node pool.{% endverbatim %}</p>
         <td>
             <p><code class="apitype">boolean</code></p>
             <p>{% verbatim %}Whether the ABAC authorizer is enabled for this cluster. When enabled, identities in the system, including service accounts, nodes, and controllers, will have statically granted permissions beyond those provided by the RBAC configuration or IAM. Defaults to false.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>enableMultiNetworking</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Immutable. Whether multi-networking is enabled for this cluster.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1452,6 +1568,36 @@ boot disk attached to each node in the node pool.{% endverbatim %}</p>
         <td>
             <p><code class="apitype">object</code></p>
             <p>{% verbatim %}Immutable. Configuration of cluster IP allocation for VPC-native clusters. Adding this block enables IP aliasing, making the cluster VPC-native instead of routes-based.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>ipAllocationPolicy.additionalPodRangesConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}AdditionalPodRangesConfig is the configuration for additional pod secondary ranges supporting the ClusterUpdate message.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>ipAllocationPolicy.additionalPodRangesConfig.podRangeNames</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}Name for pod secondary ipv4 range which has the actual range defined ahead.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>ipAllocationPolicy.additionalPodRangesConfig.podRangeNames[]</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1956,12 +2102,52 @@ boot disk attached to each node in the node pool.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>monitoringConfig.advancedDatapathObservabilityConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}Configuration of Advanced Datapath Observability features.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>monitoringConfig.advancedDatapathObservabilityConfig[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>monitoringConfig.advancedDatapathObservabilityConfig[].enableMetrics</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Whether or not the advanced datapath metrics are enabled.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>monitoringConfig.advancedDatapathObservabilityConfig[].relayMode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Mode used to make Relay available.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>monitoringConfig.enableComponents</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">list (string)</code></p>
-            <p>{% verbatim %}GKE components exposing metrics. Valid values include SYSTEM_COMPONENTS, APISERVER, CONTROLLER_MANAGER, SCHEDULER, and WORKLOADS.{% endverbatim %}</p>
+            <p>{% verbatim %}GKE components exposing metrics. Valid values include SYSTEM_COMPONENTS, APISERVER, SCHEDULER, CONTROLLER_MANAGER, STORAGE, HPA, POD, DAEMONSET, DEPLOYMENT, STATEFULSET and WORKLOADS.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2156,6 +2342,26 @@ boot disk attached to each node in the node pool.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>nodeConfig.confidentialNodes</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Configuration for the confidential nodes feature, which makes nodes run on confidential VMs. Warning: This configuration can't be changed (or added/removed) after pool creation without deleting and recreating the entire pool.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.confidentialNodes.enabled</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Immutable. Whether Confidential Nodes feature is enabled for all nodes in this pool.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>nodeConfig.diskSizeGb</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -2216,6 +2422,26 @@ boot disk attached to each node in the node pool.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>nodeConfig.fastSocket</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Enable or disable NCCL Fast Socket in the node pool.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.fastSocket.enabled</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Whether or not NCCL Fast Socket is enabled.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>nodeConfig.gcfsConfig</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -2262,6 +2488,26 @@ boot disk attached to each node in the node pool.{% endverbatim %}</p>
         <td>
             <p><code class="apitype">integer</code></p>
             <p>{% verbatim %}Immutable. The number of the accelerator cards exposed to an instance.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.guestAccelerator[].gpuDriverInstallationConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Configuration for auto installation of GPU driver.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.guestAccelerator[].gpuDriverInstallationConfig.gpuDriverVersion</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. Mode for how the GPU driver is installed.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2332,6 +2578,26 @@ boot disk attached to each node in the node pool.{% endverbatim %}</p>
         <td>
             <p><code class="apitype">boolean</code></p>
             <p>{% verbatim %}Immutable. Whether or not gvnic is enabled.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.hostMaintenancePolicy</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. The maintenance policy for the hosts on which the GKE VMs run on.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.hostMaintenancePolicy.maintenanceInterval</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2416,8 +2682,18 @@ boot disk attached to each node in the node pool.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>nodeConfig.linuxNodeConfig.cgroupMode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}cgroupMode specifies the cgroup mode to be used on the node.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>nodeConfig.linuxNodeConfig.sysctls</code></p>
-            <p><i>Required*</i></p>
+            <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">map (key: string, value: string)</code></p>
@@ -2718,6 +2994,76 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>nodeConfig.soleTenantConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Node affinity options for sole tenant node pools.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[]</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[].key</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[].operator</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[].values</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[].values[]</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>nodeConfig.spot</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -2753,7 +3099,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">list (object)</code></p>
-            <p>{% verbatim %}Immutable. List of Kubernetes taints to be applied to each node.{% endverbatim %}</p>
+            <p>{% verbatim %}List of Kubernetes taints to be applied to each node.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2773,7 +3119,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. Effect for taint.{% endverbatim %}</p>
+            <p>{% verbatim %}Effect for taint.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2783,7 +3129,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. Key for taint.{% endverbatim %}</p>
+            <p>{% verbatim %}Key for taint.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2793,7 +3139,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. Value for taint.{% endverbatim %}</p>
+            <p>{% verbatim %}Value for taint.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -3083,7 +3429,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">boolean</code></p>
-            <p>{% verbatim %}When true, the cluster's private endpoint is used as the cluster endpoint and access through the public endpoint is disabled. When false, either endpoint can be used. This field only applies to private clusters, when enable_private_nodes is true.{% endverbatim %}</p>
+            <p>{% verbatim %}When true, the cluster's private endpoint is used as the cluster endpoint and access through the public endpoint is disabled. When false, either endpoint can be used.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -3333,6 +3679,36 @@ will be provisioned.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>securityPostureConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Defines the config needed to enable/disable features for the Security Posture API.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>securityPostureConfig.mode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Sets the mode of the Kubernetes security posture API's off-cluster features. Available options include DISABLED and BASIC.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>securityPostureConfig.vulnerabilityMode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Sets the mode of the Kubernetes security posture API's workload vulnerability scanning. Available options include VULNERABILITY_DISABLED and VULNERABILITY_BASIC.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>serviceExternalIpsConfig</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -3446,7 +3822,7 @@ Enables workload identity.{% endverbatim %}</p>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -3462,6 +3838,13 @@ endpoint: string
 labelFingerprint: string
 masterVersion: string
 observedGeneration: integer
+observedState:
+  masterAuth:
+    clientCertificate: string
+    clusterCaCertificate: string
+  privateClusterConfig:
+    privateEndpoint: string
+    publicEndpoint: string
 operation: string
 selfLink: string
 servicesIpv4Cidr: string
@@ -3550,6 +3933,55 @@ tpuIpv4CidrBlock: string
         <td>
             <p><code class="apitype">integer</code></p>
             <p>{% verbatim %}ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The observed state of the underlying GCP resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState.masterAuth</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}DEPRECATED. Basic authentication was removed for GKE cluster versions >= 1.19. The authentication information for accessing the Kubernetes master. Some values in this block are only returned by the API if your service account has permission to get credentials for your GKE cluster. If you see an unexpected diff unsetting your client cert, ensure you have the container.clusters.getCredentials permission.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState.masterAuth.clientCertificate</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Base64 encoded public certificate used by clients to authenticate to the cluster endpoint.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState.masterAuth.clusterCaCertificate</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Base64 encoded public certificate that is the root of trust for the cluster.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState.privateClusterConfig</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Configuration for private clusters, clusters with private nodes.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState.privateClusterConfig.privateEndpoint</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The internal IP address of this cluster's master endpoint.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState.privateClusterConfig.publicEndpoint</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The external IP address of this cluster's master endpoint.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -3778,5 +4210,7 @@ metadata:
   name: containercluster-dep-vpcnative
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

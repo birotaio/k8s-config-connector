@@ -39,9 +39,10 @@ func TestNewUnstructuredStreamWithPolicyMemberIAMOption(t *testing.T) {
 
 func testNewUnstructuredStreamWithIAMOption(t *testing.T, iamFormatOption string, instanceOfExpectedType interface{}) {
 	params := parameters.Parameters{
-		IAMFormat: iamFormatOption,
+		IAMFormat:      iamFormatOption,
+		GCPAccessToken: "dummyToken",
 	}
-	unstructuredStream, err := outputstream.NewUnstructuredStream(&params, tfprovider.NewOrLogFatal(tfprovider.NewConfig()),
+	unstructuredStream, err := outputstream.NewUnstructuredStream(&params, tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig()),
 		testservicemappingloader.New(t))
 	if err != nil {
 		t.Fatalf("error creating stream: %v", err)

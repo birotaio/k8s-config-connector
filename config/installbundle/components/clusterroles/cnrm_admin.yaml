@@ -56,6 +56,18 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - apikeys.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - appengine.cnrm.cloud.google.com
   resources:
   - '*'
@@ -368,6 +380,18 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - containerattached.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - datacatalog.cnrm.cloud.google.com
   resources:
   - '*'
@@ -513,6 +537,30 @@ rules:
   - delete
 - apiGroups:
   - documentai.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - edgecontainer.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - edgenetwork.cnrm.cloud.google.com
   resources:
   - '*'
   verbs:

@@ -83,7 +83,7 @@ type ConfigSensitiveParams struct {
 type ConfigValueFrom struct {
 	/* Reference to a value with the given key in the given Secret in the resource's namespace. */
 	// +optional
-	SecretKeyRef *v1alpha1.ResourceRef `json:"secretKeyRef,omitempty"`
+	SecretKeyRef *v1alpha1.SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
 type BigQueryDataTransferConfigSpec struct {
@@ -93,7 +93,7 @@ type BigQueryDataTransferConfigSpec struct {
 	just [today-1]. Only valid if the data source supports the feature.
 	Set the value to 0 to use the default value. */
 	// +optional
-	DataRefreshWindowDays *int `json:"dataRefreshWindowDays,omitempty"`
+	DataRefreshWindowDays *int64 `json:"dataRefreshWindowDays,omitempty"`
 
 	/* Immutable. The data source id. Cannot be changed once the transfer config is created. */
 	DataSourceId string `json:"dataSourceId"`
@@ -158,7 +158,7 @@ type BigQueryDataTransferConfigSpec struct {
 	// +optional
 	SensitiveParams *ConfigSensitiveParams `json:"sensitiveParams,omitempty"`
 
-	/* Immutable. Service account email. If this field is set, transfer config will
+	/* Service account email. If this field is set, transfer config will
 	be created with this service account credentials. It requires that
 	requesting user calling this API has permissions to act as this service account. */
 	// +optional
@@ -170,19 +170,27 @@ type BigQueryDataTransferConfigStatus struct {
 	   BigQueryDataTransferConfig's current state. */
 	Conditions []v1alpha1.Condition `json:"conditions,omitempty"`
 	/* The resource name of the transfer config. Transfer config names have the
-	form projects/{projectId}/locations/{location}/transferConfigs/{configId}.
-	Where configId is usually a uuid, but this is not required.
+	form projects/{projectId}/locations/{location}/transferConfigs/{configId}
+	or projects/{projectId}/transferConfigs/{configId},
+	where configId is usually a uuid, but this is not required.
 	The name is ignored when creating a transfer config. */
 	// +optional
 	Name *string `json:"name,omitempty"`
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpbigquerydatatransferconfig;gcpbigquerydatatransferconfigs
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=alpha";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // BigQueryDataTransferConfig is the Schema for the bigquerydatatransfer API
 // +k8s:openapi-gen=true

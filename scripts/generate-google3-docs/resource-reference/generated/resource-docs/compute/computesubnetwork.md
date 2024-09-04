@@ -88,9 +88,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -175,9 +172,10 @@ cannot enable direct path. Possible values: ["EXTERNAL", "INTERNAL"].{% endverba
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}Denotes the logging options for the subnetwork flow logs. If logging is enabled
-logs will be exported to Stackdriver. This field cannot be set if the 'purpose' of this
-subnetwork is 'INTERNAL_HTTPS_LOAD_BALANCER'.{% endverbatim %}</p>
+            <p>{% verbatim %}This field denotes the VPC flow logging options for this subnetwork. If
+logging is enabled, logs are exported to Cloud Logging. Flow logging
+isn't supported if the subnet 'purpose' field is set to subnetwork is
+'REGIONAL_MANAGED_PROXY' or 'GLOBAL_MANAGED_PROXY'.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -321,11 +319,12 @@ access Google APIs and services by using Private Google Access.{% endverbatim %}
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. The purpose of the resource. This field can be either 'PRIVATE_RFC_1918', 'INTERNAL_HTTPS_LOAD_BALANCER' or 'REGIONAL_MANAGED_PROXY'.
-A subnetwork with purpose set to 'INTERNAL_HTTPS_LOAD_BALANCER' is a user-created subnetwork that is reserved for Internal HTTP(S) Load Balancing.
-A subnetwork in a given region with purpose set to 'REGIONAL_MANAGED_PROXY' is a proxy-only subnet and is shared between all the regional Envoy-based load balancers.
-If unspecified, the purpose defaults to 'PRIVATE_RFC_1918'.
-The enableFlowLogs field isn't supported with the purpose field set to 'INTERNAL_HTTPS_LOAD_BALANCER'.{% endverbatim %}</p>
+            <p>{% verbatim %}Immutable. The purpose of the resource. This field can be either 'PRIVATE_RFC_1918', 'REGIONAL_MANAGED_PROXY', 'GLOBAL_MANAGED_PROXY', or 'PRIVATE_SERVICE_CONNECT'.
+A subnet with purpose set to 'REGIONAL_MANAGED_PROXY' is a user-created subnetwork that is reserved for regional Envoy-based load balancers.
+A subnetwork in a given region with purpose set to 'GLOBAL_MANAGED_PROXY' is a proxy-only subnet and is shared between all the cross-regional Envoy-based load balancers.
+A subnetwork with purpose set to 'PRIVATE_SERVICE_CONNECT' reserves the subnet for hosting a Private Service Connect published service.
+Note that 'REGIONAL_MANAGED_PROXY' is the preferred setting for all regional Envoy load balancers.
+If unspecified, the purpose defaults to 'PRIVATE_RFC_1918'.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -356,11 +355,10 @@ The enableFlowLogs field isn't supported with the purpose field set to 'INTERNAL
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}The role of subnetwork.
+Currently, this field is only used when 'purpose' is 'REGIONAL_MANAGED_PROXY'.
 The value can be set to 'ACTIVE' or 'BACKUP'.
-An 'ACTIVE' subnetwork is one that is currently being used.
-A 'BACKUP' subnetwork is one that is ready to be promoted to 'ACTIVE' or is currently draining.
-
-Subnetwork role must be specified when purpose is set to 'INTERNAL_HTTPS_LOAD_BALANCER' or 'REGIONAL_MANAGED_PROXY'. Possible values: ["ACTIVE", "BACKUP"].{% endverbatim %}</p>
+An 'ACTIVE' subnetwork is one that is currently being used for Envoy-based load balancers in a region.
+A 'BACKUP' subnetwork is one that is ready to be promoted to 'ACTIVE' or is currently draining. Possible values: ["ACTIVE", "BACKUP"].{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -424,7 +422,7 @@ If not specified IPV4_ONLY will be used. Possible values: ["IPV4_ONLY", "IPV4_IP
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -440,6 +438,7 @@ creationTimestamp: string
 externalIpv6Prefix: string
 fingerprint: string
 gatewayAddress: string
+internalIpv6Prefix: string
 ipv6CidrRange: string
 observedGeneration: integer
 selfLink: string
@@ -531,6 +530,13 @@ outside this subnetwork.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
+        <td><code>internalIpv6Prefix</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The internal IPv6 address range that is assigned to this subnetwork.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
         <td><code>ipv6CidrRange</code></td>
         <td>
             <p><code class="apitype">string</code></p>
@@ -599,5 +605,7 @@ spec:
   autoCreateSubnetworks: false
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

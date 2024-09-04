@@ -65,6 +65,14 @@ type KeyTestingOptions struct {
 	TestingScore *float64 `json:"testingScore,omitempty"`
 }
 
+type KeyWafSettings struct {
+	/* Immutable. Supported WAF features. For more information, see https://cloud.google.com/recaptcha-enterprise/docs/usecase#comparison_of_features. Possible values: CHALLENGE_PAGE, SESSION_TOKEN, ACTION_TOKEN, EXPRESS */
+	WafFeature string `json:"wafFeature"`
+
+	/* Immutable. The WAF service that uses this key. Possible values: CA, FASTLY */
+	WafService string `json:"wafService"`
+}
+
 type KeyWebSettings struct {
 	/* If set to true, it means allowed_domains will not be enforced. */
 	// +optional
@@ -109,6 +117,10 @@ type RecaptchaEnterpriseKeySpec struct {
 	// +optional
 	TestingOptions *KeyTestingOptions `json:"testingOptions,omitempty"`
 
+	/* Immutable. Settings specific to keys that can be used for WAF (Web Application Firewall). */
+	// +optional
+	WafSettings *KeyWafSettings `json:"wafSettings,omitempty"`
+
 	/* Settings for keys that can be used by websites. */
 	// +optional
 	WebSettings *KeyWebSettings `json:"webSettings,omitempty"`
@@ -124,11 +136,18 @@ type RecaptchaEnterpriseKeyStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcprecaptchaenterprisekey;gcprecaptchaenterprisekeys
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/dcl2crd=true";"cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // RecaptchaEnterpriseKey is the Schema for the recaptchaenterprise API
 // +k8s:openapi-gen=true

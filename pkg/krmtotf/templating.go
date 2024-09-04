@@ -179,7 +179,7 @@ func expandFieldTemplate(template string, r *Resource, c client.Client, smLoader
 		if val, exists, _ := unstructured.NestedString(r.Spec, strings.Split(path, ".")...); exists {
 			return val
 		}
-		if val, exists, _ := unstructured.NestedString(r.Status, strings.Split(path, ".")...); exists {
+		if val, exists, _ := unstructured.NestedString(r.GetStatusOrObservedState(), strings.Split(path, ".")...); exists {
 			return val
 		}
 		if isRequired {
@@ -215,7 +215,7 @@ func getValueFromReference(refConfig *corekccv1alpha1.ReferenceConfig, r *Resour
 	pathToRef := getPathToReferenceKey(refConfig)
 	refObj, ok, err := unstructured.NestedMap(r.Spec, pathToRef...)
 	if err != nil {
-		return "", false, fmt.Errorf("error getting reference object '%v': %v", strings.Join(pathToRef, "."), err)
+		return "", false, fmt.Errorf("error getting reference object '%v': %w", strings.Join(pathToRef, "."), err)
 	}
 	if !ok {
 		return "", false, nil

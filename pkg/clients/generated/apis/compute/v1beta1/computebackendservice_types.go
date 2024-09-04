@@ -92,7 +92,7 @@ type BackendserviceBackend struct {
 	of maxConnectionsPerInstance or maxConnectionsPerEndpoint,
 	as appropriate for group type, must be set. */
 	// +optional
-	MaxConnections *int `json:"maxConnections,omitempty"`
+	MaxConnections *int64 `json:"maxConnections,omitempty"`
 
 	/* The max number of simultaneous connections that a single backend
 	network endpoint can handle. This is used to calculate the
@@ -102,7 +102,7 @@ type BackendserviceBackend struct {
 	For CONNECTION mode, either
 	maxConnections or maxConnectionsPerEndpoint must be set. */
 	// +optional
-	MaxConnectionsPerEndpoint *int `json:"maxConnectionsPerEndpoint,omitempty"`
+	MaxConnectionsPerEndpoint *int64 `json:"maxConnectionsPerEndpoint,omitempty"`
 
 	/* The max number of simultaneous connections that a single
 	backend instance can handle. This is used to calculate the
@@ -112,7 +112,7 @@ type BackendserviceBackend struct {
 	For CONNECTION mode, either maxConnections or
 	maxConnectionsPerInstance must be set. */
 	// +optional
-	MaxConnectionsPerInstance *int `json:"maxConnectionsPerInstance,omitempty"`
+	MaxConnectionsPerInstance *int64 `json:"maxConnectionsPerInstance,omitempty"`
 
 	/* The max requests per second (RPS) of the group.
 
@@ -121,7 +121,7 @@ type BackendserviceBackend struct {
 	of maxRatePerInstance or maxRatePerEndpoint, as appropriate for
 	group type, must be set. */
 	// +optional
-	MaxRate *int `json:"maxRate,omitempty"`
+	MaxRate *int64 `json:"maxRate,omitempty"`
 
 	/* The max requests per second (RPS) that a single backend network
 	endpoint can handle. This is used to calculate the capacity of
@@ -148,11 +148,16 @@ type BackendserviceBaseEjectionTime struct {
 	less than one second are represented with a 0 'seconds' field and a positive
 	'nanos' field. Must be from 0 to 999,999,999 inclusive. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Span of time at a resolution of a second. Must be from 0 to 315,576,000,000
 	inclusive. */
-	Seconds int `json:"seconds"`
+	Seconds int64 `json:"seconds"`
+}
+
+type BackendserviceBypassCacheOnRequestHeaders struct {
+	/* The header field name to match on when bypassing cache. Values are case-insensitive. */
+	HeaderName string `json:"headerName"`
 }
 
 type BackendserviceCacheKeyPolicy struct {
@@ -203,6 +208,11 @@ type BackendserviceCacheKeyPolicy struct {
 }
 
 type BackendserviceCdnPolicy struct {
+	/* Bypass the cache when the specified request headers are matched - e.g. Pragma or Authorization headers. Up to 5 headers can be specified.
+	The cache is bypassed for all cdnPolicy.cacheMode settings. */
+	// +optional
+	BypassCacheOnRequestHeaders []BackendserviceBypassCacheOnRequestHeaders `json:"bypassCacheOnRequestHeaders,omitempty"`
+
 	/* The CacheKeyPolicy for this CdnPolicy. */
 	// +optional
 	CacheKeyPolicy *BackendserviceCacheKeyPolicy `json:"cacheKeyPolicy,omitempty"`
@@ -214,16 +224,16 @@ type BackendserviceCdnPolicy struct {
 
 	/* Specifies the maximum allowed TTL for cached content served by this origin. */
 	// +optional
-	ClientTtl *int `json:"clientTtl,omitempty"`
+	ClientTtl *int64 `json:"clientTtl,omitempty"`
 
 	/* Specifies the default TTL for cached content served by this origin for responses
 	that do not have an existing valid TTL (max-age or s-max-age). */
 	// +optional
-	DefaultTtl *int `json:"defaultTtl,omitempty"`
+	DefaultTtl *int64 `json:"defaultTtl,omitempty"`
 
 	/* Specifies the maximum allowed TTL for cached content served by this origin. */
 	// +optional
-	MaxTtl *int `json:"maxTtl,omitempty"`
+	MaxTtl *int64 `json:"maxTtl,omitempty"`
 
 	/* Negative caching allows per-status code TTLs to be set, in order to apply fine-grained caching for common errors or redirects. */
 	// +optional
@@ -236,7 +246,7 @@ type BackendserviceCdnPolicy struct {
 
 	/* Serve existing content from the cache (if available) when revalidating content with the origin, or when an error is encountered when refreshing the cache. */
 	// +optional
-	ServeWhileStale *int `json:"serveWhileStale,omitempty"`
+	ServeWhileStale *int64 `json:"serveWhileStale,omitempty"`
 
 	/* Maximum number of seconds the response to a signed URL request
 	will be considered fresh, defaults to 1hr (3600s). After this
@@ -249,7 +259,7 @@ type BackendserviceCdnPolicy struct {
 	existing Cache-Control header. The actual headers served in
 	responses will not be altered. */
 	// +optional
-	SignedUrlCacheMaxAgeSec *int `json:"signedUrlCacheMaxAgeSec,omitempty"`
+	SignedUrlCacheMaxAgeSec *int64 `json:"signedUrlCacheMaxAgeSec,omitempty"`
 }
 
 type BackendserviceCircuitBreakers struct {
@@ -260,29 +270,29 @@ type BackendserviceCircuitBreakers struct {
 	/* The maximum number of connections to the backend cluster.
 	Defaults to 1024. */
 	// +optional
-	MaxConnections *int `json:"maxConnections,omitempty"`
+	MaxConnections *int64 `json:"maxConnections,omitempty"`
 
 	/* The maximum number of pending requests to the backend cluster.
 	Defaults to 1024. */
 	// +optional
-	MaxPendingRequests *int `json:"maxPendingRequests,omitempty"`
+	MaxPendingRequests *int64 `json:"maxPendingRequests,omitempty"`
 
 	/* The maximum number of parallel requests to the backend cluster.
 	Defaults to 1024. */
 	// +optional
-	MaxRequests *int `json:"maxRequests,omitempty"`
+	MaxRequests *int64 `json:"maxRequests,omitempty"`
 
 	/* Maximum requests for a single backend connection. This parameter
 	is respected by both the HTTP/1.1 and HTTP/2 implementations. If
 	not specified, there is no limit. Setting this parameter to 1
 	will effectively disable keep alive. */
 	// +optional
-	MaxRequestsPerConnection *int `json:"maxRequestsPerConnection,omitempty"`
+	MaxRequestsPerConnection *int64 `json:"maxRequestsPerConnection,omitempty"`
 
 	/* The maximum number of parallel retries to the backend cluster.
 	Defaults to 3. */
 	// +optional
-	MaxRetries *int `json:"maxRetries,omitempty"`
+	MaxRetries *int64 `json:"maxRetries,omitempty"`
 }
 
 type BackendserviceConnectTimeout struct {
@@ -291,11 +301,11 @@ type BackendserviceConnectTimeout struct {
 	with a 0 seconds field and a positive nanos field. Must
 	be from 0 to 999,999,999 inclusive. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Span of time at a resolution of a second.
 	Must be from 0 to 315,576,000,000 inclusive. */
-	Seconds int `json:"seconds"`
+	Seconds int64 `json:"seconds"`
 }
 
 type BackendserviceConnectionTrackingPolicy struct {
@@ -318,6 +328,10 @@ type BackendserviceConnectionTrackingPolicy struct {
 	// +optional
 	ConnectionPersistenceOnUnhealthyBackends *string `json:"connectionPersistenceOnUnhealthyBackends,omitempty"`
 
+	/* Enable Strong Session Affinity for Network Load Balancing. This option is not available publicly. */
+	// +optional
+	EnableStrongAffinity *bool `json:"enableStrongAffinity,omitempty"`
+
 	/* Specifies how long to keep a Connection Tracking entry while there is
 	no matching traffic (in seconds).
 
@@ -325,7 +339,7 @@ type BackendserviceConnectionTrackingPolicy struct {
 
 	For NLB the minimum(default) is 60 seconds and the maximum is 16 hours. */
 	// +optional
-	IdleTimeoutSec *int `json:"idleTimeoutSec,omitempty"`
+	IdleTimeoutSec *int64 `json:"idleTimeoutSec,omitempty"`
 
 	/* Specifies the key used for connection tracking. There are two options:
 	'PER_CONNECTION': The Connection Tracking is performed as per the
@@ -357,7 +371,7 @@ type BackendserviceConsistentHash struct {
 	virtual node.
 	Defaults to 1024. */
 	// +optional
-	MinimumRingSize *int `json:"minimumRingSize,omitempty"`
+	MinimumRingSize *int64 `json:"minimumRingSize,omitempty"`
 }
 
 type BackendserviceCustomPolicy struct {
@@ -462,11 +476,11 @@ type BackendserviceInterval struct {
 	less than one second are represented with a 0 'seconds' field and a positive
 	'nanos' field. Must be from 0 to 999,999,999 inclusive. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Span of time at a resolution of a second. Must be from 0 to 315,576,000,000
 	inclusive. */
-	Seconds int `json:"seconds"`
+	Seconds int64 `json:"seconds"`
 }
 
 type BackendserviceLocalityLbPolicies struct {
@@ -497,12 +511,12 @@ type BackendserviceNegativeCachingPolicy struct {
 	/* The HTTP status code to define a TTL against. Only HTTP status codes 300, 301, 308, 404, 405, 410, 421, 451 and 501
 	can be specified as values, and you cannot specify a status code more than once. */
 	// +optional
-	Code *int `json:"code,omitempty"`
+	Code *int64 `json:"code,omitempty"`
 
 	/* The TTL (in seconds) for which to cache responses with the corresponding status code. The maximum allowed value is 1800s
 	(30 minutes), noting that infrequently accessed objects may be evicted from the cache before the defined TTL. */
 	// +optional
-	Ttl *int `json:"ttl,omitempty"`
+	Ttl *BackendserviceTtl `json:"ttl,omitempty"`
 }
 
 type BackendserviceOauth2ClientSecret struct {
@@ -526,31 +540,31 @@ type BackendserviceOutlierDetection struct {
 	backend host is accessed over HTTP, a 5xx return code qualifies as an error.
 	Defaults to 5. */
 	// +optional
-	ConsecutiveErrors *int `json:"consecutiveErrors,omitempty"`
+	ConsecutiveErrors *int64 `json:"consecutiveErrors,omitempty"`
 
 	/* The number of consecutive gateway failures (502, 503, 504 status or connection
 	errors that are mapped to one of those status codes) before a consecutive
 	gateway failure ejection occurs. Defaults to 5. */
 	// +optional
-	ConsecutiveGatewayFailure *int `json:"consecutiveGatewayFailure,omitempty"`
+	ConsecutiveGatewayFailure *int64 `json:"consecutiveGatewayFailure,omitempty"`
 
 	/* The percentage chance that a host will be actually ejected when an outlier
 	status is detected through consecutive 5xx. This setting can be used to disable
 	ejection or to ramp it up slowly. Defaults to 100. */
 	// +optional
-	EnforcingConsecutiveErrors *int `json:"enforcingConsecutiveErrors,omitempty"`
+	EnforcingConsecutiveErrors *int64 `json:"enforcingConsecutiveErrors,omitempty"`
 
 	/* The percentage chance that a host will be actually ejected when an outlier
 	status is detected through consecutive gateway failures. This setting can be
 	used to disable ejection or to ramp it up slowly. Defaults to 0. */
 	// +optional
-	EnforcingConsecutiveGatewayFailure *int `json:"enforcingConsecutiveGatewayFailure,omitempty"`
+	EnforcingConsecutiveGatewayFailure *int64 `json:"enforcingConsecutiveGatewayFailure,omitempty"`
 
 	/* The percentage chance that a host will be actually ejected when an outlier
 	status is detected through success rate statistics. This setting can be used to
 	disable ejection or to ramp it up slowly. Defaults to 100. */
 	// +optional
-	EnforcingSuccessRate *int `json:"enforcingSuccessRate,omitempty"`
+	EnforcingSuccessRate *int64 `json:"enforcingSuccessRate,omitempty"`
 
 	/* Time interval between ejection sweep analysis. This can result in both new
 	ejections as well as hosts being returned to service. Defaults to 10 seconds. */
@@ -560,14 +574,14 @@ type BackendserviceOutlierDetection struct {
 	/* Maximum percentage of hosts in the load balancing pool for the backend service
 	that can be ejected. Defaults to 10%. */
 	// +optional
-	MaxEjectionPercent *int `json:"maxEjectionPercent,omitempty"`
+	MaxEjectionPercent *int64 `json:"maxEjectionPercent,omitempty"`
 
 	/* The number of hosts in a cluster that must have enough request volume to detect
 	success rate outliers. If the number of hosts is less than this setting, outlier
 	detection via success rate statistics is not performed for any host in the
 	cluster. Defaults to 5. */
 	// +optional
-	SuccessRateMinimumHosts *int `json:"successRateMinimumHosts,omitempty"`
+	SuccessRateMinimumHosts *int64 `json:"successRateMinimumHosts,omitempty"`
 
 	/* The minimum number of total requests that must be collected in one interval (as
 	defined by the interval duration above) to include this host in success rate
@@ -575,7 +589,7 @@ type BackendserviceOutlierDetection struct {
 	detection via success rate statistics is not performed for that host. Defaults
 	to 100. */
 	// +optional
-	SuccessRateRequestVolume *int `json:"successRateRequestVolume,omitempty"`
+	SuccessRateRequestVolume *int64 `json:"successRateRequestVolume,omitempty"`
 
 	/* This factor is used to determine the ejection threshold for success rate outlier
 	ejection. The ejection threshold is the difference between the mean success
@@ -584,7 +598,7 @@ type BackendserviceOutlierDetection struct {
 	by a thousand to get a double. That is, if the desired factor is 1.9, the
 	runtime value should be 1900. Defaults to 1900. */
 	// +optional
-	SuccessRateStdevFactor *int `json:"successRateStdevFactor,omitempty"`
+	SuccessRateStdevFactor *int64 `json:"successRateStdevFactor,omitempty"`
 }
 
 type BackendservicePolicy struct {
@@ -650,17 +664,17 @@ type BackendserviceTtl struct {
 	with a 0 seconds field and a positive nanos field. Must
 	be from 0 to 999,999,999 inclusive. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Span of time at a resolution of a second.
 	Must be from 0 to 315,576,000,000 inclusive. */
-	Seconds int `json:"seconds"`
+	Seconds int64 `json:"seconds"`
 }
 
 type BackendserviceValueFrom struct {
 	/* Reference to a value with the given key in the given Secret in the resource's namespace. */
 	// +optional
-	SecretKeyRef *v1alpha1.ResourceRef `json:"secretKeyRef,omitempty"`
+	SecretKeyRef *v1alpha1.SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
 type ComputeBackendServiceSpec struct {
@@ -671,7 +685,7 @@ type ComputeBackendServiceSpec struct {
 
 	When the load balancing scheme is INTERNAL, this field is not used. */
 	// +optional
-	AffinityCookieTtlSec *int `json:"affinityCookieTtlSec,omitempty"`
+	AffinityCookieTtlSec *int64 `json:"affinityCookieTtlSec,omitempty"`
 
 	/* The set of backends that serve this BackendService. */
 	// +optional
@@ -693,7 +707,7 @@ type ComputeBackendServiceSpec struct {
 	/* Time for which instance will be drained (not accept new
 	connections, but still work to finish started). */
 	// +optional
-	ConnectionDrainingTimeoutSec *int `json:"connectionDrainingTimeoutSec,omitempty"`
+	ConnectionDrainingTimeoutSec *int64 `json:"connectionDrainingTimeoutSec,omitempty"`
 
 	/* Connection Tracking configuration for this BackendService.
 	This is available only for Layer 4 Internal Load Balancing and
@@ -749,7 +763,7 @@ type ComputeBackendServiceSpec struct {
 	/* Immutable. Indicates whether the backend service will be used with internal or
 	external load balancing. A backend service created for one type of
 	load balancing cannot be used with the other. For more information, refer to
-	[Choosing a load balancer](https://cloud.google.com/load-balancing/docs/backend-service). Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL_SELF_MANAGED", "EXTERNAL_MANAGED"]. */
+	[Choosing a load balancer](https://cloud.google.com/load-balancing/docs/backend-service). Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL_SELF_MANAGED", "INTERNAL_MANAGED", "EXTERNAL_MANAGED"]. */
 	// +optional
 	LoadBalancingScheme *string `json:"loadBalancingScheme,omitempty"`
 
@@ -851,13 +865,19 @@ type ComputeBackendServiceSpec struct {
 
 	/* The protocol this BackendService uses to communicate with backends.
 	The default is HTTP. **NOTE**: HTTP2 is only valid for beta HTTP/2 load balancer
-	types and may result in errors if used with the GA API. Possible values: ["HTTP", "HTTPS", "HTTP2", "TCP", "SSL", "GRPC"]. */
+	types and may result in errors if used with the GA API. **NOTE**: With protocol “UNSPECIFIED”,
+	the backend service can be used by Layer 4 Internal Load Balancing or Network Load Balancing
+	with TCP/UDP/L3_DEFAULT Forwarding Rule protocol. Possible values: ["HTTP", "HTTPS", "HTTP2", "TCP", "SSL", "GRPC", "UNSPECIFIED"]. */
 	// +optional
 	Protocol *string `json:"protocol,omitempty"`
 
 	/* Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default. */
 	// +optional
 	ResourceID *string `json:"resourceID,omitempty"`
+
+	/* The security policy associated with this backend service. */
+	// +optional
+	SecurityPolicy *string `json:"securityPolicy,omitempty"`
 
 	/* The security policy associated with this backend service. */
 	// +optional
@@ -882,7 +902,7 @@ type ComputeBackendServiceSpec struct {
 	/* How many seconds to wait for the backend before considering it a
 	failed request. Default is 30 seconds. Valid range is [1, 86400]. */
 	// +optional
-	TimeoutSec *int `json:"timeoutSec,omitempty"`
+	TimeoutSec *int64 `json:"timeoutSec,omitempty"`
 }
 
 type ComputeBackendServiceStatus struct {
@@ -900,11 +920,11 @@ type ComputeBackendServiceStatus struct {
 
 	/* The unique identifier for the resource. This identifier is defined by the server. */
 	// +optional
-	GeneratedId *int `json:"generatedId,omitempty"`
+	GeneratedId *int64 `json:"generatedId,omitempty"`
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	// +optional
 	SelfLink *string `json:"selfLink,omitempty"`
@@ -912,6 +932,13 @@ type ComputeBackendServiceStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcomputebackendservice;gcpcomputebackendservices
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ComputeBackendService is the Schema for the compute API
 // +k8s:openapi-gen=true

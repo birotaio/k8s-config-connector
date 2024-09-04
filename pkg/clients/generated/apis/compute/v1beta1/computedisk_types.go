@@ -35,6 +35,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type DiskAsyncPrimaryDisk struct {
+	/* Immutable. Primary disk for asynchronous disk replication. */
+	DiskRef v1alpha1.ResourceRef `json:"diskRef"`
+}
+
 type DiskDiskEncryptionKey struct {
 	/* The encryption key used to encrypt the disk. Your project's Compute
 	Engine System service account
@@ -65,6 +70,11 @@ type DiskDiskEncryptionKey struct {
 	encryption key that protects this resource. */
 	// +optional
 	Sha256 *string `json:"sha256,omitempty"`
+}
+
+type DiskGuestOsFeatures struct {
+	/* Immutable. The type of supported feature. Read [Enabling guest operating system features](https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features) to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE"]. */
+	Type string `json:"type"`
 }
 
 type DiskRawKey struct {
@@ -142,10 +152,14 @@ type DiskSourceSnapshotEncryptionKey struct {
 type DiskValueFrom struct {
 	/* Reference to a value with the given key in the given Secret in the resource's namespace. */
 	// +optional
-	SecretKeyRef *v1alpha1.ResourceRef `json:"secretKeyRef,omitempty"`
+	SecretKeyRef *v1alpha1.SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
 type ComputeDiskSpec struct {
+	/* Immutable. A nested object resource. */
+	// +optional
+	AsyncPrimaryDisk *DiskAsyncPrimaryDisk `json:"asyncPrimaryDisk,omitempty"`
+
 	/* Immutable. An optional description of this resource. Provide this property when
 	you create the resource. */
 	// +optional
@@ -166,13 +180,27 @@ type ComputeDiskSpec struct {
 	// +optional
 	DiskEncryptionKey *DiskDiskEncryptionKey `json:"diskEncryptionKey,omitempty"`
 
+	/* Immutable. Whether this disk is using confidential compute mode.
+	Note: Only supported on hyperdisk skus, disk_encryption_key is required when setting to true. */
+	// +optional
+	EnableConfidentialCompute *bool `json:"enableConfidentialCompute,omitempty"`
+
+	/* Immutable. A list of features to enable on the guest operating system.
+	Applicable only for bootable disks. */
+	// +optional
+	GuestOsFeatures []DiskGuestOsFeatures `json:"guestOsFeatures,omitempty"`
+
 	/* The image from which to initialize this disk. */
 	// +optional
 	ImageRef *v1alpha1.ResourceRef `json:"imageRef,omitempty"`
 
-	/* DEPRECATED. This field is no longer in use, disk interfaces will be automatically determined on attachment. To resolve this issue, remove this field from your config. Immutable. Specifies the disk interface to use for attaching this disk, which is either SCSI or NVME. The default is SCSI. */
+	/* DEPRECATED. `interface` is deprecated. This field is no longer used and can be safely removed from your configurations; disk interfaces are automatically determined on attachment. Immutable. Specifies the disk interface to use for attaching this disk, which is either SCSI or NVME. The default is SCSI. */
 	// +optional
 	Interface *string `json:"interface,omitempty"`
+
+	/* Immutable. Any applicable license URI. */
+	// +optional
+	Licenses []string `json:"licenses,omitempty"`
 
 	/* Location represents the geographical location of the ComputeDisk. Specify a region name or a zone name. Reference: GCP definition of regions/zones (https://cloud.google.com/compute/docs/regions-zones/) */
 	Location string `json:"location"`
@@ -187,15 +215,23 @@ type ComputeDiskSpec struct {
 	If an unsupported value is requested, the error message will list
 	the supported values for the caller's project. */
 	// +optional
-	PhysicalBlockSizeBytes *int `json:"physicalBlockSizeBytes,omitempty"`
+	PhysicalBlockSizeBytes *int64 `json:"physicalBlockSizeBytes,omitempty"`
 
 	/* The project that this resource belongs to. */
 	// +optional
 	ProjectRef *v1alpha1.ResourceRef `json:"projectRef,omitempty"`
 
-	/* Immutable. Indicates how many IOPS must be provisioned for the disk. */
+	/* Indicates how many IOPS must be provisioned for the disk.
+	Note: Updating currently is only supported by hyperdisk skus without the need to delete and recreate the disk, hyperdisk
+	allows for an update of IOPS every 4 hours. To update your hyperdisk more frequently, you'll need to manually delete and recreate it. */
 	// +optional
-	ProvisionedIops *int `json:"provisionedIops,omitempty"`
+	ProvisionedIops *int64 `json:"provisionedIops,omitempty"`
+
+	/* Indicates how much Throughput must be provisioned for the disk.
+	Note: Updating currently is only supported by hyperdisk skus without the need to delete and recreate the disk, hyperdisk
+	allows for an update of Throughput every 4 hours. To update your hyperdisk more frequently, you'll need to manually delete and recreate it. */
+	// +optional
+	ProvisionedThroughput *int64 `json:"provisionedThroughput,omitempty"`
 
 	/* Immutable. URLs of the zones where the disk should be replicated to. */
 	// +optional
@@ -220,7 +256,7 @@ type ComputeDiskSpec struct {
 	Upsizing the disk is mutable, but downsizing the disk
 	requires re-creating the resource. */
 	// +optional
-	Size *int `json:"size,omitempty"`
+	Size *int64 `json:"size,omitempty"`
 
 	/* The source snapshot used to create this disk. */
 	// +optional
@@ -270,7 +306,7 @@ type ComputeDiskStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	// +optional
 	SelfLink *string `json:"selfLink,omitempty"`
@@ -306,6 +342,13 @@ type ComputeDiskStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcomputedisk;gcpcomputedisks
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ComputeDisk is the Schema for the compute API
 // +k8s:openapi-gen=true

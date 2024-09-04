@@ -32,8 +32,8 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/crd/fielddesc"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/repo"
-
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/klog/v2"
 )
 
 var handwrittenIAMTypes = []string{
@@ -55,13 +55,15 @@ type fieldProperties struct {
 
 type resourceDefinition struct {
 	Name                string
-	Version             string
 	Service             string
 	Kind                string
 	SpecFields          []*fieldProperties
 	StatusFields        []*fieldProperties
 	SpecNestedStructs   map[string][]*fieldProperties
 	StatusNestedStructs map[string][]*fieldProperties
+
+	CRD     *apiextensions.CustomResourceDefinition
+	Version *apiextensions.CustomResourceDefinitionVersion
 }
 
 type svkMap struct {
@@ -91,14 +93,14 @@ func main() {
 
 	for _, rd := range resources {
 		// organize resources by service/version, create folder if not present
-		serviceVersionString := fmt.Sprintf("%v/%v", rd.Service, rd.Version)
+		serviceVersionString := fmt.Sprintf("%v/%v", rd.Service, rd.Version.Name)
 		if v, ok := registerKinds[serviceVersionString]; ok {
 			v.Kinds = append(v.Kinds, rd.Name)
 			v.Defs = append(v.Defs, *rd)
 		} else {
 			registerKinds[serviceVersionString] = &svkMap{
 				Service: rd.Service,
-				Version: rd.Version,
+				Version: rd.Version.Name,
 				Kinds:   []string{rd.Name},
 				Defs:    []resourceDefinition{*rd},
 			}
@@ -121,9 +123,9 @@ func main() {
 	for _, rd := range resources {
 		serviceDir := path.Join(typesDir, rd.Service)
 		checkAndCreateFolder(serviceDir)
-		serviceVersionDir := path.Join(serviceDir, rd.Version)
+		serviceVersionDir := path.Join(serviceDir, rd.Version.Name)
 		checkAndCreateFolder(serviceVersionDir)
-		serviceVersionString := fmt.Sprintf("%v/%v", rd.Service, rd.Version)
+		serviceVersionString := fmt.Sprintf("%v/%v", rd.Service, rd.Version.Name)
 
 		// create new file for generated types file
 		typesFileName := fmt.Sprintf("%s_types.go", rd.Kind)
@@ -204,7 +206,7 @@ func makeStructNamesUniquePerKind(kindMap map[string]*svkMap) {
 
 func getArrayOfNestedFieldKeys(m map[string][]*fieldProperties) []string {
 	arr := make([]string, 0)
-	for k, _ := range m {
+	for k := range m {
 		arr = append(arr, k)
 	}
 	return arr
@@ -270,13 +272,16 @@ func constructResourceDefinition(crdsPath, crdFile string) *resourceDefinition {
 		log.Fatalf("error loading crd from filepath %v: %v", crdFilePath, err)
 	}
 
+	r.CRD = crd
 	r.Name = crd.Spec.Names.Kind
 	if err = buildFieldProperties(r, crd); err != nil {
 		log.Fatalf("error building field properties for %v: %v", r.Name, err)
 	}
-	r.Service = strings.TrimSuffix(crd.Spec.Group, k8s.ApiDomainSuffix)
+	r.Service = strings.TrimSuffix(crd.Spec.Group, k8s.APIDomainSuffix)
 	r.Kind = strings.ToLower(crd.Spec.Names.Kind)
-	r.Version = k8s.GetVersionFromCRD(crd)
+
+	// TODO: Should we handle multiple versions?
+	r.Version = k8s.PreferredVersion(crd)
 	return r
 }
 
@@ -287,7 +292,7 @@ func buildFieldProperties(r *resourceDefinition, crd *apiextensions.CustomResour
 	organizeSpecFieldDescriptions(specDescriptions, r)
 	statusDesc, err := fielddesc.GetStatusDescription(crd)
 	if err != nil {
-		return fmt.Errorf("error getting status descriptions: %v", err)
+		return fmt.Errorf("error getting status descriptions: %w", err)
 	}
 	statusDescriptions := dropRootAndFlattenChildrenDescriptions(statusDesc)
 	r.StatusNestedStructs = make(map[string][]*fieldProperties)
@@ -302,7 +307,8 @@ func organizeSpecFieldDescriptions(descriptions []fielddesc.FieldDescription, r 
 		}
 
 		isRef := isResourceReference(d)
-		if !isRef { // Field is NOT a resourceRef, add children to nested structs
+		isSec := isSecretReference(d)
+		if !isRef && !isSec { // Field is NOT a resourceRef, add children to nested structs
 			if d.Type == "object" { // Field most likely has nested fields
 				children := getChildrenFromDescription(d, r)
 				r.SpecNestedStructs[strings.Title(d.ShortName)] = children
@@ -319,11 +325,14 @@ func organizeSpecFieldDescriptions(descriptions []fielddesc.FieldDescription, r 
 		if len(d.FullName) > 2 {
 			continue //field is nested & should not be listed in first-layer spec
 		}
-		r.SpecFields = append(r.SpecFields, fieldDescriptionToFieldProperties(d, isRef, r))
+		r.SpecFields = append(r.SpecFields, fieldDescriptionToFieldProperties(d, isRef, isSec, r))
 	}
 }
 
 func isResourceReference(d fielddesc.FieldDescription) bool {
+	if d.ShortName == "secretKeyRef" {
+		return false
+	}
 	if strings.HasSuffix(d.ShortName, "Ref") {
 		return true
 	}
@@ -332,9 +341,9 @@ func isResourceReference(d fielddesc.FieldDescription) bool {
 			r := regexp.MustCompile("external|name|namespace")
 			if r.MatchString(c.ShortName) {
 				continue
-			} else {
-				return false
 			}
+
+			return false
 		}
 		return true
 	}
@@ -344,10 +353,24 @@ func isResourceReference(d fielddesc.FieldDescription) bool {
 	return false
 }
 
+func isSecretReference(d fielddesc.FieldDescription) bool {
+	if len(d.Children) == 2 {
+		for _, c := range d.Children {
+			if c.ShortName == "name" || c.ShortName == "key" {
+				continue
+			}
+
+			return false
+		}
+		return d.ShortName == "secretKeyRef"
+	}
+	return false
+}
+
 func getChildrenFromDescription(d fielddesc.FieldDescription, r *resourceDefinition) []*fieldProperties {
 	children := make([]*fieldProperties, 0)
 	for _, c := range d.Children {
-		children = append(children, fieldDescriptionToFieldProperties(c, isResourceReference(c), r))
+		children = append(children, fieldDescriptionToFieldProperties(c, isResourceReference(c), isSecretReference(c), r))
 	}
 	return children
 }
@@ -355,7 +378,7 @@ func getChildrenFromDescription(d fielddesc.FieldDescription, r *resourceDefinit
 func getAdditionalPropertiesFromDescription(d fielddesc.FieldDescription, r *resourceDefinition) []*fieldProperties {
 	additionalProperties := make([]*fieldProperties, 0)
 	for _, c := range d.AdditionalProperties {
-		additionalProperties = append(additionalProperties, fieldDescriptionToFieldProperties(c, isResourceReference(c), r))
+		additionalProperties = append(additionalProperties, fieldDescriptionToFieldProperties(c, isResourceReference(c), isSecretReference(c), r))
 	}
 	return additionalProperties
 }
@@ -369,7 +392,8 @@ func organizeStatusFieldDescriptions(descriptions []fielddesc.FieldDescription, 
 			continue
 		}
 		isRef := isResourceReference(d)
-		if !isRef {
+		isSec := isSecretReference(d)
+		if !isRef && !isSec {
 			if d.Type == "object" {
 				children := getChildrenFromDescription(d, r)
 				r.StatusNestedStructs[strings.Title(d.ShortName)] = children
@@ -386,11 +410,11 @@ func organizeStatusFieldDescriptions(descriptions []fielddesc.FieldDescription, 
 		if len(d.FullName) > 2 {
 			continue // field is nested
 		}
-		r.StatusFields = append(r.StatusFields, fieldDescriptionToFieldProperties(d, isRef, r))
+		r.StatusFields = append(r.StatusFields, fieldDescriptionToFieldProperties(d, isRef, isSec, r))
 	}
 }
 
-func fieldDescriptionToFieldProperties(desc fielddesc.FieldDescription, isRef bool, r *resourceDefinition) *fieldProperties {
+func fieldDescriptionToFieldProperties(desc fielddesc.FieldDescription, isRef bool, isSec bool, r *resourceDefinition) *fieldProperties {
 	var isIAMRef bool
 	if isRef {
 		// Check if resource is IAMPolicy/PolicyMember/AuditConfig and modify ref to use IAMRef struct
@@ -403,7 +427,7 @@ func fieldDescriptionToFieldProperties(desc fielddesc.FieldDescription, isRef bo
 	}
 	fp := &fieldProperties{
 		FullName:    formatName(desc),
-		Type:        formatType(desc, isRef, isIAMRef),
+		Type:        formatType(desc, isRef, isSec, isIAMRef),
 		Description: desc.Description,
 		Name:        strings.Title(desc.ShortName),     // Field name UpperCamelCase
 		JSONName:    fmt.Sprintf("%v", desc.ShortName), // ShortName is default lowerCamelCase, exclude omitempty unless the field is optional
@@ -445,15 +469,29 @@ func formatName(desc fielddesc.FieldDescription) string {
 	return name
 }
 
-func formatType(desc fielddesc.FieldDescription, isRef, isIAMRef bool) string {
+func formatType(desc fielddesc.FieldDescription, isRef, isSec, isIAMRef bool) string {
 	switch desc.Type {
 	case "boolean":
 		return "bool"
 	case "integer":
-		return "int"
+		switch desc.Format {
+		case "int64":
+			return "int64"
+		case "int32":
+			return "int32"
+		case "":
+			// The default is int64 (and not int, we don't want the schema to vary across architectures)
+			return "int64"
+		default:
+			klog.Fatalf("unhandled case in formatType: %+v", desc)
+			return ""
+		}
 	case "float", "number":
 		return "float64"
 	case "object":
+		if isSec {
+			return "v1alpha1.SecretKeyRef"
+		}
 		if isRef {
 			if isIAMRef {
 				return "v1alpha1.IAMResourceRef"
@@ -499,7 +537,7 @@ func formatToGoLiteral(t string) string {
 	case "boolean":
 		return "bool"
 	case "integer":
-		return "int"
+		return "int64"
 	case "float", "number":
 		return "float64"
 	default:
@@ -532,6 +570,9 @@ func flattenChildrenDescription(result []fielddesc.FieldDescription, fd fielddes
 	}
 	result = append(result, fd)
 	for _, child := range fd.Children {
+		result = flattenChildrenDescription(result, child)
+	}
+	for _, child := range fd.AdditionalProperties {
 		result = flattenChildrenDescription(result, child)
 	}
 	return result

@@ -85,9 +85,6 @@ list of basic roles with equivalent predefined roles at
     <tr>
         <td><code>cnrm.cloud.google.com/delete-contents-on-destroy</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -104,7 +101,12 @@ access:
     - string
   domain: string
   groupByEmail: string
+  iamMember: string
   role: string
+  routine:
+    datasetId: string
+    projectId: string
+    routineId: string
   specialGroup: string
   userByEmail: string
   view:
@@ -129,6 +131,7 @@ projectRef:
   name: string
   namespace: string
 resourceID: string
+storageBillingModel: string
 ```
 
 <table class="properties responsive">
@@ -242,6 +245,17 @@ domain specified will be granted the specified access.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>access[].iamMember</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Some other type of member that appears in the IAM Policy but isn't a user,
+group, domain, or special group. For example: 'allUsers'.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>access[].role</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -252,6 +266,52 @@ member of the access object. Basic, predefined, and custom roles
 are supported. Predefined roles that have equivalent basic roles
 are swapped by the API to their basic counterparts. See
 [official docs](https://cloud.google.com/bigquery/docs/access-control).{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>access[].routine</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}A routine from a different dataset to grant access to. Queries
+executed against that routine will have read access to tables in
+this dataset. The role field is not required when this field is
+set. If that routine is updated by any user, access to the routine
+needs to be granted again via an update operation.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>access[].routine.datasetId</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The ID of the dataset containing this table.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>access[].routine.projectId</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The ID of the project containing this table.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>access[].routine.routineId</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The ID of the routine. The ID must contain only letters (a-z,
+A-Z), numbers (0-9), or underscores (_). The maximum length
+is 256 characters.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -565,11 +625,25 @@ Changing this forces a new resource to be created.{% endverbatim %}</p>
             <p>{% verbatim %}Immutable. Optional. The datasetId of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.{% endverbatim %}</p>
         </td>
     </tr>
+    <tr>
+        <td>
+            <p><code>storageBillingModel</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Specifies the storage billing model for the dataset.
+Set this flag value to LOGICAL to use logical bytes for storage billing,
+or to PHYSICAL to use physical bytes instead.
+
+LOGICAL is the default if this flag isn't specified.{% endverbatim %}</p>
+        </td>
+    </tr>
 </tbody>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -732,5 +806,7 @@ metadata:
   name: bigquerydataset-dep
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

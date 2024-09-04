@@ -62,20 +62,6 @@ Note: GKE Hub REST documentation is under construction.
 ## Custom Resource Definition Properties
 
 
-### Annotations
-<table class="properties responsive">
-<thead>
-    <tr>
-        <th colspan="2">Fields</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
-</tbody>
-</table>
-
 
 ### Spec
 #### Schema
@@ -87,6 +73,12 @@ projectRef:
   namespace: string
 resourceID: string
 spec:
+  fleetobservability:
+    loggingConfig:
+      defaultConfig:
+        mode: string
+      fleetScopeLogsConfig:
+        mode: string
   multiclusteringress:
     configMembershipRef:
       external: string
@@ -175,6 +167,66 @@ Allowed value: The Google Cloud resource name of a `Project` resource (format: `
     </tr>
     <tr>
         <td>
+            <p><code>spec.fleetobservability</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Fleet Observability spec.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>spec.fleetobservability.loggingConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Fleet Observability Logging-specific spec.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>spec.fleetobservability.loggingConfig.defaultConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Specified if applying the default routing config to logs not specified in other configs.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>spec.fleetobservability.loggingConfig.defaultConfig.mode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The logs routing mode Possible values: MODE_UNSPECIFIED, COPY, MOVE{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>spec.fleetobservability.loggingConfig.fleetScopeLogsConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Specified if applying the routing config to all logs for all fleet scopes.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>spec.fleetobservability.loggingConfig.fleetScopeLogsConfig.mode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The logs routing mode Possible values: MODE_UNSPECIFIED, COPY, MOVE{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>spec.multiclusteringress</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -229,7 +281,7 @@ Allowed value: The Google Cloud resource name of a `GKEHubMembership` resource (
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -438,9 +490,9 @@ metadata:
   name: gkehubfeature-dep-acmfeature
 spec:
   name: Config Connector Sample
-  organizationRef:
-    # Replace "${ORG_ID?}" with the numeric ID for your organization
-    external: "${ORG_ID?}"
+  folderRef:
+    # Replace "${FOLDER_ID?}" with the numeric ID for your folder
+    external: "${FOLDER_ID?}"
   billingAccountRef:
     # Replace "${BILLING_ACCOUNT_ID?}" with the numeric ID for your billing account
     external: "${BILLING_ACCOUNT_ID?}"
@@ -678,9 +730,9 @@ metadata:
   name: gkehubfeature-dep-mcsdfeature
 spec:
   name: Config Connector Sample
-  organizationRef:
-    # Replace "${ORG_ID?}" with the numeric ID for your organization
-    external: "${ORG_ID?}"
+  folderRef:
+    # Replace "${FOLDER_ID?}" with the numeric ID for your folder
+    external: "${FOLDER_ID?}"
   billingAccountRef:
     # Replace "${BILLING_ACCOUNT_ID?}" with the numeric ID for your billing account
     external: "${BILLING_ACCOUNT_ID?}"
@@ -708,5 +760,7 @@ spec:
     name: gkehubfeature-dep-mcsdfeature
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

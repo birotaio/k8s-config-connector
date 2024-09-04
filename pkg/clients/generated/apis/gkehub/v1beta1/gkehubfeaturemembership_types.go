@@ -46,6 +46,9 @@ type FeaturemembershipConfigSync struct {
 	Git *FeaturemembershipGit `json:"git,omitempty"`
 
 	// +optional
+	MetricsGcpServiceAccountRef *v1alpha1.ResourceRef `json:"metricsGcpServiceAccountRef,omitempty"`
+
+	// +optional
 	Oci *FeaturemembershipOci `json:"oci,omitempty"`
 
 	/* Set to true to enable the Config Sync admission webhook to prevent drifts. If set to `false`, disables the Config Sync admission webhook and does not prevent drifts. */
@@ -58,7 +61,7 @@ type FeaturemembershipConfigSync struct {
 }
 
 type FeaturemembershipConfigmanagement struct {
-	/* Binauthz configuration for the cluster. */
+	/* **DEPRECATED** Binauthz configuration for the cluster. This field will be ignored and should not be set. */
 	// +optional
 	Binauthz *FeaturemembershipBinauthz `json:"binauthz,omitempty"`
 
@@ -66,11 +69,11 @@ type FeaturemembershipConfigmanagement struct {
 	// +optional
 	ConfigSync *FeaturemembershipConfigSync `json:"configSync,omitempty"`
 
-	/* Hierarchy Controller configuration for the cluster. */
+	/* **DEPRECATED** Configuring Hierarchy Controller through the configmanagement feature is no longer recommended. Use https://github.com/kubernetes-sigs/hierarchical-namespaces instead. */
 	// +optional
 	HierarchyController *FeaturemembershipHierarchyController `json:"hierarchyController,omitempty"`
 
-	/* Policy Controller configuration for the cluster. */
+	/* **DEPRECATED** Configuring Policy Controller through the configmanagement feature is no longer recommended. Use the policycontroller feature instead. */
 	// +optional
 	PolicyController *FeaturemembershipPolicyController `json:"policyController,omitempty"`
 
@@ -163,6 +166,12 @@ type FeaturemembershipOci struct {
 	SyncWaitSecs *string `json:"syncWaitSecs,omitempty"`
 }
 
+type FeaturemembershipPolicyContent struct {
+	/* Configures the installation of the Template Library. */
+	// +optional
+	TemplateLibrary *FeaturemembershipTemplateLibrary `json:"templateLibrary,omitempty"`
+}
+
 type FeaturemembershipPolicyController struct {
 	/* Sets the interval for Policy Controller Audit Scans (in seconds). When set to 0, this disables audit functionality altogether. */
 	// +optional
@@ -197,6 +206,59 @@ type FeaturemembershipPolicyController struct {
 	TemplateLibraryInstalled *bool `json:"templateLibraryInstalled,omitempty"`
 }
 
+type FeaturemembershipPolicyControllerHubConfig struct {
+	/* Sets the interval for Policy Controller Audit Scans (in seconds). When set to 0, this disables audit functionality altogether. */
+	// +optional
+	AuditIntervalSeconds *int64 `json:"auditIntervalSeconds,omitempty"`
+
+	/* The maximum number of audit violations to be stored in a constraint. If not set, the internal default of 20 will be used. */
+	// +optional
+	ConstraintViolationLimit *int64 `json:"constraintViolationLimit,omitempty"`
+
+	/* The set of namespaces that are excluded from Policy Controller checks. Namespaces do not need to currently exist on the cluster. */
+	// +optional
+	ExemptableNamespaces []string `json:"exemptableNamespaces,omitempty"`
+
+	/* Configures the mode of the Policy Controller installation. Possible values: INSTALL_SPEC_UNSPECIFIED, INSTALL_SPEC_NOT_INSTALLED, INSTALL_SPEC_ENABLED, INSTALL_SPEC_SUSPENDED, INSTALL_SPEC_DETACHED */
+	// +optional
+	InstallSpec *string `json:"installSpec,omitempty"`
+
+	/* Logs all denies and dry run failures. */
+	// +optional
+	LogDeniesEnabled *bool `json:"logDeniesEnabled,omitempty"`
+
+	/* Specifies the backends Policy Controller should export metrics to. For example, to specify metrics should be exported to Cloud Monitoring and Prometheus, specify backends: ["cloudmonitoring", "prometheus"]. Default: ["cloudmonitoring", "prometheus"] */
+	// +optional
+	Monitoring *FeaturemembershipMonitoring `json:"monitoring,omitempty"`
+
+	/* Enables the ability to mutate resources using Policy Controller. */
+	// +optional
+	MutationEnabled *bool `json:"mutationEnabled,omitempty"`
+
+	/* Specifies the desired policy content on the cluster. */
+	// +optional
+	PolicyContent *FeaturemembershipPolicyContent `json:"policyContent,omitempty"`
+
+	/* Enables the ability to use Constraint Templates that reference to objects other than the object currently being evaluated. */
+	// +optional
+	ReferentialRulesEnabled *bool `json:"referentialRulesEnabled,omitempty"`
+}
+
+type FeaturemembershipPolicycontroller struct {
+	/* Policy Controller configuration for the cluster. */
+	PolicyControllerHubConfig FeaturemembershipPolicyControllerHubConfig `json:"policyControllerHubConfig"`
+
+	/* Optional. Version of Policy Controller to install. Defaults to the latest version. */
+	// +optional
+	Version *string `json:"version,omitempty"`
+}
+
+type FeaturemembershipTemplateLibrary struct {
+	/* Configures the manner in which the template library is installed on the cluster. Possible values: INSTALLATION_UNSPECIFIED, NOT_INSTALLED, ALL */
+	// +optional
+	Installation *string `json:"installation,omitempty"`
+}
+
 type GKEHubFeatureMembershipSpec struct {
 	/* Config Management-specific spec. */
 	// +optional
@@ -208,12 +270,20 @@ type GKEHubFeatureMembershipSpec struct {
 	/* Immutable. The location of the feature */
 	Location string `json:"location"`
 
+	/* Immutable. The location of the membership */
+	// +optional
+	MembershipLocation *string `json:"membershipLocation,omitempty"`
+
 	/* Immutable. */
 	MembershipRef v1alpha1.ResourceRef `json:"membershipRef"`
 
 	/* Manage Mesh Features */
 	// +optional
 	Mesh *FeaturemembershipMesh `json:"mesh,omitempty"`
+
+	/* Policy Controller-specific spec. */
+	// +optional
+	Policycontroller *FeaturemembershipPolicycontroller `json:"policycontroller,omitempty"`
 
 	/* Immutable. The Project that this resource belongs to. */
 	ProjectRef v1alpha1.ResourceRef `json:"projectRef"`
@@ -225,11 +295,18 @@ type GKEHubFeatureMembershipStatus struct {
 	Conditions []v1alpha1.Condition `json:"conditions,omitempty"`
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpgkehubfeaturemembership;gcpgkehubfeaturememberships
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/dcl2crd=true";"cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // GKEHubFeatureMembership is the Schema for the gkehub API
 // +k8s:openapi-gen=true

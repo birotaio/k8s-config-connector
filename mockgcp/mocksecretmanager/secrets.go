@@ -19,22 +19,24 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/common/projects"
-	secretmanager "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/common/projects"
+	pb "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/generated/mockgcp/cloud/secretmanager/v1"
 )
 
-// Lists [Secrets][google.cloud.secretmanager.v1.Secret].
-func (s *MockService) ListSecrets(context.Context, *secretmanager.ListSecretsRequest) (*secretmanager.ListSecretsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method not implemented")
+type SecretsV1 struct {
+	*MockService
+
+	pb.UnimplementedSecretManagerServiceServer
 }
 
 // Creates a new [Secret][google.cloud.secretmanager.v1.Secret] containing no [SecretVersions][google.cloud.secretmanager.v1.SecretVersion].
-func (s *MockService) CreateSecret(ctx context.Context, req *secretmanager.CreateSecretRequest) (*secretmanager.Secret, error) {
+func (s *SecretsV1) CreateSecret(ctx context.Context, req *pb.CreateSecretRequest) (*pb.Secret, error) {
 	secretID := req.SecretId
 	if secretID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "SecretId is required")
@@ -45,7 +47,7 @@ func (s *MockService) CreateSecret(ctx context.Context, req *secretmanager.Creat
 		return nil, err
 	}
 
-	project, err := s.projects.GetProjectByID(parent.Project)
+	project, err := s.Projects.GetProject(parent)
 	if err != nil {
 		return nil, err
 	}
@@ -56,45 +58,62 @@ func (s *MockService) CreateSecret(ctx context.Context, req *secretmanager.Creat
 	}
 	fqn := name.String()
 
-	obj := &secretmanager.Secret{}
+	obj := proto.Clone(req.Secret).(*pb.Secret)
 	obj.Name = fqn
 	obj.CreateTime = timestamppb.Now()
+	if obj.Replication == nil {
+		obj.Replication = &pb.Replication{}
+	}
+	if obj.Replication.Replication == nil {
+		obj.Replication.Replication = &pb.Replication_Automatic_{
+			Automatic: &pb.Replication_Automatic{},
+		}
+	}
+	obj.Etag = computeEtag(obj)
 
 	if err := s.storage.Create(ctx, fqn, obj); err != nil {
-		return nil, status.Errorf(codes.Internal, "error creating secret: %v", err)
+		return nil, err
 	}
 
 	return obj, nil
 }
 
 // Gets metadata for a given [Secret][google.cloud.secretmanager.v1.Secret].
-func (s *MockService) GetSecret(ctx context.Context, req *secretmanager.GetSecretRequest) (*secretmanager.Secret, error) {
+func (s *SecretsV1) GetSecret(ctx context.Context, req *pb.GetSecretRequest) (*pb.Secret, error) {
 	name, err := s.parseSecretName(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	var secret secretmanager.Secret
+	var secret pb.Secret
 	fqn := name.String()
 	if err := s.storage.Get(ctx, fqn, &secret); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, status.Errorf(codes.NotFound, "secret %q not found", req.Name)
-
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Errorf(codes.NotFound, "Secret [%s] not found.", fqn)
 		}
-		return nil, status.Errorf(codes.Internal, "error reading secret: %v", err)
+		return nil, err
 	}
 
 	return &secret, nil
 }
 
-// Updates metadata of an existing [Secret][google.cloud.secretmanager.v1.Secret].
-func (s *MockService) UpdateSecret(context.Context, *secretmanager.UpdateSecretRequest) (*secretmanager.Secret, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method not implemented")
-}
-
 // Deletes a [Secret][google.cloud.secretmanager.v1.Secret].
-func (s *MockService) DeleteSecret(context.Context, *secretmanager.DeleteSecretRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method not implemented")
+func (s *SecretsV1) DeleteSecret(ctx context.Context, req *pb.DeleteSecretRequest) (*emptypb.Empty, error) {
+	name, err := s.parseSecretName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	fqn := name.String()
+
+	oldObj := &pb.Secret{}
+	if err := s.storage.Delete(ctx, fqn, oldObj); err != nil {
+		return nil, err
+	}
+
+	// TODO: Delete secret versions?
+
+	return &emptypb.Empty{}, nil
 }
 
 type secretName struct {
@@ -111,7 +130,12 @@ func (n *secretName) String() string {
 func (s *MockService) parseSecretName(name string) (*secretName, error) {
 	tokens := strings.Split(name, "/")
 	if len(tokens) == 4 && tokens[0] == "projects" && tokens[2] == "secrets" {
-		project, err := s.projects.GetProjectByID(tokens[1])
+		projectName, err := projects.ParseProjectName("projects/" + tokens[1])
+		if err != nil {
+			return nil, err
+		}
+
+		project, err := s.Projects.GetProject(projectName)
 		if err != nil {
 			return nil, err
 		}

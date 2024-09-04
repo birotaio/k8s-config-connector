@@ -71,16 +71,16 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 				},
 				TFResource: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"imported_field": &tfschema.Schema{
+						"imported_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"primitive_field": &tfschema.Schema{
+						"primitive_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 							ForceNew: true,
 						},
-						"list_of_primitives_field": &tfschema.Schema{
+						"list_of_primitives_field": {
 							Type:     tfschema.TypeList,
 							Optional: true,
 							Elem: &tfschema.Schema{
@@ -88,45 +88,45 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 							},
 							ForceNew: true,
 						},
-						"map_field": &tfschema.Schema{
+						"map_field": {
 							Type:     tfschema.TypeMap,
 							Optional: true,
 							ForceNew: true,
 						},
-						"nested_object_field": &tfschema.Schema{
+						"nested_object_field": {
 							Type:     tfschema.TypeList,
 							MaxItems: 1,
 							Optional: true,
 							Elem: &tfschema.Resource{
 								Schema: map[string]*tfschema.Schema{
-									"immutable_field": &tfschema.Schema{
+									"immutable_field": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 										ForceNew: true,
 									},
-									"mutable_field": &tfschema.Schema{
+									"mutable_field": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 									},
 								},
 							},
 						},
-						"list_of_objects_field": &tfschema.Schema{
+						"list_of_objects_field": {
 							Type:     tfschema.TypeList,
 							Optional: true,
 							Elem: &tfschema.Resource{
 								Schema: map[string]*tfschema.Schema{
-									"immutable_field_a": &tfschema.Schema{
+									"immutable_field_a": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 										ForceNew: true,
 									},
-									"immutable_field_b": &tfschema.Schema{
+									"immutable_field_b": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 										ForceNew: true,
 									},
-									"mutable_field": &tfschema.Schema{
+									"mutable_field": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 									},
@@ -177,11 +177,11 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 				},
 				TFResource: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"imported_field": &tfschema.Schema{
+						"imported_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"primitive_field": &tfschema.Schema{
+						"primitive_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
@@ -212,32 +212,32 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 				},
 				TFResource: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"imported_field": &tfschema.Schema{
+						"imported_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"primitive_field": &tfschema.Schema{
+						"primitive_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"list_of_primitives_field": &tfschema.Schema{
+						"list_of_primitives_field": {
 							Type:     tfschema.TypeList,
 							Optional: true,
 							Elem: &tfschema.Schema{
 								Type: tfschema.TypeString,
 							},
 						},
-						"map_field": &tfschema.Schema{
+						"map_field": {
 							Type:     tfschema.TypeMap,
 							Optional: true,
 						},
-						"nested_object_field": &tfschema.Schema{
+						"nested_object_field": {
 							Type:     tfschema.TypeList,
 							MaxItems: 1,
 							Optional: true,
 							Elem: &tfschema.Resource{
 								Schema: map[string]*tfschema.Schema{
-									"mutable_but_unreadable_field": &tfschema.Schema{
+									"mutable_but_unreadable_field": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 									},
@@ -298,32 +298,32 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 				},
 				TFResource: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"imported_field": &tfschema.Schema{
+						"imported_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"primitive_field": &tfschema.Schema{
+						"primitive_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"list_of_primitives_field": &tfschema.Schema{
+						"list_of_primitives_field": {
 							Type:     tfschema.TypeList,
 							Optional: true,
 							Elem: &tfschema.Schema{
 								Type: tfschema.TypeString,
 							},
 						},
-						"map_field": &tfschema.Schema{
+						"map_field": {
 							Type:     tfschema.TypeMap,
 							Optional: true,
 						},
-						"nested_object_field": &tfschema.Schema{
+						"nested_object_field": {
 							Type:     tfschema.TypeList,
 							MaxItems: 1,
 							Optional: true,
 							Elem: &tfschema.Resource{
 								Schema: map[string]*tfschema.Schema{
-									"mutable_but_unreadable_field": &tfschema.Schema{
+									"mutable_but_unreadable_field": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 									},
@@ -376,17 +376,17 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 				},
 				TFResource: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"nested_object": &tfschema.Schema{
+						"nested_object": {
 							Type:     tfschema.TypeList,
 							MaxItems: 1,
 							Optional: true,
 							Elem: &tfschema.Resource{
 								Schema: map[string]*tfschema.Schema{
-									"field": &tfschema.Schema{
+									"field": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 									},
-									"mutable_but_unreadable_field": &tfschema.Schema{
+									"mutable_but_unreadable_field": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 									},
@@ -432,32 +432,32 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 				},
 				TFResource: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"imported_field": &tfschema.Schema{
+						"imported_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"primitive_field": &tfschema.Schema{
+						"primitive_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"list_of_primitives_field": &tfschema.Schema{
+						"list_of_primitives_field": {
 							Type:     tfschema.TypeList,
 							Optional: true,
 							Elem: &tfschema.Schema{
 								Type: tfschema.TypeString,
 							},
 						},
-						"map_field": &tfschema.Schema{
+						"map_field": {
 							Type:     tfschema.TypeMap,
 							Optional: true,
 						},
-						"nested_object_field": &tfschema.Schema{
+						"nested_object_field": {
 							Type:     tfschema.TypeList,
 							MaxItems: 1,
 							Optional: true,
 							Elem: &tfschema.Resource{
 								Schema: map[string]*tfschema.Schema{
-									"mutable_but_unreadable_field": &tfschema.Schema{
+									"mutable_but_unreadable_field": {
 										Type:     tfschema.TypeString,
 										Optional: true,
 									},
@@ -506,15 +506,15 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 				},
 				TFResource: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"imported_field": &tfschema.Schema{
+						"imported_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"directive_field_b": &tfschema.Schema{
+						"directive_field_b": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 						},
-						"directive_field_c": &tfschema.Schema{
+						"directive_field_c": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 							Default:  "directive_val_c",
@@ -564,40 +564,142 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 				},
 				TFResource: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"imported_field": &tfschema.Schema{
+						"imported_field": {
 							Type: tfschema.TypeString,
 						},
-						"primitive_field": &tfschema.Schema{
+						"primitive_field": {
 							Type: tfschema.TypeString,
 						},
-						"list_of_primitives_field": &tfschema.Schema{
+						"list_of_primitives_field": {
 							Type: tfschema.TypeList,
 							Elem: &tfschema.Schema{
 								Type: tfschema.TypeString,
 							},
 						},
-						"map_field": &tfschema.Schema{
+						"map_field": {
 							Type: tfschema.TypeMap,
 						},
-						"nested_object_field": &tfschema.Schema{
+						"nested_object_field": {
 							Type:     tfschema.TypeList,
 							MaxItems: 1,
 							Elem: &tfschema.Resource{
 								Schema: map[string]*tfschema.Schema{
-									"field": &tfschema.Schema{
+									"field": {
 										Type: tfschema.TypeString,
 									},
 								},
 							},
 						},
-						"list_of_objects_field": &tfschema.Schema{
+						"list_of_objects_field": {
 							Type: tfschema.TypeList,
 							Elem: &tfschema.Resource{
 								Schema: map[string]*tfschema.Schema{
-									"field_a": &tfschema.Schema{
+									"field_a": {
 										Type: tfschema.TypeString,
 									},
-									"field_b": &tfschema.Schema{
+									"field_b": {
+										Type: tfschema.TypeString,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRet: map[string]interface{}{
+				"imported_field":  "imported_val",
+				"primitive_field": "val_b",
+				"list_of_primitives_field": []interface{}{
+					"list_of_primitives_val_0",
+				},
+				"map_field": map[string]interface{}{
+					"map_key_a": "map_val_a",
+				},
+				"nested_object_field": []interface{}{
+					map[string]interface{}{
+						"field": "val",
+					},
+				},
+				"list_of_objects_field": []interface{}{
+					map[string]interface{}{
+						"field_a": "val_a",
+					},
+					map[string]interface{}{
+						"field_b": "val_b",
+					},
+				},
+			},
+		},
+		{
+			name: "computed fields under status.observedState",
+			imported: map[string]interface{}{
+				"imported_field": "imported_val",
+			},
+			resource: &krmtotf.Resource{
+				Resource: k8s.Resource{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "TestKind",
+						APIVersion: "test.cnrm.cloud.google.com/v1beta1",
+					},
+					Status: map[string]interface{}{
+						"observedState": map[string]interface{}{
+							"primitiveField": "val_b",
+							"listOfPrimitivesField": []interface{}{
+								"list_of_primitives_val_0",
+							},
+							"mapField": map[string]interface{}{
+								"map_key_a": "map_val_a",
+							},
+							"nestedObjectField": map[string]interface{}{
+								"field": "val",
+							},
+							"listOfObjectsField": []interface{}{
+								map[string]interface{}{
+									"fieldA": "val_a",
+								},
+								map[string]interface{}{
+									"fieldB": "val_b",
+								},
+							},
+						},
+					},
+				},
+				TFResource: &tfschema.Resource{
+					Schema: map[string]*tfschema.Schema{
+						"imported_field": {
+							Type: tfschema.TypeString,
+						},
+						"primitive_field": {
+							Type: tfschema.TypeString,
+						},
+						"list_of_primitives_field": {
+							Type: tfschema.TypeList,
+							Elem: &tfschema.Schema{
+								Type: tfschema.TypeString,
+							},
+						},
+						"map_field": {
+							Type: tfschema.TypeMap,
+						},
+						"nested_object_field": {
+							Type:     tfschema.TypeList,
+							MaxItems: 1,
+							Elem: &tfschema.Resource{
+								Schema: map[string]*tfschema.Schema{
+									"field": {
+										Type: tfschema.TypeString,
+									},
+								},
+							},
+						},
+						"list_of_objects_field": {
+							Type: tfschema.TypeList,
+							Elem: &tfschema.Resource{
+								Schema: map[string]*tfschema.Schema{
+									"field_a": {
+										Type: tfschema.TypeString,
+									},
+									"field_b": {
 										Type: tfschema.TypeString,
 									},
 								},
@@ -651,12 +753,12 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 				},
 				TFResource: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"sensitive_field": &tfschema.Schema{
+						"sensitive_field": {
 							Type:      tfschema.TypeString,
 							Optional:  true,
 							Sensitive: true,
 						},
-						"primitive_field": &tfschema.Schema{
+						"primitive_field": {
 							Type:     tfschema.TypeString,
 							Optional: true,
 							ForceNew: true,
@@ -674,11 +776,11 @@ func TestWithFieldsPresetForRead(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			testId := testvariable.NewUniqueId()
+			testID := testvariable.NewUniqueID()
 			c := mgr.GetClient()
 
-			testcontroller.EnsureNamespaceExistsT(t, c, testId)
-			tc.resource.SetNamespace(testId)
+			testcontroller.EnsureNamespaceExistsT(t, c, testID)
+			tc.resource.SetNamespace(testID)
 			ret, err := krmtotf.WithFieldsPresetForRead(tc.imported, tc.resource, mgr.GetClient(), nil)
 			if err != nil {
 				t.Fatal(err)
@@ -698,22 +800,22 @@ func TestWithFieldsPresetForReadMutableUnreadableSensitiveFields(t *testing.T) {
 	}
 	tfResource := &tfschema.Resource{
 		Schema: map[string]*tfschema.Schema{
-			"imported_field": &tfschema.Schema{
+			"imported_field": {
 				Type:     tfschema.TypeString,
 				Optional: true,
 			},
-			"sensitive_field": &tfschema.Schema{
+			"sensitive_field": {
 				Type:      tfschema.TypeString,
 				Optional:  true,
 				Sensitive: true,
 			},
-			"nested_object_field": &tfschema.Schema{
+			"nested_object_field": {
 				Type:     tfschema.TypeList,
 				MaxItems: 1,
 				Optional: true,
 				Elem: &tfschema.Resource{
 					Schema: map[string]*tfschema.Schema{
-						"sensitive_field": &tfschema.Schema{
+						"sensitive_field": {
 							Type:      tfschema.TypeString,
 							Optional:  true,
 							Sensitive: true,
@@ -732,9 +834,9 @@ func TestWithFieldsPresetForReadMutableUnreadableSensitiveFields(t *testing.T) {
 
 	type versionStatus int
 	const (
-		UP_TO_DATE versionStatus = iota
-		OUTDATED
-		NOT_FOUND
+		upToDate versionStatus = iota
+		outdated
+		notFound
 	)
 	tests := []struct {
 		name     string
@@ -759,8 +861,8 @@ func TestWithFieldsPresetForReadMutableUnreadableSensitiveFields(t *testing.T) {
 			name:     "sensitive fields with values from Secrets in mutable-but-unreadable-fields, and observed-secret-versions is up-to-date",
 			imported: importedState,
 			observedSecretVersions: map[string]versionStatus{
-				"secret1": UP_TO_DATE,
-				"secret2": UP_TO_DATE,
+				"secret1": upToDate,
+				"secret2": upToDate,
 			},
 			resource: &krmtotf.Resource{
 				Resource: k8s.Resource{
@@ -792,8 +894,8 @@ func TestWithFieldsPresetForReadMutableUnreadableSensitiveFields(t *testing.T) {
 			name:     "sensitive fields with values from Secrets in mutable-but-unreadable-fields, but observed-secret-versions is outdated",
 			imported: importedState,
 			observedSecretVersions: map[string]versionStatus{
-				"secret1": OUTDATED,
-				"secret2": OUTDATED,
+				"secret1": outdated,
+				"secret2": outdated,
 			},
 			resource: &krmtotf.Resource{
 				Resource: k8s.Resource{
@@ -818,8 +920,8 @@ func TestWithFieldsPresetForReadMutableUnreadableSensitiveFields(t *testing.T) {
 			name:     "sensitive fields with values from Secrets in mutable-but-unreadable-fields, but Secrets are not found",
 			imported: importedState,
 			observedSecretVersions: map[string]versionStatus{
-				"secret1": NOT_FOUND,
-				"secret2": NOT_FOUND,
+				"secret1": notFound,
+				"secret2": notFound,
 			},
 			resource: &krmtotf.Resource{
 				Resource: k8s.Resource{
@@ -840,8 +942,8 @@ func TestWithFieldsPresetForReadMutableUnreadableSensitiveFields(t *testing.T) {
 			name:     "sensitive fields with values from Secrets in mutable-but-unreadable-fields, and observed-secret-versions is up-to-date, but keys can't be found in Secrets",
 			imported: importedState,
 			observedSecretVersions: map[string]versionStatus{
-				"secret1": UP_TO_DATE,
-				"secret2": UP_TO_DATE,
+				"secret1": upToDate,
+				"secret2": upToDate,
 			},
 			resource: &krmtotf.Resource{
 				Resource: k8s.Resource{
@@ -962,8 +1064,8 @@ func TestWithFieldsPresetForReadMutableUnreadableSensitiveFields(t *testing.T) {
 			name:     "mutable-but-unreadable-fields annotation values differ from spec values (where sensitive fields in annotation are from Secrets, but sensitive fields in Spec are simple values)",
 			imported: importedState,
 			observedSecretVersions: map[string]versionStatus{
-				"secret1": UP_TO_DATE,
-				"secret2": UP_TO_DATE,
+				"secret1": upToDate,
+				"secret2": upToDate,
 			},
 			resource: &krmtotf.Resource{
 				Resource: k8s.Resource{
@@ -1055,13 +1157,13 @@ func TestWithFieldsPresetForReadMutableUnreadableSensitiveFields(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			testId := testvariable.NewUniqueId()
+			testID := testvariable.NewUniqueID()
 			c := mgr.GetClient()
 
-			testcontroller.EnsureNamespaceExistsT(t, c, testId)
-			tc.resource.SetNamespace(testId)
+			testcontroller.EnsureNamespaceExistsT(t, c, testID)
+			tc.resource.SetNamespace(testID)
 			for _, obj := range tc.referencedSecrets {
-				obj.SetNamespace(testId)
+				obj.SetNamespace(testID)
 			}
 			test.EnsureObjectsExist(t, tc.referencedSecrets, c)
 
@@ -1069,18 +1171,18 @@ func TestWithFieldsPresetForReadMutableUnreadableSensitiveFields(t *testing.T) {
 			if tc.observedSecretVersions != nil {
 				secretVersions := make(map[string]string)
 				for secretName, status := range tc.observedSecretVersions {
-					if status == NOT_FOUND {
+					if status == notFound {
 						secretVersions[secretName] = "12345"
 						continue
 					}
-					version, err := getResourceVersionOfSecret(secretName, testId, c)
+					version, err := getResourceVersionOfSecret(secretName, testID, c)
 					if err != nil {
 						t.Fatalf("error determining version of Secret %v: %v", secretName, err)
 					}
 					switch status {
-					case UP_TO_DATE:
+					case upToDate:
 						secretVersions[secretName] = version
-					case OUTDATED:
+					case outdated:
 						secretVersions[secretName] = version + "0"
 					}
 				}

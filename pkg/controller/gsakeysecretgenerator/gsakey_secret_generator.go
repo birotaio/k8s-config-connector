@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	kontroller "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/jitter"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/ratelimiter"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
@@ -50,8 +51,12 @@ const eventMessageTemplate = "secret %v in namespace %v %v"
 
 var logger = klog.Log.WithName(controllerName)
 
-func Add(mgr manager.Manager, crd *apiextensions.CustomResourceDefinition) error {
-	r := newReconciler(mgr, crd)
+func Add(mgr manager.Manager, crd *apiextensions.CustomResourceDefinition, deps *kontroller.Deps) error {
+	if deps.JitterGen == nil {
+		deps.JitterGen = &jitter.SimpleJitterGenerator{}
+	}
+
+	r := newReconciler(mgr, crd, deps.JitterGen)
 	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind":       crd.Spec.Names.Kind,
@@ -65,19 +70,20 @@ func Add(mgr manager.Manager, crd *apiextensions.CustomResourceDefinition) error
 		For(obj, builder.OnlyMetadata).
 		Build(r)
 	if err != nil {
-		return fmt.Errorf("error creating new controller: %v", err)
+		return fmt.Errorf("error creating new controller: %w", err)
 	}
 	logger.Info("added a controller for service-account-key-to-secret")
 	return nil
 }
 
 // newReconciler returns a new reconcile.Reconciler.
-func newReconciler(mgr manager.Manager, crd *apiextensions.CustomResourceDefinition) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, crd *apiextensions.CustomResourceDefinition, jg jitter.Generator) reconcile.Reconciler {
 	return &ReconcileSecret{
 		Client:     mgr.GetClient(),
 		kind:       crd.Spec.Names.Kind,
 		apiVersion: k8s.GetAPIVersionFromCRD(crd),
 		recorder:   mgr.GetEventRecorderFor(controllerName),
+		jitterGen:  jg,
 	}
 }
 
@@ -86,6 +92,7 @@ type ReconcileSecret struct {
 	kind       string
 	apiVersion string
 	recorder   record.EventRecorder
+	jitterGen  jitter.Generator
 }
 
 func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
@@ -101,7 +108,7 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 		if errors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, fmt.Errorf("error getting KCC object from API server: %v", err)
+		return reconcile.Result{}, fmt.Errorf("error getting KCC object from API server: %w", err)
 	}
 
 	// exit early if annotation says not creating the secret
@@ -116,7 +123,7 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 	// if private_key status field is not filled, skip it
 	key, ok, err := getPrivateKey(u)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error finding private key from service account key resource %v: %v", request.NamespacedName, err)
+		return reconcile.Result{}, fmt.Errorf("error finding private key from service account key resource %v: %w", request.NamespacedName, err)
 	}
 	if !ok {
 		logger.Info("no private key is found from service account key. No secret will be created.", "resource", request.NamespacedName)
@@ -125,7 +132,7 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 
 	b, err := base64.StdEncoding.DecodeString(key)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error decoding the private key: %v", err)
+		return reconcile.Result{}, fmt.Errorf("error decoding the private key: %w", err)
 	}
 	secret := &corev1.Secret{
 		Type: corev1.SecretTypeOpaque,
@@ -151,10 +158,10 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 	if err = r.Get(ctx, request.NamespacedName, originalSecret); err == nil {
 		logger.Info("updating the secret", "resource", request.NamespacedName)
 		if err = r.Update(ctx, secret); err != nil {
-			r.recorder.Eventf(u, corev1.EventTypeWarning, k8s.UpdateFailed, eventMessageTemplate, u.GetName(), u.GetNamespace(), fmt.Sprintf("Update call failed: %v", err))
+			r.recorder.Eventf(u, corev1.EventTypeWarning, k8s.UpdateFailed, eventMessageTemplate, u.GetName(), u.GetNamespace(), fmt.Errorf("update call failed: %w", err))
 			return reconcile.Result{}, err
 		}
-		jitteredPeriod := jitter.GenerateWatchJitteredTimeoutPeriod()
+		jitteredPeriod := r.jitterGen.WatchJitteredTimeout()
 		logger.Info("successfully finished reconcile", "time to next reconciliation", jitteredPeriod)
 		return reconcile.Result{RequeueAfter: jitteredPeriod}, nil
 	}
@@ -168,7 +175,7 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 		return reconcile.Result{}, err
 	}
 	r.recorder.Eventf(u, corev1.EventTypeNormal, k8s.Created, eventMessageTemplate, u.GetName(), u.GetNamespace(), k8s.CreatedMessage)
-	jitteredPeriod := jitter.GenerateWatchJitteredTimeoutPeriod()
+	jitteredPeriod := r.jitterGen.WatchJitteredTimeout()
 	logger.Info("successfully finished reconcile", "time to next reconciliation", jitteredPeriod)
 	return reconcile.Result{RequeueAfter: jitteredPeriod}, nil
 }

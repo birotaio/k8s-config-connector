@@ -41,19 +41,28 @@ type PostActuationTransform func(original, reconciled *k8s.Resource, tfState *te
 // ConfigValidate validates the input configuration in the webhook.
 type ConfigValidate func(r *unstructured.Unstructured) error
 
+// PreTerraformApply transforms the object just before we try to apply it with terraform.
+// A typical example of a transformation is to change fields to work around terraform bugs.
+type PreTerraformApply func(ctx context.Context, op *operations.PreTerraformApply) error
+
 // PreTerraformExport transforms the exported terraform prior to writing it.
 // A typical example of a transformation is to map our internal terraform types to real types.
 type PreTerraformExport func(ctx context.Context, op *operations.TerraformExport) error
+
+// PostUpdateStatusTransform transforms the resource object after its status is being updated.
+type PostUpdateStatusTransform func(r *k8s.Resource) error
 
 // ResourceOverride holds all pieces of changes needed, i.e. decoration, transformation and validation to author
 // a resource-specific behavior override.
 // Since one particular resource kind could have multiple overrides, each ResourceOverride should be logically orthogonal to each other and neutral to order of execution.
 type ResourceOverride struct {
-	CRDDecorate            CRDDecorate
-	ConfigValidate         ConfigValidate
-	PreActuationTransform  PreActuationTransform
-	PostActuationTransform PostActuationTransform
-	PreTerraformExport     PreTerraformExport
+	CRDDecorate               CRDDecorate
+	ConfigValidate            ConfigValidate
+	PreActuationTransform     PreActuationTransform
+	PostActuationTransform    PostActuationTransform
+	PreTerraformApply         PreTerraformApply
+	PreTerraformExport        PreTerraformExport
+	PostUpdateStatusTransform PostUpdateStatusTransform
 }
 
 type ResourceOverrides struct {
@@ -61,19 +70,19 @@ type ResourceOverrides struct {
 	Overrides []ResourceOverride
 }
 
-type ResourceOverridesHandler struct {
+type ROHandler struct {
 	overridesPerKindMap map[string]ResourceOverrides
 }
 
-func NewResourceOverridesHandler() *ResourceOverridesHandler {
-	return &ResourceOverridesHandler{
+func NewResourceOverridesHandler() *ROHandler {
+	return &ROHandler{
 		overridesPerKindMap: make(map[string]ResourceOverrides),
 	}
 }
 
 var Handler = NewResourceOverridesHandler()
 
-func (h *ResourceOverridesHandler) CRDDecorate(crd *apiextensions.CustomResourceDefinition) error {
+func (h *ROHandler) CRDDecorate(crd *apiextensions.CustomResourceDefinition) error {
 	kind := crd.Spec.Names.Kind
 	ro, found := h.registration(kind)
 	if !found {
@@ -89,7 +98,7 @@ func (h *ResourceOverridesHandler) CRDDecorate(crd *apiextensions.CustomResource
 	return nil
 }
 
-func (h *ResourceOverridesHandler) ConfigValidate(r *unstructured.Unstructured) error {
+func (h *ROHandler) ConfigValidate(r *unstructured.Unstructured) error {
 	kind := r.GetKind()
 	ro, found := h.registration(kind)
 	if !found {
@@ -105,7 +114,7 @@ func (h *ResourceOverridesHandler) ConfigValidate(r *unstructured.Unstructured) 
 	return nil
 }
 
-func (h *ResourceOverridesHandler) PreActuationTransform(r *k8s.Resource) error {
+func (h *ROHandler) PreActuationTransform(r *k8s.Resource) error {
 	ro, found := h.registration(r.Kind)
 	if !found {
 		return nil
@@ -120,7 +129,22 @@ func (h *ResourceOverridesHandler) PreActuationTransform(r *k8s.Resource) error 
 	return nil
 }
 
-func (h *ResourceOverridesHandler) PostActuationTransform(original, post *k8s.Resource, tfState *terraform.InstanceState, dclState *unstructured.Unstructured) error {
+func (h *ROHandler) PreTerraformApply(ctx context.Context, gvk schema.GroupVersionKind, op *operations.PreTerraformApply) error {
+	ro, found := h.registration(gvk.Kind)
+	if !found {
+		return nil
+	}
+	for _, o := range ro.Overrides {
+		if o.PreTerraformApply != nil {
+			if err := o.PreTerraformApply(ctx, op); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *ROHandler) PostActuationTransform(original, post *k8s.Resource, tfState *terraform.InstanceState, dclState *unstructured.Unstructured) error {
 	ro, found := h.registration(original.Kind)
 	if !found {
 		return nil
@@ -135,7 +159,7 @@ func (h *ResourceOverridesHandler) PostActuationTransform(original, post *k8s.Re
 	return nil
 }
 
-func (h *ResourceOverridesHandler) PreTerraformExport(ctx context.Context, gvk schema.GroupVersionKind, op *operations.TerraformExport) error {
+func (h *ROHandler) PreTerraformExport(ctx context.Context, gvk schema.GroupVersionKind, op *operations.TerraformExport) error {
 	kind := gvk.Kind
 	ro, found := h.registration(kind)
 	if !found {
@@ -151,12 +175,27 @@ func (h *ResourceOverridesHandler) PreTerraformExport(ctx context.Context, gvk s
 	return nil
 }
 
-func (h *ResourceOverridesHandler) HasOverrides(kind string) bool {
+func (h *ROHandler) PostUpdateStatusTransform(r *k8s.Resource) error {
+	ro, found := h.registration(r.Kind)
+	if !found {
+		return nil
+	}
+	for _, o := range ro.Overrides {
+		if o.PostUpdateStatusTransform != nil {
+			if err := o.PostUpdateStatusTransform(r); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *ROHandler) HasOverrides(kind string) bool {
 	_, found := h.registration(kind)
 	return found
 }
 
-func (h *ResourceOverridesHandler) HasConfigValidate(kind string) bool {
+func (h *ROHandler) HasConfigValidate(kind string) bool {
 	ro, found := h.registration(kind)
 	if !found {
 		return false
@@ -169,7 +208,7 @@ func (h *ResourceOverridesHandler) HasConfigValidate(kind string) bool {
 	return false
 }
 
-func (h *ResourceOverridesHandler) registration(kind string) (*ResourceOverrides, bool) {
+func (h *ROHandler) registration(kind string) (*ResourceOverrides, bool) {
 	ro, found := h.overridesPerKindMap[kind]
 	if !found {
 		return nil, false
@@ -177,11 +216,12 @@ func (h *ResourceOverridesHandler) registration(kind string) (*ResourceOverrides
 	return &ro, found
 }
 
-func (h *ResourceOverridesHandler) Register(ro ResourceOverrides) {
+func (h *ROHandler) Register(ro ResourceOverrides) {
 	h.overridesPerKindMap[ro.Kind] = ro
 }
 
 func init() {
+	Handler.Register(GetBigtableInstanceOverrides())
 	Handler.Register(GetStorageBucketResourceOverrides())
 	Handler.Register(GetSQLInstanceResourceOverrides())
 	Handler.Register(GetContainerClusterResourceOverrides())
@@ -189,7 +229,15 @@ func init() {
 	Handler.Register(GetComputeInstanceResourceOverrides())
 	Handler.Register(GetDNSRecordSetOverrides())
 	Handler.Register(GetComputeBackendServiceResourceOverrides())
+	Handler.Register(GetComputeForwardingRuleResourceOverrides())
+	Handler.Register(GetVPCAccessConnectorResourceOverrides())
+	Handler.Register(GetRedisInstanceResourceOverrides())
+	Handler.Register(GetRunServiceResourceOverrides())
+	Handler.Register(GetAlloyDBInstanceResourceOverrides())
+	Handler.Register(GetComputeMangedSSLCertificateResourceOverrides())
 
 	// IAM
 	Handler.Register(GetIAMCustomRoleResourceOverrides())
+
+	Handler.Register(GetCloudIDSEndpointResourceOverrides())
 }

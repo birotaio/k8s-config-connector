@@ -32,7 +32,7 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-provider-google-beta/google-beta"
+	"github.com/hashicorp/terraform-provider-google-beta/google-beta/provider"
 	"github.com/nasa9084/go-openapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -42,7 +42,7 @@ import (
 
 func TestChangesOnImmutableFields(t *testing.T) {
 	t.Parallel()
-	p := google.Provider()
+	p := provider.Provider()
 	v := newImmutableFieldsValidatorHandler(t)
 	for _, testcase := range TestCases {
 		t.Run(testcase.Name, func(t *testing.T) {
@@ -1529,7 +1529,7 @@ func TestChangesOnImmutableFieldsForDCLResource(t *testing.T) {
 	}
 }
 
-func assertImmutableFieldsValidatorResult(t *testing.T, v *immutableFieldsValidatorHandler, provider *schema.Provider, testCase TestCase) {
+func assertImmutableFieldsValidatorResult(t *testing.T, _ HandlerFunc, provider *schema.Provider, testCase TestCase) {
 	r, ok := provider.ResourcesMap[testCase.TFSchemaName]
 	if !ok {
 		t.Errorf("couldn't get the schema for %v", testCase.TFSchemaName)
@@ -1617,7 +1617,7 @@ func TestChangesOnImmutableResourceIDField(t *testing.T) {
 	}
 }
 
-func newImmutableFieldsValidatorHandler(t *testing.T) *immutableFieldsValidatorHandler {
+func newImmutableFieldsValidatorHandler(t *testing.T) HandlerFunc {
 	t.Helper()
 	smLoader, err := servicemappingloader.New()
 	if err != nil {
@@ -2393,4 +2393,174 @@ func getSpecFromUnstructed(t *testing.T, u *unstructured.Unstructured) map[strin
 		t.Fatalf("unexpected false value for 'ok' when retrieving spec from '%v'", u.Object)
 	}
 	return spec
+}
+
+func TestUpdateLogLoggingMetric(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     map[string]interface{}
+		oldSpec  map[string]interface{}
+		response admission.Response
+	}{
+		{
+			name: "change on a mutable field",
+			spec: map[string]interface{}{
+				"description": "An updated sample log metric",
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project",
+				},
+			},
+			oldSpec: map[string]interface{}{
+				"description": "A sample log metric",
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project",
+				},
+			},
+			response: allowedResponse,
+		},
+		{
+			name: "changes on a mutable field and an immutable field",
+			spec: map[string]interface{}{
+				"description": "An updated sample log metric",
+				"metricDescriptor": map[string]interface{}{
+					"metricKind": "DELTA",
+					"valueType":  "DISTRIBUTION",
+				},
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project",
+				},
+			},
+			oldSpec: map[string]interface{}{
+				"description": "A sample log metric",
+				"metricDescriptor": map[string]interface{}{
+					"metricKind": "CUMULATIVE",
+					"valueType":  "DISTRIBUTION",
+				},
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project",
+				},
+			},
+			response: admission.Errored(http.StatusForbidden,
+				k8s.NewImmutableFieldsMutationError([]string{"metricDescriptor.metricKind"})),
+		},
+		{
+			name: "changes on multiple immutable fields",
+			spec: map[string]interface{}{
+				"description": "An updated sample log metric",
+				"metricDescriptor": map[string]interface{}{
+					"metricKind": "DELTA",
+					"valueType":  "INT64",
+				},
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project-update",
+				},
+			},
+			oldSpec: map[string]interface{}{
+				"description": "A sample log metric",
+				"metricDescriptor": map[string]interface{}{
+					"metricKind": "CUMULATIVE",
+					"valueType":  "DISTRIBUTION",
+				},
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project",
+				},
+			},
+			response: admission.Errored(http.StatusForbidden,
+				k8s.NewImmutableFieldsMutationError([]string{"metricDescriptor.metricKind", "metricDescriptor.valueType", "projectRef"})),
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			actual := validateImmutableFieldsForLoggingLogMetricResource(tc.oldSpec, tc.spec)
+			if !testutil.Equals(t, actual, tc.response) {
+				t.Fatalf("got: %v, but want: %v", actual, tc.response)
+			}
+		})
+	}
+}
+
+func TestUpdateGKEHubFeatureMembership(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     map[string]interface{}
+		oldSpec  map[string]interface{}
+		response admission.Response
+	}{
+		{
+			name: "no change on an immutable field",
+			spec: map[string]interface{}{
+				"description": "An updated sample",
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project",
+				},
+			},
+			oldSpec: map[string]interface{}{
+				"description": "A sample",
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project",
+				},
+			},
+			response: allowedResponse,
+		},
+		{
+			name: "changes on a immutable field",
+			spec: map[string]interface{}{
+				"description": "An updated sample",
+				"featureRef": map[string]interface{}{
+					"external": "projects/test-project/locations/test-location/features/test-feature-updated",
+				},
+			},
+			oldSpec: map[string]interface{}{
+				"description": "A sample",
+				"featureRef": map[string]interface{}{
+					"external": "projects/test-project/locations/test-location/features/test-feature",
+				},
+			},
+			response: admission.Errored(http.StatusForbidden,
+				k8s.NewImmutableFieldsMutationError([]string{"featureRef"})),
+		},
+		{
+			name: "changes on multiple immutable fields",
+			spec: map[string]interface{}{
+				"description": "An updated sample",
+				"featureRef": map[string]interface{}{
+					"external": "projects/test-project/locations/test-location/features/test-feature-updated",
+				},
+				"membershipRef": map[string]interface{}{
+					"external": "projects/test-project/locations/test-location/memberships/test-membership-updated",
+				},
+				"location":           "test-location-updated",
+				"membershipLocation": "test-membership-location-updated",
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project-updated",
+				},
+			},
+			oldSpec: map[string]interface{}{
+				"description": "A sample",
+				"featureRef": map[string]interface{}{
+					"external": "projects/test-project/locations/test-location/features/test-feature",
+				},
+				"membershipRef": map[string]interface{}{
+					"external": "projects/test-project/locations/test-location/memberships/test-membership",
+				},
+				"location":           "test-location",
+				"membershipLocation": "test-membership-location",
+				"projectRef": map[string]interface{}{
+					"external": "projects/test-project",
+				},
+			},
+			response: admission.Errored(http.StatusForbidden,
+				k8s.NewImmutableFieldsMutationError([]string{"featureRef", "location", "projectRef", "membershipLocation", "membershipRef"})),
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			actual := validateImmutableFieldsForGKEHubFeatureMembershipResource(tc.oldSpec, tc.spec)
+			if !testutil.Equals(t, actual, tc.response) {
+				t.Fatalf("got: %v, but want: %v", actual, tc.response)
+			}
+		})
+	}
 }

@@ -70,9 +70,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -155,9 +152,7 @@ sslPolicyRef:
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}Only `external` field is supported to configure the reference.
-
-A reference to the CertificateMap resource uri that identifies a
+            <p>{% verbatim %}A reference to the CertificateMap resource uri that identifies a
 certificate map associated with the given target proxy. This
 field can only be set for global target proxies. Accepted format is
 '//certificatemanager.googleapis.com/projects/{project}/locations/{location}/certificateMaps/{resourceName}'.{% endverbatim %}</p>
@@ -555,5 +550,7 @@ stringData:
     -----END RSA PRIVATE KEY-----
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

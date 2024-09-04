@@ -74,20 +74,6 @@ one of `projectRef`, `folderRef`, `organizationRef`, or `billingAccountRef`.
 ## Custom Resource Definition Properties
 
 
-### Annotations
-<table class="properties responsive">
-<thead>
-    <tr>
-        <th colspan="2">Fields</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
-</tbody>
-</table>
-
 
 ### Spec
 #### Schema
@@ -97,6 +83,7 @@ billingAccountRef:
   name: string
   namespace: string
 description: string
+enableAnalytics: boolean
 folderRef:
   external: string
   name: string
@@ -171,6 +158,16 @@ Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/wo
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}Describes this bucket.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>enableAnalytics</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %} Whether or not Log Analytics is enabled. Logs for buckets with Log Analytics enabled can be queried in the Log Analytics page using SQL queries. Cannot be disabled once enabled.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -467,8 +464,8 @@ spec:
   # At the organization, folder, or billing account level _Default and _Required are the only valid resource names
   resourceID: "_Default"
   billingAccountRef:
-    # Replace "${BILLING_ACCOUNT_ID?}" with the numeric ID for your billing account
-    external: "${BILLING_ACCOUNT_ID?}"
+    # Replace "${BILLING_ACCOUNT_ID_FOR_BILLING_RESOURCES?}" with the numeric ID for your billing account
+    external: "${BILLING_ACCOUNT_ID_FOR_BILLING_RESOURCES?}"
   location: "global"
 ```
 
@@ -569,5 +566,7 @@ spec:
   retentionDays: 30
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

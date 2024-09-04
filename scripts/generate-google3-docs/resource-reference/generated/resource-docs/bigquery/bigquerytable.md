@@ -88,9 +88,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -125,6 +122,7 @@ externalDataConfiguration:
     fieldDelimiter: string
     quote: string
     skipLeadingRows: integer
+  fileSetSpecType: string
   googleSheetsOptions:
     range: string
     skipLeadingRows: integer
@@ -133,7 +131,14 @@ externalDataConfiguration:
     requirePartitionFilter: boolean
     sourceUriPrefix: string
   ignoreUnknownValues: boolean
+  jsonOptions:
+    encoding: string
   maxBadRecords: integer
+  metadataCacheMode: string
+  objectMetadata: string
+  parquetOptions:
+    enableListInference: boolean
+    enumAsString: boolean
   referenceFileSchemaUri: string
   schema: string
   sourceFormat: string
@@ -141,17 +146,33 @@ externalDataConfiguration:
   - string
 friendlyName: string
 materializedView:
+  allowNonIncrementalDefinition: boolean
   enableRefresh: boolean
   query: string
   refreshIntervalMs: integer
+maxStaleness: string
 rangePartitioning:
   field: string
   range:
     end: integer
     interval: integer
     start: integer
+requirePartitionFilter: boolean
 resourceID: string
 schema: string
+tableConstraints:
+  foreignKeys:
+  - columnReferences:
+      referencedColumn: string
+      referencingColumn: string
+    name: string
+    referencedTable:
+      datasetId: string
+      projectId: string
+      tableId: string
+  primaryKey:
+    columns:
+    - string
 timePartitioning:
   expirationMs: integer
   field: string
@@ -441,6 +462,16 @@ view:
     </tr>
     <tr>
         <td>
+            <p><code>externalDataConfiguration.fileSetSpecType</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Specifies how source URIs are interpreted for constructing the file set to load.  By default source URIs are expanded against the underlying storage.  Other options include specifying manifest files. Only applicable to object storage systems.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>externalDataConfiguration.googleSheetsOptions</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -521,12 +552,82 @@ view:
     </tr>
     <tr>
         <td>
+            <p><code>externalDataConfiguration.jsonOptions</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Additional properties to set if sourceFormat is set to JSON.".{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>externalDataConfiguration.jsonOptions.encoding</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The character encoding of the data. The supported values are UTF-8, UTF-16BE, UTF-16LE, UTF-32BE, and UTF-32LE. The default value is UTF-8.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>externalDataConfiguration.maxBadRecords</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">integer</code></p>
             <p>{% verbatim %}The maximum number of bad records that BigQuery can ignore when reading data.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>externalDataConfiguration.metadataCacheMode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Metadata Cache Mode for the table. Set this to enable caching of metadata from external data source.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>externalDataConfiguration.objectMetadata</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Object Metadata is used to create Object Tables. Object Tables contain a listing of objects (with their metadata) found at the sourceUris. If ObjectMetadata is set, sourceFormat should be omitted.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>externalDataConfiguration.parquetOptions</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Additional properties to set if sourceFormat is set to PARQUET.".{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>externalDataConfiguration.parquetOptions.enableListInference</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Indicates whether to use schema inference specifically for Parquet LIST logical type.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>externalDataConfiguration.parquetOptions.enumAsString</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -552,11 +653,11 @@ view:
     <tr>
         <td>
             <p><code>externalDataConfiguration.sourceFormat</code></p>
-            <p><i>Required*</i></p>
+            <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The data format. Supported values are: "CSV", "GOOGLE_SHEETS", "NEWLINE_DELIMITED_JSON", "AVRO", "PARQUET", "ORC" and "DATASTORE_BACKUP". To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly".{% endverbatim %}</p>
+            <p>{% verbatim %} Please see sourceFormat under ExternalDataConfiguration in Bigquery's public API documentation (https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#externaldataconfiguration) for supported formats. To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly".{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -601,6 +702,16 @@ view:
     </tr>
     <tr>
         <td>
+            <p><code>materializedView.allowNonIncrementalDefinition</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Immutable. Allow non incremental materialized view definition. The default value is false.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>materializedView.enableRefresh</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -627,6 +738,16 @@ view:
         <td>
             <p><code class="apitype">integer</code></p>
             <p>{% verbatim %}Specifies maximum frequency at which this materialized view will be refreshed. The default is 1800000.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>maxStaleness</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The maximum staleness of data that could be returned when the table (or stale MV) is queried. Staleness encoded as a string encoding of sql IntervalValue type.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -691,6 +812,16 @@ view:
     </tr>
     <tr>
         <td>
+            <p><code>requirePartitionFilter</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>resourceID</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -707,6 +838,146 @@ view:
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}A JSON schema for the table.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Defines the primary key and foreign keys.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}Present only if the table has a foreign key. The foreign key is not enforced.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys[].columnReferences</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The pair of the foreign key column and primary key column.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys[].columnReferences.referencedColumn</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The column in the primary key that are referenced by the referencingColumn.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys[].columnReferences.referencingColumn</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The column that composes the foreign key.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys[].name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Set only if the foreign key constraint is named.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys[].referencedTable</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The table that holds the primary key and is referenced by this foreign key.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys[].referencedTable.datasetId</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The ID of the dataset containing this table.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys[].referencedTable.projectId</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The ID of the project containing this table.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.foreignKeys[].referencedTable.tableId</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Certain operations allow suffixing of the table ID with a partition decorator, such as sample_table$20190123.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.primaryKey</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Represents a primary key constraint on a table's columns. Present only if the table has a primary key. The primary key is not enforced.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.primaryKey.columns</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}The columns that are composed of the primary key constraint.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>tableConstraints.primaryKey.columns[]</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -746,7 +1017,7 @@ view:
         </td>
         <td>
             <p><code class="apitype">boolean</code></p>
-            <p>{% verbatim %}If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified.{% endverbatim %}</p>
+            <p>{% verbatim %}DEPRECATED. This field is deprecated; please use the top level field with the same name instead. If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -793,7 +1064,7 @@ view:
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -975,6 +1246,7 @@ spec:
   description: "BigQuery Sample Table"
   datasetRef:
     name: bigquerytabledep
+  requirePartitionFilter: true
   friendlyName: bigquerytable-sample
   externalDataConfiguration:
     autodetect: true
@@ -994,5 +1266,7 @@ spec:
   friendlyName: bigquerytable-dep
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

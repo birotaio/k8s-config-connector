@@ -21,6 +21,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/core/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/iam/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
 	kcciamclient "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/iam/iamclient"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/extension"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/metadata"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -44,21 +46,23 @@ type iamValidatorHandler struct {
 
 func NewIAMValidatorHandler(smLoader *servicemappingloader.ServiceMappingLoader,
 	serviceMetadataLoader metadata.ServiceMetadataLoader,
-	schemaLoader dclschemaloader.DCLSchemaLoader) *iamValidatorHandler {
-	return &iamValidatorHandler{
-		smLoader:              smLoader,
-		serviceMetadataLoader: serviceMetadataLoader,
-		schemaLoader:          schemaLoader,
+	schemaLoader dclschemaloader.DCLSchemaLoader) HandlerFunc {
+	return func(mgr manager.Manager) admission.Handler {
+		return &iamValidatorHandler{
+			smLoader:              smLoader,
+			serviceMetadataLoader: serviceMetadataLoader,
+			schemaLoader:          schemaLoader,
+		}
 	}
 }
 
-func (a *iamValidatorHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (a *iamValidatorHandler) Handle(_ context.Context, req admission.Request) admission.Response {
 	deserializer := codecs.UniversalDeserializer()
 	obj := &unstructured.Unstructured{}
 	if _, _, err := deserializer.Decode(req.AdmissionRequest.Object.Raw, nil, obj); err != nil {
 		klog.Error(err)
 		return admission.Errored(http.StatusBadRequest,
-			fmt.Errorf("error decoding object: %v", err))
+			fmt.Errorf("error decoding object: %w", err))
 	}
 	switch {
 	case isIAMPolicy(obj):
@@ -112,7 +116,7 @@ func (a *iamValidatorHandler) Handle(ctx context.Context, req admission.Request)
 func toIAMPolicy(obj *unstructured.Unstructured) (*v1beta1.IAMPolicy, error) {
 	policy := &v1beta1.IAMPolicy{}
 	if err := util.Marshal(obj, policy); err != nil {
-		return nil, fmt.Errorf("error parsing %v into IAM Policy object: %v", obj.GetName(), err)
+		return nil, fmt.Errorf("error parsing %v into IAM Policy object: %w", obj.GetName(), err)
 	}
 	return policy, nil
 }
@@ -120,7 +124,7 @@ func toIAMPolicy(obj *unstructured.Unstructured) (*v1beta1.IAMPolicy, error) {
 func toIAMPartialPolicy(obj *unstructured.Unstructured) (*v1beta1.IAMPartialPolicy, error) {
 	partialPolicy := &v1beta1.IAMPartialPolicy{}
 	if err := util.Marshal(obj, partialPolicy); err != nil {
-		return nil, fmt.Errorf("error parsing %v into IAMPartialPolicy object: %v", obj.GetName(), err)
+		return nil, fmt.Errorf("error parsing %v into IAMPartialPolicy object: %w", obj.GetName(), err)
 	}
 	return partialPolicy, nil
 }
@@ -128,7 +132,7 @@ func toIAMPartialPolicy(obj *unstructured.Unstructured) (*v1beta1.IAMPartialPoli
 func toIAMPolicyMember(obj *unstructured.Unstructured) (*v1beta1.IAMPolicyMember, error) {
 	policyMember := &v1beta1.IAMPolicyMember{}
 	if err := util.Marshal(obj, policyMember); err != nil {
-		return nil, fmt.Errorf("error parsing %v into IAM Policy Member object: %v", obj.GetName(), err)
+		return nil, fmt.Errorf("error parsing %v into IAM Policy Member object: %w", obj.GetName(), err)
 	}
 	return policyMember, nil
 }
@@ -136,7 +140,7 @@ func toIAMPolicyMember(obj *unstructured.Unstructured) (*v1beta1.IAMPolicyMember
 func toIAMAuditConfig(obj *unstructured.Unstructured) (*v1beta1.IAMAuditConfig, error) {
 	auditConfig := &v1beta1.IAMAuditConfig{}
 	if err := util.Marshal(obj, auditConfig); err != nil {
-		return nil, fmt.Errorf("error parsing %v into IAMAuditConfig object: %v", obj.GetName(), err)
+		return nil, fmt.Errorf("error parsing %v into IAMAuditConfig object: %w", obj.GetName(), err)
 	}
 	return auditConfig, nil
 }
@@ -162,13 +166,13 @@ func getResourceConfigs(smLoader *servicemappingloader.ServiceMappingLoader, gvk
 	if externalonlygvks.IsExternalOnlyGVK(gvk) {
 		rc, err := kcciamclient.GetResourceConfigForExternalOnlyGVK(gvk)
 		if err != nil {
-			return []*v1alpha1.ResourceConfig{}, fmt.Errorf("error getting ResourceConfig for GroupVersionKind %v: %v", gvk, err)
+			return []*v1alpha1.ResourceConfig{}, fmt.Errorf("error getting ResourceConfig for GroupVersionKind %v: %w", gvk, err)
 		}
 		return []*v1alpha1.ResourceConfig{rc}, nil
 	}
 	rcs, err := smLoader.GetResourceConfigs(gvk)
 	if err != nil {
-		return []*v1alpha1.ResourceConfig{}, fmt.Errorf("error getting ResourceConfig for GroupVersionKind %v: %v", gvk, err)
+		return []*v1alpha1.ResourceConfig{}, fmt.Errorf("error getting ResourceConfig for GroupVersionKind %v: %w", gvk, err)
 	}
 	if len(rcs) == 0 {
 		return []*v1alpha1.ResourceConfig{}, fmt.Errorf("couldn't find any ResourceConfig defined for GroupVersionKind %v", gvk)
@@ -289,6 +293,7 @@ func (a *iamValidatorHandler) tfValidateIAMPartialPolicy(partialPolicy *v1beta1.
 
 func (a *iamValidatorHandler) dclValidateIAMPolicyMember(policyMember *v1beta1.IAMPolicyMember) admission.Response {
 	resourceRef := policyMember.Spec.ResourceReference
+
 	// Check that DCL-based resource supports IAMPolicy
 	dclSchema, resp := getDCLSchema(resourceRef.GroupVersionKind(), a.serviceMetadataLoader, a.schemaLoader)
 	if !resp.Allowed {
@@ -297,6 +302,10 @@ func (a *iamValidatorHandler) dclValidateIAMPolicyMember(policyMember *v1beta1.I
 	supportsIAM, err := extension.HasIam(dclSchema)
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError, err)
+	}
+	// Beginnings of direct IAM support: direct-IAM added to existing DCL resource
+	if registry.IsIAMDirect(resourceRef.GroupVersionKind().GroupKind()) {
+		supportsIAM = true
 	}
 	if !supportsIAM {
 		return admission.Errored(http.StatusForbidden, fmt.Errorf("GroupVersionKind %v does not support IAM Policy Member", resourceRef.GroupVersionKind()))

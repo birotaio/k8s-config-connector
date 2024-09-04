@@ -23,8 +23,10 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/kccmanager"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/registration"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/logging"
 	testgcp "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/gcp"
 	testmain "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/main"
@@ -33,6 +35,9 @@ import (
 	klog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
+	// Register direct controllers
+	_ "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/register"
 )
 
 func init() {
@@ -40,6 +45,7 @@ func init() {
 	// regexes to be used to match test names. The "test name" in this case
 	// corresponds to the directory name of the sample YAMLs.
 	flag.StringVar(&runTestsRegex, "run-tests", "", "run only the tests whose names match the given regex")
+	flag.StringVar(&skipTestsRegex, "skip-tests", "", "skip the tests whose names match the given regex, even those that match the run-tests regex")
 	// cleanup-resources allows you to disable the cleanup of resources created during testing. This can be useful for debugging test failures.
 	// The default value is true.
 	//
@@ -50,6 +56,7 @@ func init() {
 
 var (
 	runTestsRegex    string
+	skipTestsRegex   string
 	cleanupResources bool
 	mgr              manager.Manager
 	// this manager is only used to get the rest.Config from the test framework
@@ -64,6 +71,13 @@ var testDisabledList = map[string]bool{
 	// The resources below have special test requirements
 	"computeinterconnectattachment": true,
 	"firestoreindex":                true,
+	"edgenetworknetwork":            true,
+	"edgenetworksubnet":             true,
+	// The test external cluster to be attached requires special setup.
+	// It cannot be attached to multiple projects, or be used multiple times if it's already registered.
+	"container-attached-cluster-basic":         true,
+	"container-attached-cluster-full":          true,
+	"container-attached-cluster-ignore-errors": true,
 	// The below test requires more resources than the default quota allows
 	"computenodegroup":      true,
 	"sole-tenant-node-pool": true,
@@ -104,9 +118,10 @@ var testDisabledList = map[string]bool{
 	// resources, so we shouldn't modify our existing one.
 	"accesscontextmanageraccesspolicy": true,
 	"accesscontextmanageraccesslevel":  true,
-	// Behaviour of Service Perimeter is similar to access level and service policy.
-	// So disabling testing for Service Perimeter
-	"accesscontextmanagerserviceperimeter": true,
+	// Behaviour of Service Perimeter(Resource) is similar to access level and service policy.
+	// So disabling testing for Service Perimeter(Resource)
+	"accesscontextmanagerserviceperimeter":         true,
+	"accesscontextmanagerserviceperimeterresource": true,
 	// Cloud Build Triggers for GitHub repos require the user to connect their
 	// GCP project to their GitHub repo first to work.
 	"build-trigger-for-github-repo": true,
@@ -206,27 +221,50 @@ var testDisabledList = map[string]bool{
 	// This sample test is failing because configconnector.net GCP org is not allowlisted.
 	// Disable the test until we have fixed b/267510222.
 	"calendar-budget": true,
-	// Temporary list to disable because of billing policy change. To be recovered in b/276980291
-	"anthos-config-management-feature":        true,
-	"anthos-service-mesh-feature":             true,
-	"billing-account-log-bucket":              true,
-	"billing-exclusion":                       true,
-	"cluster-policy":                          true,
-	"external-project-level-policy":           true,
-	"multi-cluster-service-discovery-feature": true,
-	"organization-policy-for-project":         true,
-	"project-exclusion":                       true,
-	"project-in-folder":                       true,
-	"project-in-org":                          true,
-	"project-level-policy":                    true,
-	"project-sink":                            true,
+	// These sample test runs try to create AlloyDB backup while Instance has not been created,
+	// as there is no way to enforce order of resource creation. Will re-enable once the API handles it
+	// b/309167136
+	"alloydbbackup":                true,
+	"restored-from-backup-cluster": true,
+	// This sample test need physical rack which is not suitable for e2e testing due to
+	// limited budget.
+	"edgecontainercluster-local-control-plane":  true,
+	"edgecontainercluster-remote-control-plane": true,
+	"edgecontainernodepool":                     true,
+	"edgecontainervpnconnection":                true,
 }
 
 func TestAll(t *testing.T) {
+	ctx, ctxCancel := context.WithCancel(signals.SetupSignalHandler())
+	t.Cleanup(func() {
+		ctxCancel()
+	})
+
 	project := testgcp.GetDefaultProject(t)
 
-	setup()
-	samples := loadSamplesOntoUnstructs(t, regexp.MustCompile(runTestsRegex), project)
+	setup(ctx)
+	// When runTestsRegex is unset, we run all the samples.
+	matchedSamples := LoadMatchingSamples(t, regexp.MustCompile(runTestsRegex), project)
+	// When skipTestsRegex is unset, we don't skip any sample.
+	var skippedSamples []SampleKey
+	if skipTestsRegex != "" {
+		skippedSamples = ListMatchingSamples(t, regexp.MustCompile(skipTestsRegex))
+	}
+
+	var samples []Sample
+	skippedMap := make(map[string]bool)
+	for _, skipped := range skippedSamples {
+		skippedMap[skipped.Name] = true
+	}
+	for _, sample := range matchedSamples {
+		if _, exists := skippedMap[sample.Name]; !exists {
+			samples = append(samples, sample)
+		}
+	}
+	if len(samples) == 0 {
+		t.Fatalf("No tests to run for -run-tests=%s, -skip-tests=%s", runTestsRegex, skipTestsRegex)
+	}
+
 	// Sort the samples in descending order by number of resources. This is an attempt to start the samples that use
 	// a network and have many dependencies sooner since they will likely be the longest running.
 	sortSamplesInDescendingOrderByNumberOfResources(samples)
@@ -246,48 +284,46 @@ func TestAll(t *testing.T) {
 		}
 		s := s
 		s.Resources = replaceResourceNamesWithUniqueIDs(t, s.Resources)
+		s.Resources = updateProjectResourceWithExistingResourceIDs(t, s.Resources)
 		t.Run(s.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.TODO()
-
-			h := NewHarnessWithManager(t, ctx, mgr)
-			SetupNamespacesAndApplyDefaults(h, []Sample{s}, project)
+			h := NewHarnessWithManager(ctx, t, mgr)
+			SetupNamespacesAndApplyDefaults(h, s.Resources, project)
 
 			networkCount := int64(networksInSampleCount(s))
 			if networkCount > 0 {
 				logger.Info("Acquiring network semaphore for test...", "testName", s.Name)
-				if err := sem.Acquire(context.TODO(), networkCount); err != nil {
+				if err := sem.Acquire(ctx, networkCount); err != nil {
 					t.Fatalf("error acquiring semaphore: %v", err)
 				}
 				logger.Info("Acquired network semaphore for test", "testName", s.Name)
 				defer releaseFunc(s, networkCount)
 			}
-			RunCreateDeleteTest(h, s.Resources, cleanupResources)
+			RunCreateDeleteTest(h, CreateDeleteTestOptions{Create: s.Resources, CleanupResources: cleanupResources})
 		})
 	}
 }
 
-func setup() {
-	ctx := context.TODO()
+func setup(ctx context.Context) {
 	flag.Parse()
 	var err error
-	mgr, err = kccmanager.New(ctx, unusedManager.GetConfig(), kccmanager.Config{})
+	mgr, err = kccmanager.New(ctx, unusedManager.GetConfig(), kccmanager.Config{StateIntoSpecDefaultValue: k8s.StateIntoSpecDefaultValueV1Beta1})
 	if err != nil {
 		logging.Fatal(err, "error creating new manager")
 	}
 	// Register the deletion defender controller
-	if err := registration.Add(mgr, nil, nil, nil, nil, registration.RegisterDeletionDefenderController); err != nil {
+	if err := registration.Add(mgr, &controller.Deps{}, registration.RegisterDeletionDefenderController); err != nil {
 		logging.Fatal(err, "error adding registration controller for deletion defender controllers")
 	}
 	// start the manager, Start(...) is a blocking operation so it needs to be done asynchronously
 	go func() {
-		if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+		if err := mgr.Start(ctx); err != nil {
 			logging.Fatal(err, "error starting manager")
 		}
 	}()
 }
 
 func TestMain(m *testing.M) {
-	testmain.TestMainForIntegrationTests(m, &unusedManager)
+	testmain.ForIntegrationTests(m, &unusedManager)
 }

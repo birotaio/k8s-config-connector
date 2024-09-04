@@ -15,25 +15,47 @@
 package parameters
 
 import (
+	"net/http"
+
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/cmd/commonparams"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gcp"
+	"golang.org/x/oauth2"
 )
 
 type Parameters struct {
 	IAMFormat               string
 	FilterDeletedIAMMembers bool
-	OAuth2Token             string
-	Output                  string
-	ResourceFormat          string
-	URI                     string
-	Verbose                 bool
+
+	// GCPAccessToken is the (optional) static authentication token to use for GCP authentication.
+	GCPAccessToken string
+
+	Output         string
+	ResourceFormat string
+	URI            string
+	Verbose        bool
+
+	// HTTPClient allows for overriding the default HTTP Client
+	HTTPClient *http.Client
+}
+
+func (p *Parameters) ControllerConfig() *config.ControllerConfig {
+	c := &config.ControllerConfig{
+		HTTPClient: p.HTTPClient,
+		UserAgent:  gcp.KCCUserAgent,
+	}
+	if p.GCPAccessToken != "" {
+		c.GCPTokenSource = oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: p.GCPAccessToken},
+		)
+	}
+	return c
 }
 
 func Validate(p *Parameters) error {
 	if err := commonparams.ValidateIAMFormat(p.IAMFormat); err != nil {
 		return err
 	}
-	if err := commonparams.ValidateResourceFormat(p.ResourceFormat, p.IAMFormat); err != nil {
-		return err
-	}
-	return nil
+
+	return commonparams.ValidateResourceFormat(p.ResourceFormat, p.IAMFormat)
 }

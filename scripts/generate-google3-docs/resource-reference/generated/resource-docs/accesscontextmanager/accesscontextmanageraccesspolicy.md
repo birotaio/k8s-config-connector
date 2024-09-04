@@ -86,9 +86,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/organization-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -263,5 +260,7 @@ spec:
   title: Config Connector Sample
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

@@ -90,6 +90,7 @@ address: string
 addressType: string
 description: string
 ipVersion: string
+ipv6EndpointType: string
 location: string
 networkRef:
   external: string
@@ -119,9 +120,8 @@ subnetworkRef:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. The static external IP address represented by this resource. Only
-IPv4 is supported. An address may only be specified for INTERNAL
-address types. The IP address must be inside the specified subnetwork,
+            <p>{% verbatim %}Immutable. The static external IP address represented by this resource.
+The IP address must be inside the specified subnetwork,
 if any. Set by the API if undefined.{% endverbatim %}</p>
         </td>
     </tr>
@@ -153,7 +153,19 @@ Note: if you set this argument's value as 'INTERNAL' you need to leave the 'netw
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. The IP Version that will be used by this address. The default value is 'IPV4'. Possible values: ["IPV4", "IPV6"]. This field can only be specified for a global address.{% endverbatim %}</p>
+            <p>{% verbatim %}Immutable. The IP Version that will be used by this address. The default value is 'IPV4'. Possible values: ["IPV4", "IPV6"].{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>ipv6EndpointType</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. The endpoint type of this address, which should be VM or NETLB. This is
+used for deciding which type of endpoint this address can be used after
+the external IPv6 address reservation. Possible values: ["VM", "NETLB"].{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -331,6 +343,8 @@ conditions:
 creationTimestamp: string
 labelFingerprint: string
 observedGeneration: integer
+observedState:
+  address: string
 selfLink: string
 users:
 - string
@@ -412,6 +426,22 @@ internally during updates.{% endverbatim %}</p>
         <td>
             <p><code class="apitype">integer</code></p>
             <p>{% verbatim %}ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The observed state of the underlying GCP resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState.address</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. The static external IP address represented by this resource.
+The IP address must be inside the specified subnetwork,
+if any. Set by the API if undefined.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -507,7 +537,6 @@ spec:
   addressType: INTERNAL
   description: a test regional address
   location: us-central1
-  ipVersion: IPV6
   subnetworkRef:
     name: computeaddress-dep-regional
 ---
@@ -530,5 +559,7 @@ spec:
     name: computeaddress-dep-regional
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

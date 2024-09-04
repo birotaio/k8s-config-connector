@@ -27,6 +27,7 @@ import (
 	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -78,6 +79,15 @@ func NewResource(u *unstructured.Unstructured, sm *corekccv1alpha1.ServiceMappin
 
 func NewResourceFromResourceConfig(rc *corekccv1alpha1.ResourceConfig, p *tfschema.Provider) (*Resource, error) {
 	tfResource, ok := p.ResourcesMap[rc.Name]
+	// Pure Direct Resource does not have ResourceMap.
+	if rc.Direct {
+		return &Resource{
+			TFInfo: &terraform.InstanceInfo{
+				Type: rc.Name,
+			},
+			ResourceConfig: *rc,
+		}, nil
+	}
 	if !ok {
 		return nil, fmt.Errorf("error getting TF resource: unknown resource %v", rc.Name)
 	}
@@ -91,11 +101,20 @@ func NewResourceFromResourceConfig(rc *corekccv1alpha1.ResourceConfig, p *tfsche
 	return resource, nil
 }
 
-func getServerGeneratedIDFromStatus(rc *corekccv1alpha1.ResourceConfig, status map[string]interface{}) (string, bool, error) {
+func getServerGeneratedIDFromStatus(rc *corekccv1alpha1.ResourceConfig, gvk schema.GroupVersionKind, status map[string]interface{}) (string, bool, error) {
+	statusOrObservedState := status
+	if k8s.OutputOnlyFieldsAreUnderObservedState(gvk) {
+		statusOrObservedState = getObservedStateFromStatus(status)
+	}
 	splitPath := text.SnakeCaseStrsToLowerCamelCaseStrs(
 		strings.Split(rc.ServerGeneratedIDField, "."))
 
-	return unstructured.NestedString(status, splitPath...)
+	return unstructured.NestedString(statusOrObservedState, splitPath...)
+}
+
+// DeepCopyObject is needed to implement the interface of client.Object.
+func (r *Resource) DeepCopyObject() runtime.Object {
+	panic("unexpected call to resource.DeepCopyObject(...)")
 }
 
 func (r *Resource) ValidateResourceIDIfSupported() error {
@@ -105,7 +124,7 @@ func (r *Resource) ValidateResourceIDIfSupported() error {
 
 	_, err := r.IsResourceIDConfigured()
 	if err != nil {
-		return fmt.Errorf("error validating '%s' field: %v", k8s.ResourceIDFieldPath, err)
+		return fmt.Errorf("error validating '%s' field: %w", k8s.ResourceIDFieldPath, err)
 	}
 	return nil
 }
@@ -135,6 +154,18 @@ func (r *Resource) ConstructServerGeneratedIDInStatusFromResourceID(c client.Cli
 	return resourceID, nil
 }
 
+func (r *Resource) SelfLinkAsID() (string, error) {
+	selfLink, found, err := unstructured.NestedString(r.GetStatusOrObservedState(), k8s.SelfLinkFieldName)
+	if err != nil {
+		return "", fmt.Errorf("error getting '%s': %w",
+			k8s.SelfLinkFieldName, err)
+	}
+	if !found {
+		return "", fmt.Errorf("resource %s doesn't have a '%s' field", r.Name, k8s.SelfLinkFieldName)
+	}
+	return selfLink, nil
+}
+
 // GetImportID returns the Terraform import ID for the resource.
 // TODO(kcc-eng): Require ID templates for all resources and remove all implicit defaults.
 func (r *Resource) GetImportID(c client.Client, smLoader *servicemappingloader.ServiceMappingLoader) (string, error) {
@@ -143,11 +174,11 @@ func (r *Resource) GetImportID(c client.Client, smLoader *servicemappingloader.S
 		// when using a server generated id for import, ensure it is there before importing to get a more specific
 		// error of type ServerGeneratedIDNotFoundError
 		if template == "" {
-			template = r.serverGeneratedIdToTemplate()
+			template = r.serverGeneratedIDToTemplate()
 			if _, err := r.GetServerGeneratedID(); err != nil {
 				return "", err
 			}
-		} else if r.serverGeneratedIdInIdTemplate() {
+		} else if r.serverGeneratedIDInIDTemplate() {
 			if _, err := r.GetServerGeneratedID(); err != nil {
 				return "", err
 			}
@@ -163,8 +194,8 @@ func (r *Resource) GetImportID(c client.Client, smLoader *servicemappingloader.S
 		// an ID template that doesn't contain the server-generated ID in it.
 		// And they can be imported by either (1) or (2). The following if block
 		// is to get import ID via (1) after failing to resolve (2).
-		if r.shouldFallBackToServerGeneratedIdIfImportIdFails() {
-			template = r.serverGeneratedIdToTemplate()
+		if r.shouldFallBackToServerGeneratedIDIfImportIDFails() {
+			template = r.serverGeneratedIDToTemplate()
 			return expandTemplate(template, r, c, smLoader)
 		}
 		return "", err
@@ -180,20 +211,20 @@ func (r *Resource) HasServerGeneratedIDField() bool {
 	return r.ResourceConfig.ServerGeneratedIDField != ""
 }
 
-func (r *Resource) serverGeneratedIdToTemplate() string {
-	return ServerGeneratedIdToTemplate(&r.ResourceConfig)
+func (r *Resource) serverGeneratedIDToTemplate() string {
+	return ServerGeneratedIDToTemplate(&r.ResourceConfig)
 }
 
-func (r *Resource) shouldFallBackToServerGeneratedIdIfImportIdFails() bool {
-	return r.HasServerGeneratedIDField() && !r.serverGeneratedIdInIdTemplate()
+func (r *Resource) shouldFallBackToServerGeneratedIDIfImportIDFails() bool {
+	return r.HasServerGeneratedIDField() && !r.serverGeneratedIDInIDTemplate()
 }
 
-func (r *Resource) serverGeneratedIdInIdTemplate() bool {
+func (r *Resource) serverGeneratedIDInIDTemplate() bool {
 	if !r.HasIDTemplate() || !r.HasServerGeneratedIDField() {
 		return false
 	}
-	idTemplateFormOfServerGeneratedId := fmt.Sprintf("{{%v}}", r.ResourceConfig.ServerGeneratedIDField)
-	return strings.Contains(r.ResourceConfig.IDTemplate, idTemplateFormOfServerGeneratedId)
+	idTemplateFormOfServerGeneratedID := fmt.Sprintf("{{%v}}", r.ResourceConfig.ServerGeneratedIDField)
+	return strings.Contains(r.ResourceConfig.IDTemplate, idTemplateFormOfServerGeneratedID)
 }
 
 // GetServerGeneratedID gets the value of the resource's server-generated ID.
@@ -226,9 +257,9 @@ func (r *Resource) GetServerGeneratedID() (string, error) {
 
 	// If the resource doesn't support a server-generated `spec.resourceID` or
 	// if the field is not specified, fallback to resolve it from status.
-	idInStatus, exists, err := getServerGeneratedIDFromStatus(&r.ResourceConfig, r.Status)
+	idInStatus, exists, err := getServerGeneratedIDFromStatus(&r.ResourceConfig, r.GroupVersionKind(), r.Status)
 	if err != nil {
-		return "", fmt.Errorf("error getting server-generated ID: %v", err)
+		return "", fmt.Errorf("error getting server-generated ID: %w", err)
 	}
 	if !exists {
 		return "", k8s.NewServerGeneratedIDNotFoundError(r.GroupVersionKind(),
@@ -304,6 +335,18 @@ func (r *Resource) AllTopLevelFieldsAreImmutableOrComputed() bool {
 	return true
 }
 
+func getObservedStateFromStatus(status map[string]interface{}) map[string]interface{} {
+	observedState, _, _ := unstructured.NestedMap(status, k8s.ObservedStateFieldName)
+	return observedState
+}
+
+func (r *Resource) GetStatusOrObservedState() map[string]interface{} {
+	if k8s.OutputOnlyFieldsAreUnderObservedState(r.GroupVersionKind()) {
+		return getObservedStateFromStatus(r.Status)
+	}
+	return r.Status
+}
+
 func SupportsResourceIDField(rc *corekccv1alpha1.ResourceConfig) bool {
 	return rc.ResourceID.TargetField != ""
 }
@@ -333,6 +376,18 @@ func GVKForResource(sm *corekccv1alpha1.ServiceMapping, rc *corekccv1alpha1.Reso
 	}
 }
 
-func ServerGeneratedIdToTemplate(rc *corekccv1alpha1.ResourceConfig) string {
+func ServerGeneratedIDToTemplate(rc *corekccv1alpha1.ResourceConfig) string {
 	return fmt.Sprintf("{{%v}}", rc.ServerGeneratedIDField)
+}
+
+func isMetadataMappingLabelsField(field string, rc *corekccv1alpha1.ResourceConfig) bool {
+	return rc.MetadataMapping.Labels != "" && field == rc.MetadataMapping.Labels
+}
+
+func isMetadataMappingNameField(field string, rc *corekccv1alpha1.ResourceConfig) bool {
+	return rc.MetadataMapping.Name != "" && field == rc.MetadataMapping.Name
+}
+
+func isServerGeneratedIDField(field string, rc *corekccv1alpha1.ResourceConfig) bool {
+	return rc.ServerGeneratedIDField != "" && field == rc.ServerGeneratedIDField
 }

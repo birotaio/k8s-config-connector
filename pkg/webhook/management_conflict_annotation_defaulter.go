@@ -25,13 +25,13 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
 
 	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-provider-google-beta/google-beta"
+	"github.com/hashicorp/terraform-provider-google-beta/google-beta/provider"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -43,22 +43,16 @@ type managementConflictAnnotationDefaulter struct {
 	tfResourceMap         map[string]*tfschema.Resource
 }
 
-func NewManagementConflictAnnotationDefaulter(smLoader *servicemappingloader.ServiceMappingLoader, dclSchemaLoader dclschemaloader.DCLSchemaLoader, serviceMetadataLoader dclmetadata.ServiceMetadataLoader) *managementConflictAnnotationDefaulter {
-	return &managementConflictAnnotationDefaulter{
-		smLoader:              smLoader,
-		serviceMetadataLoader: serviceMetadataLoader,
-		dclSchemaLoader:       dclSchemaLoader,
-		tfResourceMap:         google.ResourceMap(),
+func NewManagementConflictAnnotationDefaulter(smLoader *servicemappingloader.ServiceMappingLoader, dclSchemaLoader dclschemaloader.DCLSchemaLoader, serviceMetadataLoader dclmetadata.ServiceMetadataLoader) HandlerFunc {
+	return func(mgr manager.Manager) admission.Handler {
+		return &managementConflictAnnotationDefaulter{
+			client:                mgr.GetClient(),
+			smLoader:              smLoader,
+			serviceMetadataLoader: serviceMetadataLoader,
+			dclSchemaLoader:       dclSchemaLoader,
+			tfResourceMap:         provider.ResourceMap(),
+		}
 	}
-}
-
-// managementConflictAnnotationDefaulter implements inject.Client.
-var _ inject.Client = &managementConflictAnnotationDefaulter{}
-
-// InjectClient injects the client into the managementConflictAnnotationDefaulter
-func (a *managementConflictAnnotationDefaulter) InjectClient(c client.Client) error {
-	a.client = c
-	return nil
 }
 
 func (a *managementConflictAnnotationDefaulter) Handle(ctx context.Context, req admission.Request) admission.Response {
@@ -67,12 +61,12 @@ func (a *managementConflictAnnotationDefaulter) Handle(ctx context.Context, req 
 	if _, _, err := deserializer.Decode(req.AdmissionRequest.Object.Raw, nil, obj); err != nil {
 		klog.Error(err)
 		return admission.Errored(http.StatusBadRequest,
-			fmt.Errorf("error decoding object: %v", err))
+			fmt.Errorf("error decoding object: %w", err))
 	}
 	ns := &corev1.Namespace{}
 	if err := a.client.Get(ctx, apimachinerytypes.NamespacedName{Name: obj.GetNamespace()}, ns); err != nil {
 		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("error getting Namespace %v: %v", obj.GetNamespace(), err))
+			fmt.Errorf("error getting Namespace %v: %w", obj.GetNamespace(), err))
 	}
 	if dclmetadata.IsDCLBasedResourceKind(obj.GroupVersionKind(), a.serviceMetadataLoader) {
 		return defaultManagementConflictAnnotationForDCLBasedResources(obj, ns, a.dclSchemaLoader, a.serviceMetadataLoader)
@@ -85,16 +79,16 @@ func defaultManagementConflictAnnotationForDCLBasedResources(obj *unstructured.U
 	stv, err := dclmetadata.ToServiceTypeVersion(gvk, serviceMetadataLoader)
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("error getting DCL ServiceTypeVersion for GroupVersionKind %v: %v", gvk, err))
+			fmt.Errorf("error getting DCL ServiceTypeVersion for GroupVersionKind %v: %w", gvk, err))
 	}
 	schema, err := dclSchemaLoader.GetDCLSchema(stv)
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("error getting the DCL Schema for GroupVersionKind %v: %v", gvk, err))
+			fmt.Errorf("error getting the DCL Schema for GroupVersionKind %v: %w", gvk, err))
 	}
 	newObj := obj.DeepCopy()
 	if err := k8s.ValidateOrDefaultManagementConflictPreventionAnnotationForDCLBasedResource(newObj, ns, schema); err != nil {
-		return admission.Errored(http.StatusBadRequest, fmt.Errorf("error validating or defaulting management conflict policy annotation: %v", err))
+		return admission.Errored(http.StatusBadRequest, fmt.Errorf("error validating or defaulting management conflict policy annotation: %w", err))
 	}
 	return constructPatchResponse(obj, newObj)
 }
@@ -103,11 +97,11 @@ func defaultManagementConflictAnnotationForTFBasedResources(obj *unstructured.Un
 	rc, err := smLoader.GetResourceConfig(obj)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest,
-			fmt.Errorf("error getting ResourceConfig for kind %v: %v", obj.GetKind(), err))
+			fmt.Errorf("error getting ResourceConfig for kind %v: %w", obj.GetKind(), err))
 	}
 	newObj := obj.DeepCopy()
 	if err := k8s.ValidateOrDefaultManagementConflictPreventionAnnotationForTFBasedResource(newObj, ns, rc, tfResourceMap); err != nil {
-		return admission.Errored(http.StatusBadRequest, fmt.Errorf("error validating or defaulting management conflict policy annotation: %v", err))
+		return admission.Errored(http.StatusBadRequest, fmt.Errorf("error validating or defaulting management conflict policy annotation: %w", err))
 	}
 	return constructPatchResponse(obj, newObj)
 }

@@ -74,6 +74,12 @@
 </tbody>
 </table>
 
+## Prerequisites
+
+Before you can use this resource, assign the Secret Manager Admin role
+(roles/secretmanager.admin) on the project, folder, or organization. The
+required permission ‘secretmanager.versions.access’ is included in this role.
+
 ## Custom Resource Definition Properties
 
 
@@ -88,9 +94,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -98,8 +101,16 @@
 ### Spec
 #### Schema
 ```yaml
+annotations:
+  string: string
 expireTime: string
 replication:
+  auto:
+    customerManagedEncryption:
+      kmsKeyRef:
+        external: string
+        name: string
+        namespace: string
   automatic: boolean
   userManaged:
     replicas:
@@ -119,6 +130,8 @@ topics:
     name: string
     namespace: string
 ttl: string
+versionAliases:
+  string: string
 ```
 
 <table class="properties responsive">
@@ -128,6 +141,29 @@ ttl: string
     </tr>
 </thead>
 <tbody>
+    <tr>
+        <td>
+            <p><code>annotations</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">map (key: string, value: string)</code></p>
+            <p>{% verbatim %}Custom metadata about the secret.
+
+Annotations are distinct from various forms of labels. Annotations exist to allow
+client tools to store their own state information without requiring a database.
+
+Annotation keys must be between 1 and 63 characters long, have a UTF-8 encoding of
+maximum 128 bytes, begin and end with an alphanumeric character ([a-z0-9A-Z]), and
+may have dashes (-), underscores (_), dots (.), and alphanumerics in between these
+symbols.
+
+The total size of annotation keys and values must be less than 16KiB.
+
+An object containing a list of "key": value pairs. Example:
+{ "name": "wrench", "mass": "1.3kg", "count": "3" }.{% endverbatim %}</p>
+        </td>
+    </tr>
     <tr>
         <td>
             <p><code>expireTime</code></p>
@@ -152,12 +188,76 @@ after the Secret has been created.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>replication.auto</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The Secret will automatically be replicated without any restrictions.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>replication.auto.customerManagedEncryption</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The customer-managed encryption configuration of the Secret.
+If no configuration is provided, Google-managed default
+encryption is used.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>replication.auto.customerManagedEncryption.kmsKeyRef</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The customer-managed encryption configuration of the Secret.
+If no configuration is provided, Google-managed default
+encryption is used.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>replication.auto.customerManagedEncryption.kmsKeyRef.external</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Allowed value: The `selfLink` field of a `KMSCryptoKey` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>replication.auto.customerManagedEncryption.kmsKeyRef.name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>replication.auto.customerManagedEncryption.kmsKeyRef.namespace</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>replication.automatic</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">boolean</code></p>
-            <p>{% verbatim %}Immutable. The Secret will automatically be replicated without any restrictions.{% endverbatim %}</p>
+            <p>{% verbatim %}The Secret will automatically be replicated without any restrictions.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -167,7 +267,7 @@ after the Secret has been created.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}Immutable. The Secret will automatically be replicated without any restrictions.{% endverbatim %}</p>
+            <p>{% verbatim %}Immutable. The Secret will be replicated to the regions specified by the user.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -197,7 +297,7 @@ after the Secret has been created.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}Immutable. Customer Managed Encryption for the secret.{% endverbatim %}</p>
+            <p>{% verbatim %}Customer Managed Encryption for the secret.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -365,11 +465,29 @@ or its versions.{% endverbatim %}</p>
 A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".{% endverbatim %}</p>
         </td>
     </tr>
+    <tr>
+        <td>
+            <p><code>versionAliases</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">map (key: string, value: string)</code></p>
+            <p>{% verbatim %}Mapping from version alias to version name.
+
+A version alias is a string with a maximum length of 63 characters and can contain
+uppercase and lowercase letters, numerals, and the hyphen (-) and underscore ('_')
+characters. An alias string must start with a letter and cannot be the string
+'latest' or 'NEW'. No more than 50 aliases can be assigned to a given secret.
+
+An object containing a list of "key": value pairs. Example:
+{ "name": "wrench", "mass": "1.3kg", "count": "3" }.{% endverbatim %}</p>
+        </td>
+    </tr>
 </tbody>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -526,5 +644,7 @@ spec:
       - location: us-east1
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

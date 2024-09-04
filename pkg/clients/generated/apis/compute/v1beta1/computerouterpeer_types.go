@@ -52,7 +52,7 @@ type RouterpeerBfd struct {
 	and the transmit interval of the other router. If set, this value
 	must be between 1000 and 30000. */
 	// +optional
-	MinReceiveInterval *int `json:"minReceiveInterval,omitempty"`
+	MinReceiveInterval *int64 `json:"minReceiveInterval,omitempty"`
 
 	/* The minimum interval, in milliseconds, between BFD control packets
 	transmitted to the peer router. The actual value is negotiated
@@ -60,13 +60,13 @@ type RouterpeerBfd struct {
 	and the corresponding receive interval of the other router. If set,
 	this value must be between 1000 and 30000. */
 	// +optional
-	MinTransmitInterval *int `json:"minTransmitInterval,omitempty"`
+	MinTransmitInterval *int64 `json:"minTransmitInterval,omitempty"`
 
 	/* The number of consecutive BFD packets that must be missed before
 	BFD declares that a peer is unavailable. If set, the value must
 	be a value between 5 and 16. */
 	// +optional
-	Multiplier *int `json:"multiplier,omitempty"`
+	Multiplier *int64 `json:"multiplier,omitempty"`
 
 	/* The BFD session initialization mode for this BGP peer.
 	If set to 'ACTIVE', the Cloud Router will initiate the BFD session
@@ -88,11 +88,11 @@ type ComputeRouterPeerSpec struct {
 	AdvertiseMode *string `json:"advertiseMode,omitempty"`
 
 	/* User-specified list of prefix groups to advertise in custom
-	mode, which can take one of the following options:
+	mode, which currently supports the following option:
 
-	* 'ALL_SUBNETS': Advertises all available subnets, including peer VPC subnets.
-	* 'ALL_VPC_SUBNETS': Advertises the router's own VPC subnets.
-	* 'ALL_PEER_VPC_SUBNETS': Advertises peer subnets of the router's VPC network.
+	* 'ALL_SUBNETS': Advertises all of the router's own VPC subnets.
+	This excludes any routes learned for subnets that use VPC Network
+	Peering.
 
 
 	Note that this field can only be populated if advertiseMode is 'CUSTOM'
@@ -114,7 +114,7 @@ type ComputeRouterPeerSpec struct {
 	Where there is more than one matching route of maximum
 	length, the routes with the lowest priority value win. */
 	// +optional
-	AdvertisedRoutePriority *int `json:"advertisedRoutePriority,omitempty"`
+	AdvertisedRoutePriority *int64 `json:"advertisedRoutePriority,omitempty"`
 
 	/* BFD configuration for the BGP peering. */
 	// +optional
@@ -127,18 +127,37 @@ type ComputeRouterPeerSpec struct {
 	// +optional
 	Enable *bool `json:"enable,omitempty"`
 
+	/* Enable IPv6 traffic over BGP Peer. If not specified, it is disabled by default. */
+	// +optional
+	EnableIpv6 *bool `json:"enableIpv6,omitempty"`
+
 	/* IP address of the interface inside Google Cloud Platform.
 	Only IPv4 is supported. */
 	// +optional
 	IpAddress *RouterpeerIpAddress `json:"ipAddress,omitempty"`
 
+	/* IPv6 address of the interface inside Google Cloud Platform.
+	The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64.
+	If you do not specify the next hop addresses, Google Cloud automatically
+	assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. */
+	// +optional
+	Ipv6NexthopAddress *string `json:"ipv6NexthopAddress,omitempty"`
+
 	/* Peer BGP Autonomous System Number (ASN).
 	Each BGP interface may use a different value. */
-	PeerAsn int `json:"peerAsn"`
+	PeerAsn int64 `json:"peerAsn"`
 
 	/* IP address of the BGP interface outside Google Cloud Platform.
-	Only IPv4 is supported. */
-	PeerIpAddress string `json:"peerIpAddress"`
+	Only IPv4 is supported. Required if 'ip_address' is set. */
+	// +optional
+	PeerIpAddress *string `json:"peerIpAddress,omitempty"`
+
+	/* IPv6 address of the BGP interface outside Google Cloud Platform.
+	The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64.
+	If you do not specify the next hop addresses, Google Cloud automatically
+	assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. */
+	// +optional
+	PeerIpv6NexthopAddress *string `json:"peerIpv6NexthopAddress,omitempty"`
 
 	/* Immutable. Region where the router and BgpPeer reside.
 	If it is not provided, the provider region is used. */
@@ -182,11 +201,18 @@ type ComputeRouterPeerStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcomputerouterpeer;gcpcomputerouterpeers
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ComputeRouterPeer is the Schema for the compute API
 // +k8s:openapi-gen=true

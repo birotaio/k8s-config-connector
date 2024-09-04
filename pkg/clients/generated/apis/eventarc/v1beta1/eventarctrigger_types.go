@@ -58,6 +58,14 @@ type TriggerDestination struct {
 	// +optional
 	Gke *TriggerGke `json:"gke,omitempty"`
 
+	/* An HTTP endpoint destination described by an URI. */
+	// +optional
+	HttpEndpoint *TriggerHttpEndpoint `json:"httpEndpoint,omitempty"`
+
+	/* Optional. Network config is used to configure how Eventarc resolves and connect to a destination. This should only be used with HttpEndpoint destination type. */
+	// +optional
+	NetworkConfig *TriggerNetworkConfig `json:"networkConfig,omitempty"`
+
 	// +optional
 	WorkflowRef *v1alpha1.ResourceRef `json:"workflowRef,omitempty"`
 }
@@ -79,6 +87,11 @@ type TriggerGke struct {
 	Service string `json:"service"`
 }
 
+type TriggerHttpEndpoint struct {
+	/* Required. The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: `http://10.10.10.8:80/route`, `http://svc.us-central1.p.local:8080/`. Only HTTP and HTTPS protocols are supported. The host can be either a static IP addressable from the VPC specified by the network config, or an internal DNS hostname of the service resolvable via Cloud DNS. */
+	Uri string `json:"uri"`
+}
+
 type TriggerMatchingCriteria struct {
 	/* Required. The name of a CloudEvents attribute. Currently, only a subset of attributes are supported for filtering. All triggers MUST provide a filter for the 'type' attribute. */
 	Attribute string `json:"attribute"`
@@ -89,6 +102,10 @@ type TriggerMatchingCriteria struct {
 
 	/* Required. The value for the attribute. See https://cloud.google.com/eventarc/docs/creating-triggers#trigger-gcloud for available values. */
 	Value string `json:"value"`
+}
+
+type TriggerNetworkConfig struct {
+	NetworkAttachmentRef v1alpha1.ResourceRef `json:"networkAttachmentRef"`
 }
 
 type TriggerPubsub struct {
@@ -110,6 +127,10 @@ type EventarcTriggerSpec struct {
 
 	/* Required. Destination specifies where the events should be sent to. */
 	Destination TriggerDestination `json:"destination"`
+
+	/* Optional. EventDataContentType specifies the type of payload in MIME format that is expected from the CloudEvent data field. This is set to `application/json` if the value is not defined. */
+	// +optional
+	EventDataContentType *string `json:"eventDataContentType,omitempty"`
 
 	/* Immutable. The location for the resource */
 	Location string `json:"location"`
@@ -157,7 +178,7 @@ type EventarcTriggerStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	/* Output only. The reason(s) why a trigger is in FAILED state. */
 	// +optional
@@ -177,6 +198,13 @@ type EventarcTriggerStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpeventarctrigger;gcpeventarctriggers
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/dcl2crd=true";"cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // EventarcTrigger is the Schema for the eventarc API
 // +k8s:openapi-gen=true

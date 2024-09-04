@@ -40,6 +40,15 @@ type ComputeTargetHTTPProxySpec struct {
 	// +optional
 	Description *string `json:"description,omitempty"`
 
+	/* Immutable. Specifies how long to keep a connection open, after completing a response,
+	while there is no matching traffic (in seconds). If an HTTP keepalive is
+	not specified, a default value (610 seconds) will be used. For Global
+	external HTTP(S) load balancer, the minimum allowed value is 5 seconds and
+	the maximum allowed value is 1200 seconds. For Global external HTTP(S)
+	load balancer (classic), this option is not available publicly. */
+	// +optional
+	HttpKeepAliveTimeoutSec *int64 `json:"httpKeepAliveTimeoutSec,omitempty"`
+
 	/* Location represents the geographical location of the ComputeTargetHTTPProxy. Specify a region name or "global" for global resources. Reference: GCP definition of regions/zones (https://cloud.google.com/compute/docs/regions-zones/) */
 	Location string `json:"location"`
 
@@ -67,11 +76,11 @@ type ComputeTargetHTTPProxyStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	/* The unique identifier for the resource. */
 	// +optional
-	ProxyId *int `json:"proxyId,omitempty"`
+	ProxyId *int64 `json:"proxyId,omitempty"`
 
 	// +optional
 	SelfLink *string `json:"selfLink,omitempty"`
@@ -79,6 +88,13 @@ type ComputeTargetHTTPProxyStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcomputetargethttpproxy;gcpcomputetargethttpproxies
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ComputeTargetHTTPProxy is the Schema for the compute API
 // +k8s:openapi-gen=true

@@ -84,9 +84,6 @@ Read more about updating Dataflow jobs at
     <tr>
         <td><code>cnrm.cloud.google.com/skip-wait-on-job-termination</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -641,5 +638,7 @@ metadata:
   name: ${PROJECT_ID?}-dataflowjob-dep-streaming
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

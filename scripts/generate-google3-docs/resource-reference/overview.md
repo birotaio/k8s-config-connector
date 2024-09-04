@@ -13,6 +13,11 @@ version. If you are using a different version, you can find each version's
 Custom Resource Definitions in the GitHub repository. For example, this
 [link contains CRDs for version 1.89.0](https://github.com/GoogleCloudPlatform/k8s-config-connector/tree/v1.89.0/crds).
 
+Note: Please review <a href="/config-connector/docs/best-practices">best
+practices</a> and
+<a href="/config-connector/docs/troubleshooting">troubleshooting</a> common
+issues for {{product_name_short}}.
+
 <div>
 <devsite-filter>
   <input type="text" placeholder="Type a keyword to filter the list of resources">
@@ -35,6 +40,26 @@ Custom Resource Definitions in the GitHub repository. For example, this
 <tr>
   <td><a href="/vpc-service-controls/docs/">{{acm_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/accesscontextmanager/accesscontextmanagerserviceperimeter.md">AccessContextManagerServicePerimeter</a></td>
+</tr>
+<tr>
+  <td><a href="/vpc-service-controls/docs/">{{acm_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/accesscontextmanager/accesscontextmanagerserviceperimeterresource.md">AccessContextManagerServicePerimeterResource</a></td>
+</tr>
+<tr>
+  <td><a href="/alloydb/docs/">{{alloydb_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/alloydb/alloydbbackup.md">AlloyDBBackup</a></td>
+</tr>
+<tr>
+  <td><a href="/alloydb/docs/">{{alloydb_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/alloydb/alloydbcluster.md">AlloyDBCluster</a></td>
+</tr>
+<tr>
+  <td><a href="/alloydb/docs/">{{alloydb_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/alloydb/alloydbinstance.md">AlloyDBInstance</a></td>
+</tr>
+<tr>
+  <td><a href="/alloydb/docs/">{{alloydb_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/alloydb/alloydbuser.md">AlloyDBUser</a></td>
 </tr>
 <tr>
   <td><a href="/artifact-registry/docs/">{{ar_name}}</a></td>
@@ -93,6 +118,10 @@ Custom Resource Definitions in the GitHub repository. For example, this
   <td><a href="/config-connector/docs/reference/resource-docs/cloudbuild/cloudbuildtrigger.md">CloudBuildTrigger</a></td>
 </tr>
 <tr>
+  <td><a href="/cloud-build/docs/">{{builder_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/cloudbuild/cloudbuildworkerpool.md">CloudBuildWorkerPool</a></td>
+</tr>
+<tr>
   <td><a href="/functions/docs/">{{function_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/cloudfunctions/cloudfunctionsfunction.md">CloudFunctionsFunction</a></td>
 </tr>
@@ -105,8 +134,28 @@ Custom Resource Definitions in the GitHub repository. For example, this
   <td><a href="/config-connector/docs/reference/resource-docs/cloudidentity/cloudidentitymembership.md">CloudIdentityMembership</a></td>
 </tr>
 <tr>
+  <td><a href="/cloudids/docs/">{{ids_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/cloudids/cloudidsendpoint.md">CloudIDSEndpoint</a></td>
+</tr>
+<tr>
   <td><a href="/scheduler/docs/">{{scheduler_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/cloudscheduler/cloudschedulerjob.md">CloudSchedulerJob</a></td>
+</tr>
+<tr>
+  <td><a href="/certificate-manager/docs/">{{certificate_manager_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/certificatemanager/certificatemanagercertificate.md">CertificateManagerCertificate</a></td>
+</tr>
+<tr>
+  <td><a href="/certificate-manager/docs/">{{certificate_manager_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/certificatemanager/certificatemanagercertificatemap.md">CertificateManagerCertificateMap</a></td>
+</tr>
+<tr>
+  <td><a href="/certificate-manager/docs/">{{certificate_manager_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/certificatemanager/certificatemanagercertificatemapentry.md">CertificateManagerCertificateMapEntry</a></td>
+</tr>
+<tr>
+  <td><a href="/certificate-manager/docs/">{{certificate_manager_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/certificatemanager/certificatemanagerdnsauthorization.md">CertificateManagerDNSAuthorization</a></td>
 </tr>
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
@@ -140,10 +189,6 @@ Custom Resource Definitions in the GitHub repository. For example, this
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/compute/computefirewallpolicyassociation.md">ComputeFirewallPolicyAssociation</a></td>
-</tr>
-<tr>
-  <td><a href="/compute/docs/">{{compute_name}}</a></td>
-  <td><a href="/config-connector/docs/reference/resource-docs/compute/computefirewallpolicyrule.md">ComputeFirewallPolicyRule</a></td>
 </tr>
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
@@ -187,11 +232,27 @@ Custom Resource Definitions in the GitHub repository. For example, this
 </tr>
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/compute/computemanagedsslcertificate.md">ComputeManagedSSLCertificate</a></td>
+</tr>
+<tr>
+  <td><a href="/compute/docs/">{{compute_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/compute/computenetwork.md">ComputeNetwork</a></td>
 </tr>
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/compute/computenetworkendpointgroup.md">ComputeNetworkEndpointGroup</a></td>
+</tr>
+<tr>
+  <td><a href="/compute/docs/">{{compute_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/compute/computenetworkfirewallpolicy.md">ComputeNetworkFirewallPolicy</a></td>
+</tr>
+<tr>
+  <td><a href="/compute/docs/">{{compute_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/compute/computenetworkfirewallpolicyassociation.md">ComputeNetworkFirewallPolicyAssociation</a></td>
+</tr>
+<tr>
+  <td><a href="/compute/docs/">{{compute_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/compute/computenetworkfirewallpolicyrule.md">ComputeNetworkFirewallPolicyRule</a></td>
 </tr>
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
@@ -382,6 +443,26 @@ Custom Resource Definitions in the GitHub repository. For example, this
   <td><a href="/config-connector/docs/reference/resource-docs/dns/dnsrecordset.md">DNSRecordSet</a></td>
 </tr>
 <tr>
+  <td><a href="/distributed-cloud/edge/latest/docs/">{{distributed_cloud_edge_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/edgecontainer/edgecontainercluster.md">EdgeContainerCluster</a></td>
+</tr>
+<tr>
+  <td><a href="/distributed-cloud/edge/latest/docs/">{{distributed_cloud_edge_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/edgecontainer/edgecontainernodepool.md">EdgeContainerNodePool</a></td>
+</tr>
+<tr>
+  <td><a href="/distributed-cloud/edge/latest/docs/">{{distributed_cloud_edge_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/edgecontainer/edgecontainervpnconnection.md">EdgeContainerVPNConnection</a></td>
+</tr>
+<tr>
+  <td><a href="/distributed-cloud/edge/latest/docs/">{{distributed_cloud_edge_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/edgenetwork/edgenetworknetwork.md">EdgeNetworkNetwork</a></td>
+</tr>
+<tr>
+  <td><a href="/distributed-cloud/edge/latest/docs/">{{distributed_cloud_edge_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/edgenetwork/edgenetworksubnet.md">EdgeNetworkSubnet</a></td>
+</tr>
+<tr>
   <td><a href="/eventarc/docs/">{{eventarc_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/eventarc/eventarctrigger.md">EventarcTrigger</a></td>
 </tr>
@@ -396,6 +477,10 @@ Custom Resource Definitions in the GitHub repository. For example, this
 <tr>
   <td><a href="/firestore/docs/">{{firestore_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/firestore/firestoreindex.md">FirestoreIndex</a></td>
+</tr>
+<tr>
+  <td><a href="/anthos/clusters/docs/multi-cloud/attached">{{anthos_attached_clusters_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/containerattached/containerattachedcluster.md">ContainerAttachedCluster</a></td>
 </tr>
 <tr>
   <td><a class="external" href="https://gkehub.googleapis.com/$discovery/rest?version=v1beta1">GKE Hub</a></td>
@@ -627,6 +712,10 @@ Custom Resource Definitions in the GitHub repository. For example, this
 </tr>
 <tr>
   <td><a href="/run/docs/">{{cloud_run_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/run/runjob.md">RunJob</a></td>
+</tr>
+<tr>
+  <td><a href="/run/docs/">{{cloud_run_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/run/runservice.md">RunService</a></td>
 </tr>
 <tr>
@@ -750,6 +839,18 @@ Custom Resource Definitions in the GitHub repository. For example, this
   <td><a href="/config-connector/docs/reference/resource-docs/networkservices/networkservicestlsroute.md">NetworkServicesTLSRoute</a></td>
 </tr>
 <tr>
+  <td><a href="/vertex-ai/docs/">{{vertex_ai_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/vertexai/vertexaidataset.md">VertexAIDataset</a></td>
+</tr>
+<tr>
+  <td><a href="/vertex-ai/docs/">{{vertex_ai_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/vertexai/vertexaiendpoint.md">VertexAIEndpoint</a></td>
+</tr>
+<tr>
+  <td><a href="/vertex-ai/docs/">{{vertex_ai_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/vertexai/vertexaiindex.md">VertexAIIndex</a></td>
+</tr>
+<tr>
   <td><a href="/vpc/docs/">{{serverless_vpc_access_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/vpcaccess/vpcaccessconnector.md">VPCAccessConnector</a></td>
 </tr>
@@ -758,7 +859,8 @@ Custom Resource Definitions in the GitHub repository. For example, this
 </devsite-filter>
 </div>
 
-The following resources are not supported in {{product_name_short}} starting from the corresponding version:
+The following resources are not supported in {{product_name_short}} starting
+from the corresponding version:
 
 <div>
 <table>

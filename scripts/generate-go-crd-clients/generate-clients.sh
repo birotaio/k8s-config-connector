@@ -18,8 +18,22 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+# Setting GOPATH changes behaviour of k8s codegen tools
+unset GOPATH
 
-source $(dirname "${BASH_SOURCE}")/../shared-vars-public.sh
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "${REPO_ROOT}"
+
+# Generate strong-typed definitions for existing CRDs
+echo "Generating go types"
+go run ./scripts/generate-go-crd-clients
+
+# Generate deepcopy etc
+echo "Generating deepcopy for go types"
+go generate ./pkg/clients/...
+
+# Generate the clients
+echo "Generating clients"
 cd "${REPO_ROOT}/pkg/clients/generated/"
 
 # Extract API & version names
@@ -34,10 +48,16 @@ done
 printf -v JOINED '%s,' "${API_VERSIONS[@]:1}"
 JOINED="${JOINED}${API_VERSIONS[0]}"
 
-go run ${REPO_ROOT}/scripts/client-gen/main.go --clientset-name versioned --input-base github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis --input ${JOINED} --output-base ../ --output-package github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/client/clientset -h ${REPO_ROOT}/hack/boilerplate_client_alpha.go.txt
+cd ${REPO_ROOT}
+go run k8s.io/code-generator/cmd/client-gen@v0.29.0 \
+  --clientset-name versioned \
+  --input-base github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis \
+  --input ${JOINED} \
+  --output-base ./ \
+  --output-package github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/client/clientset \
+  --trim-path-prefix github.com/GoogleCloudPlatform/k8s-config-connector \
+  -h ${REPO_ROOT}/hack/boilerplate_client_alpha.go.txt
 
-# Clients are generated in a temp github.com/ folder where we pull the
-# generated files out into a cleared pkg/client/ folder
-rm -rf client/
-mv ../github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/client .
-rm -rf ../cnrm.googlesource.com
+echo "Applying gofmt"
+cd ${REPO_ROOT}
+make fmt # Fix up the formatting and headers

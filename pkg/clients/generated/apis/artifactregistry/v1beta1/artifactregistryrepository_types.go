@@ -35,6 +35,49 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type RepositoryCleanupPolicies struct {
+	/* Policy action. Possible values: ["DELETE", "KEEP"]. */
+	// +optional
+	Action *string `json:"action,omitempty"`
+
+	/* Policy condition for matching versions. */
+	// +optional
+	Condition *RepositoryCondition `json:"condition,omitempty"`
+
+	Id string `json:"id"`
+
+	/* Policy condition for retaining a minimum number of versions. May only be
+	specified with a Keep action. */
+	// +optional
+	MostRecentVersions *RepositoryMostRecentVersions `json:"mostRecentVersions,omitempty"`
+}
+
+type RepositoryCondition struct {
+	/* Match versions newer than a duration. */
+	// +optional
+	NewerThan *string `json:"newerThan,omitempty"`
+
+	/* Match versions older than a duration. */
+	// +optional
+	OlderThan *string `json:"olderThan,omitempty"`
+
+	/* Match versions by package prefix. Applied on any prefix match. */
+	// +optional
+	PackageNamePrefixes []string `json:"packageNamePrefixes,omitempty"`
+
+	/* Match versions by tag prefix. Applied on any prefix match. */
+	// +optional
+	TagPrefixes []string `json:"tagPrefixes,omitempty"`
+
+	/* Match versions by tag status. Default value: "ANY" Possible values: ["TAGGED", "UNTAGGED", "ANY"]. */
+	// +optional
+	TagState *string `json:"tagState,omitempty"`
+
+	/* Match versions by version name prefix. Applied on any prefix match. */
+	// +optional
+	VersionNamePrefixes []string `json:"versionNamePrefixes,omitempty"`
+}
+
 type RepositoryDockerConfig struct {
 	/* The repository which enabled this flag prevents all tags from being modified, moved or deleted. This does not prevent tags from being created. */
 	// +optional
@@ -62,6 +105,16 @@ type RepositoryMavenRepository struct {
 	/* Immutable. Address of the remote repository. Default value: "MAVEN_CENTRAL" Possible values: ["MAVEN_CENTRAL"]. */
 	// +optional
 	PublicRepository *string `json:"publicRepository,omitempty"`
+}
+
+type RepositoryMostRecentVersions struct {
+	/* Minimum number of versions to keep. */
+	// +optional
+	KeepCount *int64 `json:"keepCount,omitempty"`
+
+	/* Match versions by package prefix. Applied on any prefix match. */
+	// +optional
+	PackageNamePrefixes []string `json:"packageNamePrefixes,omitempty"`
 }
 
 type RepositoryNpmRepository struct {
@@ -105,7 +158,7 @@ type RepositoryUpstreamPolicies struct {
 
 	/* Entries with a greater priority value take precedence in the pull order. */
 	// +optional
-	Priority *int `json:"priority,omitempty"`
+	Priority *int64 `json:"priority,omitempty"`
 
 	/* A reference to the repository resource, for example:
 	"projects/p1/locations/us-central1/repositories/repo1". */
@@ -121,6 +174,18 @@ type RepositoryVirtualRepositoryConfig struct {
 }
 
 type ArtifactRegistryRepositorySpec struct {
+	/* Cleanup policies for this repository. Cleanup policies indicate when
+	certain package versions can be automatically deleted.
+	Map keys are policy IDs supplied by users during policy creation. They must
+	unique within a repository and be under 128 characters in length. */
+	// +optional
+	CleanupPolicies []RepositoryCleanupPolicies `json:"cleanupPolicies,omitempty"`
+
+	/* If true, the cleanup pipeline is prevented from deleting versions in this
+	repository. */
+	// +optional
+	CleanupPolicyDryRun *bool `json:"cleanupPolicyDryRun,omitempty"`
+
 	/* The user-provided description of the repository. */
 	// +optional
 	Description *string `json:"description,omitempty"`
@@ -181,7 +246,7 @@ type ArtifactRegistryRepositoryStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	/* The time when the repository was last updated. */
 	// +optional
@@ -190,6 +255,13 @@ type ArtifactRegistryRepositoryStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpartifactregistryrepository;gcpartifactregistryrepositories
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ArtifactRegistryRepository is the Schema for the artifactregistry API
 // +k8s:openapi-gen=true

@@ -1017,7 +1017,7 @@ func TestConvertTFObjToKCCObj(t *testing.T) {
 				r.TFResource.Schema = tc.schemaOverride
 			}
 			r.SetNamespace(test.Namespace)
-			actual := ConvertTFObjToKCCObj(tc.state, tc.prevSpec, r.TFResource.Schema, &r.ResourceConfig, "", tc.managedFields)
+			actual, _ := ConvertTFObjToKCCObj(tc.state, tc.prevSpec, r.TFResource.Schema, &r.ResourceConfig, "", tc.managedFields)
 			if !reflect.DeepEqual(tc.expected, actual) {
 				t.Fatalf("expected: %v, actual: %v", tc.expected, actual)
 			}
@@ -1607,6 +1607,8 @@ func TestResolveSpecAndStatusWithResourceID_WithDesiredStateInSpecAndObservedSta
 func TestResolveSpecAndStatusWithResourceID(t *testing.T) {
 	tests := []struct {
 		name           string
+		kind           string
+		apiVersion     string
 		rc             *corekccv1alpha1.ResourceConfig
 		metadataName   string
 		prevSpec       map[string]interface{}
@@ -1734,6 +1736,39 @@ func TestResolveSpecAndStatusWithResourceID(t *testing.T) {
 			},
 		},
 		{
+			name: "specifying server-generated resource ID in the observed " +
+				"state for the first time",
+			kind:       "TestKind",
+			apiVersion: "test.cnrm.cloud.google.com/v1beta1",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ResourceID: corekccv1alpha1.ResourceID{
+					TargetField: "test_field",
+				},
+				ServerGeneratedIDField: "test_field",
+			},
+			prevSpec:   map[string]interface{}{},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Computed: true,
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field": "new-server-generated-id",
+			},
+			expectedSpec: map[string]interface{}{
+				"resourceID": "new-server-generated-id",
+			},
+			expectedStatus: map[string]interface{}{
+				"observedState": map[string]interface{}{
+					"testField": "new-server-generated-id",
+				},
+			},
+		},
+		{
 			name: "specifying server-generated resource ID with a value " +
 				"template for the first time",
 			rc: &corekccv1alpha1.ResourceConfig{
@@ -1854,6 +1889,12 @@ func TestResolveSpecAndStatusWithResourceID(t *testing.T) {
 			tc := tc
 			t.Parallel()
 			r := resourceSkeleton()
+			if tc.kind != "" {
+				r.Kind = tc.kind
+			}
+			if tc.apiVersion != "" {
+				r.APIVersion = tc.apiVersion
+			}
 			if tc.metadataName != "" {
 				r.SetName(tc.metadataName)
 			}
@@ -1867,6 +1908,101 @@ func TestResolveSpecAndStatusWithResourceID(t *testing.T) {
 				Attributes: tc.tfAttributes,
 			}
 			spec, status := ResolveSpecAndStatusWithResourceID(r, &state)
+			if got, want := spec, tc.expectedSpec; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got: %v, want: %v", got, want)
+			}
+			if got, want := status, tc.expectedStatus; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got: %v, want: %v", got, want)
+			}
+		})
+	}
+}
+
+func TestResolveSpecAndStatusWithFieldRenaming(t *testing.T) {
+	tests := []struct {
+		name           string
+		rc             *corekccv1alpha1.ResourceConfig
+		tfResource     *tfschema.Resource
+		tfAttributes   map[string]string
+		expectedSpec   map[string]interface{}
+		expectedStatus map[string]interface{}
+	}{
+		{
+			name: "status fields that collide with reserved status fields are renamed",
+			rc: &corekccv1alpha1.ResourceConfig{
+				Name: "test-tf-resource-name",
+			},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"generation": { // computed field maps to KRM status field
+						Type:     tfschema.TypeString,
+						Computed: true,
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"generation": "testValue1",
+			},
+			expectedStatus: map[string]interface{}{
+				"resourceGeneration": "testValue1",
+			},
+		},
+		{
+			name: "spec fields that collide with reserved status fields are not renamed",
+			rc: &corekccv1alpha1.ResourceConfig{
+				Name: "test-tf-resource-name",
+			},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"generation": {
+						Type:     tfschema.TypeString,
+						Optional: true,
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"generation": "testValue1",
+			},
+			expectedSpec: map[string]interface{}{
+				"generation": "testValue1",
+			},
+		},
+		{
+			name: "status fields that collide with reserved status fields are not renamed if resource is in the exclude list",
+			rc: &corekccv1alpha1.ResourceConfig{
+				Name: "google_storage_default_object_access_control", // this TF resource is in the exclude list
+			},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"generation": {
+						Type:     tfschema.TypeString,
+						Computed: true,
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"generation": "testValue1",
+			},
+			expectedStatus: map[string]interface{}{
+				"generation": "testValue1",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+			r := resourceSkeleton()
+			r.TFResource = tc.tfResource
+			if tc.rc != nil {
+				r.ResourceConfig = *tc.rc
+			}
+			state := terraform.InstanceState{
+				Attributes: tc.tfAttributes,
+			}
+			spec, status := ResolveSpecAndStatus(r, &state)
+			t.Logf("spec = %v\nstatus = %v\n", spec, status)
 			if got, want := spec, tc.expectedSpec; !reflect.DeepEqual(got, want) {
 				t.Fatalf("got: %v, want: %v", got, want)
 			}
@@ -1962,4 +2098,586 @@ func assertGetSpecAndStatusFromStateWithResourceIDPanic(t *testing.T, resource *
 		}
 	}()
 	ResolveSpecAndStatusWithResourceID(resource, state)
+}
+
+func TestResolveSpecAndStatusContainingObservedState(t *testing.T) {
+	tests := []struct {
+		name           string
+		rc             *corekccv1alpha1.ResourceConfig
+		kind           string
+		apiVersion     string
+		annotations    map[string]string
+		prevSpec       map[string]interface{}
+		prevStatus     map[string]interface{}
+		tfResource     *tfschema.Resource
+		tfAttributes   map[string]string
+		expectedSpec   map[string]interface{}
+		expectedStatus map[string]interface{}
+		shouldPanic    bool
+	}{
+		{
+			name: "with string observed fields and state-into-status absent",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"nested_object_key.nested_float_key",
+					"string_key",
+				},
+			},
+			annotations: map[string]string{
+				"cnrm.cloud.google.com/state-into-spec": "absent",
+			},
+			prevSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"string_key": {
+						Type:     tfschema.TypeString,
+						Optional: true,
+					},
+					"nested_object_key": {
+						Type:     tfschema.TypeList,
+						MaxItems: 1,
+						Optional: true,
+						Elem: &tfschema.Resource{
+							Schema: map[string]*tfschema.Schema{
+								"nested_float_key": {
+									Type:     tfschema.TypeFloat,
+									Optional: true,
+								},
+								"nested_string_key": {
+									Type:     tfschema.TypeString,
+									Optional: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field":                            "desired-value",
+				"nested_object_key.#":                   "1",
+				"nested_object_key.0.nested_float_key":  "123",
+				"nested_object_key.0.nested_string_key": "not-in-observed-state",
+				"string_key":                            "test-observed-field",
+			},
+			expectedSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			expectedStatus: map[string]interface{}{
+				"observedState": map[string]interface{}{
+					"nestedObjectKey": map[string]interface{}{
+						"nestedFloatKey": float64(123),
+					},
+					"stringKey": "test-observed-field",
+				},
+			},
+		},
+		{
+			name: "with string observed fields",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"nested_object_key.nested_float_key",
+					"string_key",
+				},
+			},
+			prevSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"string_key": {
+						Type:     tfschema.TypeString,
+						Optional: true,
+					},
+					"nested_object_key": {
+						Type:     tfschema.TypeList,
+						MaxItems: 1,
+						Optional: true,
+						Elem: &tfschema.Resource{
+							Schema: map[string]*tfschema.Schema{
+								"nested_float_key": {
+									Type:     tfschema.TypeFloat,
+									Optional: true,
+								},
+								"nested_string_key": {
+									Type:     tfschema.TypeString,
+									Optional: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field":                            "desired-value",
+				"nested_object_key.#":                   "1",
+				"nested_object_key.0.nested_float_key":  "123",
+				"nested_object_key.0.nested_string_key": "not-in-observed-state",
+				"string_key":                            "test-observed-field",
+			},
+			expectedSpec: map[string]interface{}{
+				"testField": "desired-value",
+				"nestedObjectKey": map[string]interface{}{
+					"nestedFloatKey":  float64(123),
+					"nestedStringKey": "not-in-observed-state",
+				},
+				"stringKey": "test-observed-field",
+			},
+			expectedStatus: map[string]interface{}{
+				"observedState": map[string]interface{}{
+					"nestedObjectKey": map[string]interface{}{
+						"nestedFloatKey": float64(123),
+					},
+					"stringKey": "test-observed-field",
+				},
+			},
+		},
+		{
+			name: "nested observed field not exist in the returned state but " +
+				"its parent field and sibling field do",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"nested_object_key.nested_float_key",
+				},
+			},
+			prevSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"nested_object_key": {
+						Type:     tfschema.TypeList,
+						MaxItems: 1,
+						Optional: true,
+						Elem: &tfschema.Resource{
+							Schema: map[string]*tfschema.Schema{
+								"nested_float_key": {
+									Type:     tfschema.TypeFloat,
+									Optional: true,
+								},
+								"nested_string_key": {
+									Type:     tfschema.TypeString,
+									Optional: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field":                            "desired-value",
+				"nested_object_key.#":                   "1",
+				"nested_object_key.0.nested_string_key": "not-in-observed-state",
+			},
+			expectedSpec: map[string]interface{}{
+				"testField": "desired-value",
+				"nestedObjectKey": map[string]interface{}{
+					"nestedStringKey": "not-in-observed-state",
+				},
+			},
+			expectedStatus: nil,
+		},
+		{
+			name: "nested observed field and its parent not exist in the " +
+				"returned state",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"nested_object_key.nested_float_key",
+					"string_key",
+				},
+			},
+			prevSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"string_key": {
+						Type:     tfschema.TypeString,
+						Optional: true,
+					},
+					"nested_object_key": {
+						Type:     tfschema.TypeList,
+						MaxItems: 1,
+						Optional: true,
+						Elem: &tfschema.Resource{
+							Schema: map[string]*tfschema.Schema{
+								"nested_float_key": {
+									Type:     tfschema.TypeFloat,
+									Optional: true,
+								},
+								"nested_string_key": {
+									Type:     tfschema.TypeString,
+									Optional: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field": "desired-value",
+				"string_key": "test-observed-field",
+			},
+			expectedSpec: map[string]interface{}{
+				"testField": "desired-value",
+				"stringKey": "test-observed-field",
+			},
+			expectedStatus: map[string]interface{}{
+				"observedState": map[string]interface{}{
+					"stringKey": "test-observed-field",
+				},
+			},
+		},
+		{
+			name:       "with computed fields under observed state",
+			rc:         &corekccv1alpha1.ResourceConfig{},
+			kind:       "TestKind",
+			apiVersion: "test.cnrm.cloud.google.com/v1beta1",
+			prevSpec: map[string]interface{}{
+				"requiredField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"required_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"computed_string": {
+						Type:     tfschema.TypeString,
+						Computed: true,
+					},
+					"computed_object": {
+						Type:     tfschema.TypeList,
+						Computed: true,
+						MaxItems: 1,
+						Elem: &tfschema.Resource{
+							Schema: map[string]*tfschema.Schema{
+								"computed_bool": {
+									Type:     tfschema.TypeBool,
+									Computed: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"required_field":                  "desired-value",
+				"computed_string":                 "computed-status",
+				"computed_object.#":               "1",
+				"computed_object.0.computed_bool": "true",
+			},
+			expectedSpec: map[string]interface{}{
+				"requiredField": "desired-value",
+			},
+			expectedStatus: map[string]interface{}{
+				"observedState": map[string]interface{}{
+					"computedString": "computed-status",
+					"computedObject": map[string]interface{}{
+						"computedBool": true,
+					},
+				},
+			},
+		},
+		{
+			name: "with observed field and computed field under observed state",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"optional_and_computed_field",
+				},
+			},
+			kind:       "TestKind",
+			apiVersion: "test.cnrm.cloud.google.com/v1beta1",
+			prevSpec: map[string]interface{}{
+				"requiredField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"required_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"optional_and_computed_field": {
+						Type:     tfschema.TypeString,
+						Optional: true,
+						Computed: true,
+					},
+					"computed_string": {
+						Type:     tfschema.TypeString,
+						Computed: true,
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"required_field":              "desired-value",
+				"optional_and_computed_field": "observed-field",
+				"computed_string":             "computed-status",
+			},
+			expectedSpec: map[string]interface{}{
+				"requiredField":            "desired-value",
+				"optionalAndComputedField": "observed-field",
+			},
+			expectedStatus: map[string]interface{}{
+				"observedState": map[string]interface{}{
+					"computedString":           "computed-status",
+					"optionalAndComputedField": "observed-field",
+				},
+			},
+		},
+		{
+			name: "panic with observed reference fields",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"reference_key",
+				},
+				ResourceReferences: []corekccv1alpha1.ReferenceConfig{
+					{
+						TFField: "reference_key",
+						TypeConfig: corekccv1alpha1.TypeConfig{
+							Key: "referenceRef",
+							GVK: k8sschema.GroupVersionKind{
+								Group:   "test1.cnrm.cloud.google.com",
+								Version: "v1alpha1",
+								Kind:    "Test1Bar",
+							},
+						},
+					},
+				},
+			},
+			prevSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"reference_key": {
+						Type:     tfschema.TypeString,
+						Optional: true,
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field":    "desired-value",
+				"reference_key": "invalid-observed-field",
+			},
+			expectedSpec:   nil,
+			expectedStatus: nil,
+			shouldPanic:    true,
+		},
+		{
+			name: "panic with observed labels fields",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"string_key",
+				},
+				MetadataMapping: corekccv1alpha1.MetadataMapping{
+					Labels: "string_key",
+				},
+			},
+			prevSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"string_key": {
+						Type:     tfschema.TypeString,
+						Optional: true,
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field": "desired-value",
+				"string_key": "invalid-observed-field",
+			},
+			expectedSpec:   nil,
+			expectedStatus: nil,
+			shouldPanic:    true,
+		},
+		{
+			name: "panic with observed user-specified name fields",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"user_specified_name_key",
+				},
+				MetadataMapping: corekccv1alpha1.MetadataMapping{
+					Name: "user_specified_name_key",
+				},
+			},
+			prevSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"user_specified_name_key": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field":              "desired-value",
+				"user_specified_name_key": "invalid-observed-field",
+			},
+			expectedSpec:   nil,
+			expectedStatus: nil,
+			shouldPanic:    true,
+		},
+		{
+			name: "panic with observed server-generated name fields",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"server_generated_name_key",
+				},
+				ServerGeneratedIDField: "server_generated_name_key",
+			},
+			prevSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"server_generated_name_key": {
+						Type:     tfschema.TypeString,
+						Optional: true,
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field":                "desired-value",
+				"server_generated_name_key": "invalid-observed-field",
+			},
+			expectedSpec:   nil,
+			expectedStatus: nil,
+			shouldPanic:    true,
+		},
+		{
+			name: "panic with observed fields under array",
+			rc: &corekccv1alpha1.ResourceConfig{
+				ObservedFields: &[]string{
+					"list_of_objects_key.nested_int_key",
+				},
+			},
+			prevSpec: map[string]interface{}{
+				"testField": "desired-value",
+			},
+			prevStatus: map[string]interface{}{},
+			tfResource: &tfschema.Resource{
+				Schema: map[string]*tfschema.Schema{
+					"test_field": {
+						Type:     tfschema.TypeString,
+						Required: true,
+					},
+					"list_of_objects_key": {
+						Type:     tfschema.TypeList,
+						Optional: true,
+						Elem: &tfschema.Resource{
+							Schema: map[string]*tfschema.Schema{
+								"nested_int_key": {
+									Type:     tfschema.TypeInt,
+									Optional: true,
+								},
+								"sensitive_field_nested_in_list_of_objects_key": {
+									Type:      tfschema.TypeString,
+									Optional:  true,
+									Sensitive: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			tfAttributes: map[string]string{
+				"test_field":                           "desired-value",
+				"list_of_objects_key.#":                "2",
+				"list_of_objects_key.0.nested_int_key": "invalid-observed-field-1",
+				"list_of_objects_key.1.nested_int_key": "invalid-observed-field-2",
+			},
+			expectedSpec:   nil,
+			expectedStatus: nil,
+			shouldPanic:    true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+			r := resourceSkeleton()
+			if tc.kind != "" {
+				r.Kind = tc.kind
+			}
+			if tc.apiVersion != "" {
+				r.APIVersion = tc.apiVersion
+			}
+			if len(tc.annotations) > 0 {
+				r.SetAnnotations(tc.annotations)
+			}
+			r.Spec = tc.prevSpec
+			r.Status = tc.prevStatus
+			r.TFResource = tc.tfResource
+			if tc.rc != nil {
+				r.ResourceConfig = *tc.rc
+			}
+			state := terraform.InstanceState{
+				Attributes: tc.tfAttributes,
+			}
+			if tc.shouldPanic {
+				defer func() {
+					if r := recover(); r == nil {
+						t.Errorf("The code did not panic but it should")
+					}
+				}()
+				ResolveSpecAndStatusWithResourceID(r, &state)
+				return
+			}
+			spec, status := ResolveSpecAndStatusWithResourceID(r, &state)
+			if got, want := spec, tc.expectedSpec; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got: %v, want: %v", got, want)
+			}
+			if got, want := status, tc.expectedStatus; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got: %v, want: %v", got, want)
+			}
+		})
+	}
 }

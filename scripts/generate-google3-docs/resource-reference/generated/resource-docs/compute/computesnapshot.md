@@ -88,9 +88,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -151,11 +148,11 @@ zone: string
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. Creates the new snapshot in the snapshot chain labeled with the 
-specified name. The chain name must be 1-63 characters long and 
-comply with RFC1035. This is an uncommon option only for advanced 
-service owners who needs to create separate snapshot chains, for 
-example, for chargeback tracking.  When you describe your snapshot 
+            <p>{% verbatim %}Immutable. Creates the new snapshot in the snapshot chain labeled with the
+specified name. The chain name must be 1-63 characters long and
+comply with RFC1035. This is an uncommon option only for advanced
+service owners who needs to create separate snapshot chains, for
+example, for chargeback tracking.  When you describe your snapshot
 resource, this field is visible only if it has a non-empty value.{% endverbatim %}</p>
         </td>
     </tr>
@@ -542,7 +539,7 @@ RFC 4648 base64 to either encrypt or decrypt this resource.{% endverbatim %}</p>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -757,5 +754,7 @@ stringData:
   sourceDiskEncryptionKey: SGVsbG8gZnJvbSBHb29nbGUgQ2xvdWQgUGxhdGZvcm0=
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

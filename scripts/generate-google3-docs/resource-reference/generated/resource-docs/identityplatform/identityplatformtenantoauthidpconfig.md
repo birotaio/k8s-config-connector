@@ -75,9 +75,6 @@ Note: You must specify the resource's name in <code>metadata.name</code> or <cod
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -309,7 +306,7 @@ Allowed value: The Google Cloud resource name of an `IdentityPlatformTenant` res
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -450,5 +447,7 @@ stringData:
   clientSecret: "secret1"
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

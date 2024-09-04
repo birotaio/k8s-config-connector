@@ -22,10 +22,14 @@
 # Temporary Build Files
 tmp/_output
 tmp/_test
+.tmp
 
 # build output
 bin/
 operator/bin
+
+# record_gcp output
+artifactz/
 
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 
@@ -117,6 +121,7 @@ operator/config/autopilot-manager/manager_image_patch.yaml
 
 # Test binary, build with 'go test -c'
 *.test
+*.build
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
@@ -143,5 +148,9 @@ Session.vim
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 #
 
-# always check in vendored files
-!/vendor/**/*
+# always skip vendored files
+/vendor
+.build
+
+# Go workspaces
+go.work.sum

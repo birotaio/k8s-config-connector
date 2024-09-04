@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	customizev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/customize/v1beta1"
 	corev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/controllers"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/k8s"
@@ -37,14 +38,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/addon/pkg/apis/v1alpha1"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/declarative"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/declarative/pkg/manifest"
@@ -52,17 +57,20 @@ import (
 
 const controllerName = "configconnector-controller"
 
-// ConfigConnectorReconciler reconciles a ConfigConnector object.
+// Reconciler reconciles a ConfigConnector object.
 
-// ConfigConnectorReconciler watches 'ConfigConnector' kind and is responsible for managing the lifecycle of KCC resource CRDs and other shared components like webhook, deletion defender, recorder.
-// If it’s configured to run KCC in cluster mode, ConfigConnectorReconciler also deploys the global controller manager workload;
-// If it's configured to run KCC in namespaced mode, ConfigConnectorReconciler ensures the global controller manager workload not existing.
-type ConfigConnectorReconciler struct {
-	reconciler *declarative.Reconciler
-	client     client.Client
-	recorder   record.EventRecorder
-	labelMaker declarative.LabelMaker
-	log        logr.Logger
+// Reconciler watches 'ConfigConnector' kind and is responsible for managing the lifecycle of KCC resource CRDs and other shared components like webhook, deletion defender, recorder.
+// If it’s configured to run KCC in cluster mode, Reconciler also deploys the global controller manager workload;
+// If it's configured to run KCC in namespaced mode, Reconciler ensures the global controller manager workload not existing.
+// Reconciler also watches "ControllerResource" kind and apply customizations
+// specified in "ControllerResource" CRs to KCC components.
+type Reconciler struct {
+	reconciler           *declarative.Reconciler
+	client               client.Client
+	recorder             record.EventRecorder
+	labelMaker           declarative.LabelMaker
+	log                  logr.Logger
+	customizationWatcher *controllers.CustomizationWatcher
 }
 
 func Add(mgr ctrl.Manager, repoPath string) error {
@@ -77,6 +85,7 @@ func Add(mgr ctrl.Manager, repoPath string) error {
 		ControllerManagedBy(mgr).
 		Named(controllerName).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
+		WatchesRawSource(&source.Channel{Source: r.customizationWatcher.Events()}, &handler.EnqueueRequestForObject{}).
 		For(obj, builder.OnlyMetadata).
 		Build(r)
 	if err != nil {
@@ -86,21 +95,28 @@ func Add(mgr ctrl.Manager, repoPath string) error {
 	return nil
 }
 
-func newReconciler(mgr ctrl.Manager, repoPath string) (*ConfigConnectorReconciler, error) {
+func newReconciler(mgr ctrl.Manager, repoPath string) (*Reconciler, error) {
 	repo := cnrmmanifest.NewLocalRepository(repoPath)
-	manifestLoader := cnrmmanifest.NewManifestLoader(repo)
+	manifestLoader := cnrmmanifest.NewLoader(repo)
 	preflight := preflight.NewCompositePreflight([]declarative.Preflight{
 		preflight.NewNameChecker(mgr.GetClient(), k8s.ConfigConnectorAllowedName),
 		preflight.NewUpgradeChecker(mgr.GetClient(), repo),
 	})
 
-	r := &ConfigConnectorReconciler{
+	r := &Reconciler{
 		reconciler: &declarative.Reconciler{},
 		client:     mgr.GetClient(),
 		recorder:   mgr.GetEventRecorderFor(controllerName),
 		labelMaker: declarative.SourceLabel(mgr.GetScheme()),
 		log:        ctrl.Log.WithName(controllerName),
 	}
+
+	r.customizationWatcher = controllers.NewWithDynamicClient(
+		dynamic.NewForConfigOrDie(mgr.GetConfig()),
+		controllers.CustomizationWatcherOptions{
+			TriggerGVRs: controllers.CustomizationCRsToWatch,
+			Log:         r.log,
+		})
 
 	err := r.reconciler.Init(mgr, &corev1beta1.ConfigConnector{},
 		declarative.WithLabels(r.labelMaker),
@@ -110,6 +126,7 @@ func newReconciler(mgr ctrl.Manager, repoPath string) (*ConfigConnectorReconcile
 		declarative.WithObjectTransform(r.transformForClusterMode()),
 		declarative.WithObjectTransform(r.handleConfigConnectorLifecycle()),
 		declarative.WithObjectTransform(r.installV1Beta1CRDsOnly()),
+		declarative.WithObjectTransform(r.applyCustomizations()),
 		declarative.WithStatus(&declarative.StatusBuilder{
 			PreflightImpl: preflight,
 		}),
@@ -117,7 +134,7 @@ func newReconciler(mgr ctrl.Manager, repoPath string) (*ConfigConnectorReconcile
 	return r, err
 }
 
-func (r *ConfigConnectorReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	r.log.Info("reconciling the ConfigConnector object", "name", req.Name)
 	_, err := controllers.GetConfigConnector(ctx, r.client, req.NamespacedName)
 	if err != nil {
@@ -133,11 +150,19 @@ func (r *ConfigConnectorReconciler) Reconcile(ctx context.Context, req reconcile
 		}
 		return reconcile.Result{}, reconciliationErr
 	}
-	r.log.Info("successfully finished reconcile", "ConfigConnector", req.Name)
+	// Setup watch for customization CRDs if not already done so in the previous reconciliations.
+	// When there is a change detected on a customization CR, raises an event on ConfigConnector CR.
+	if err := r.customizationWatcher.EnsureWatchStarted(ctx, req.NamespacedName); err != nil {
+		r.log.Error(err, "ensure watch start for customization CRDs failed")
+		// Don't fail entire reconciliation if we cannot start watch for customization CRDs.
+		// return reconcile.Result{}, err
+	}
+
+	r.log.Info("successfully finished reconcile", "ConfigConnector", req.NamespacedName)
 	return reconcile.Result{RequeueAfter: corekcck8s.MeanReconcileReenqueuePeriod}, r.handleReconcileSucceeded(ctx, req.NamespacedName)
 }
 
-func (r *ConfigConnectorReconciler) handleReconcileFailed(ctx context.Context, nn types.NamespacedName, reconcileErr error) error {
+func (r *Reconciler) handleReconcileFailed(ctx context.Context, nn types.NamespacedName, reconcileErr error) error {
 	cc, err := controllers.GetConfigConnector(ctx, r.client, nn)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -147,7 +172,7 @@ func (r *ConfigConnectorReconciler) handleReconcileFailed(ctx context.Context, n
 		r.log.Info("error getting ConfigConnector object", "name", nn.Name, "reconcile error", reconcileErr)
 		return fmt.Errorf("error getting ConfigConnector object %v: %w", nn.Name, err)
 	}
-	msg := fmt.Sprintf(k8s.ReconcileErrMsgTmpl, reconcileErr)
+	msg := fmt.Errorf("error during reconciliation: %w", reconcileErr).Error()
 	r.recordEvent(cc, corev1.EventTypeWarning, k8s.UpdateFailed, msg)
 	cc.SetCommonStatus(v1alpha1.CommonStatus{
 		Healthy: false,
@@ -156,14 +181,14 @@ func (r *ConfigConnectorReconciler) handleReconcileFailed(ctx context.Context, n
 	return r.updateConfigConnectorStatus(ctx, cc)
 }
 
-func (r *ConfigConnectorReconciler) handleReconcileSucceeded(ctx context.Context, nn types.NamespacedName) error {
+func (r *Reconciler) handleReconcileSucceeded(ctx context.Context, nn types.NamespacedName) error {
 	cc, err := controllers.GetConfigConnector(ctx, r.client, nn)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			r.log.Info("ConfigConnector not found in API server; skipping the handling of successful reconciliation", "name", nn.Name)
 			return nil
 		}
-		return fmt.Errorf("error getting ConfigConnector object %v: %v", nn.Name, err)
+		return fmt.Errorf("error getting ConfigConnector object %v: %w", nn.Name, err)
 	}
 	r.recordEvent(cc, corev1.EventTypeNormal, k8s.UpToDate, k8s.UpToDateMessage)
 	cc.SetCommonStatus(v1alpha1.CommonStatus{
@@ -182,7 +207,7 @@ func (r *ConfigConnectorReconciler) handleReconcileSucceeded(ctx context.Context
 // 3) If the ConfigConnector object is active, and if it’s namespaced mode, first remove cluster mode only components if any,
 //
 //	then ensure shared KCC system components (excluding cluster-mode-only components) are created.
-func (r *ConfigConnectorReconciler) handleConfigConnectorLifecycle() declarative.ObjectTransform {
+func (r *Reconciler) handleConfigConnectorLifecycle() declarative.ObjectTransform {
 	return func(ctx context.Context, o declarative.DeclarativeObject, m *manifest.Objects) error {
 		r.log.Info("handling the lifecycle of the ConfigConnector object", "name", o.GetName())
 		cc, ok := o.(*corev1beta1.ConfigConnector)
@@ -197,7 +222,7 @@ func (r *ConfigConnectorReconciler) handleConfigConnectorLifecycle() declarative
 			}
 			if controllers.RemoveOperatorFinalizer(cc) {
 				if err := r.client.Update(ctx, cc); err != nil {
-					return fmt.Errorf("error removing %v finalizer from ConfigConnector object %v: %v", k8s.OperatorFinalizer, cc.GetName(), err)
+					return fmt.Errorf("error removing %v finalizer from ConfigConnector object %v: %w", k8s.OperatorFinalizer, cc.GetName(), err)
 				}
 			}
 			// Nothing needs to apply when it's a delete ops.
@@ -207,7 +232,7 @@ func (r *ConfigConnectorReconciler) handleConfigConnectorLifecycle() declarative
 		// On apply
 		if !controllers.EnsureOperatorFinalizer(cc) {
 			if err := r.client.Update(ctx, cc); err != nil {
-				return fmt.Errorf("error adding %v finalizer in ConfigConnector object %v: %v", k8s.OperatorFinalizer, cc.GetName(), err)
+				return fmt.Errorf("error adding %v finalizer in ConfigConnector object %v: %w", k8s.OperatorFinalizer, cc.GetName(), err)
 			}
 			// Create the cnrm-systm namespace first; this is done to prevent the creation of components from failing due to the cnrm-system namespace not existing yet.
 			if err := createCNRMSystemNamespace(ctx, r.client, m); err != nil {
@@ -234,7 +259,7 @@ func (r *ConfigConnectorReconciler) handleConfigConnectorLifecycle() declarative
 	}
 }
 
-func (r *ConfigConnectorReconciler) transformForClusterMode() declarative.ObjectTransform {
+func (r *Reconciler) transformForClusterMode() declarative.ObjectTransform {
 	return func(ctx context.Context, o declarative.DeclarativeObject, m *manifest.Objects) error {
 		cc, ok := o.(*corev1beta1.ConfigConnector)
 		if !ok {
@@ -257,7 +282,7 @@ func (r *ConfigConnectorReconciler) transformForClusterMode() declarative.Object
 	}
 }
 
-func (r *ConfigConnectorReconciler) objectTransformForWorkloadIdentity(cc *corev1beta1.ConfigConnector, m *manifest.Objects) error {
+func (r *Reconciler) objectTransformForWorkloadIdentity(cc *corev1beta1.ConfigConnector, m *manifest.Objects) error {
 	transformed := make([]*manifest.Object, 0, len(m.Items))
 	for _, obj := range m.Items {
 		if obj.Kind == rbacv1.ServiceAccountKind && obj.GetName() == k8s.KCCControllerManagerComponent {
@@ -275,15 +300,19 @@ func (r *ConfigConnectorReconciler) objectTransformForWorkloadIdentity(cc *corev
 	return nil
 }
 
-func (r *ConfigConnectorReconciler) objectTransformForGCPIdentity(cc *corev1beta1.ConfigConnector, m *manifest.Objects) error {
+func (r *Reconciler) objectTransformForGCPIdentity(cc *corev1beta1.ConfigConnector, m *manifest.Objects) error {
 	transformed := make([]*manifest.Object, 0, len(m.Items))
 	for _, obj := range m.Items {
 		if controllers.IsControllerManagerStatefulSet(obj) {
-			processed, err := setSecretVolume(obj, cc.Spec.CredentialSecretName)
+			withVaultAnnotations, err := setVaultAnnotations(obj, cc.Spec.CredentialSecretName)
 			if err != nil {
 				return err
 			}
-			transformed = append(transformed, processed)
+			withWatcherContainer, err := setVaultWatcherContainer(withVaultAnnotations)
+			if err != nil {
+				return err
+			}
+			transformed = append(transformed, withWatcherContainer)
 		} else {
 			transformed = append(transformed, obj)
 		}
@@ -306,7 +335,7 @@ func createCNRMSystemNamespace(ctx context.Context, c client.Client, m *manifest
 
 // removeNamespacedModeOnlySharedComponents deletes shared components that are
 // available only when KCC is in namespaced mode (e.g. unmanaged detector)
-func (r *ConfigConnectorReconciler) removeNamespacedModeOnlySharedComponents(ctx context.Context, c client.Client) error {
+func (r *Reconciler) removeNamespacedModeOnlySharedComponents(ctx context.Context, c client.Client) error {
 	r.log.Info("removing components that make up unmanaged detector")
 
 	sts := &appsv1.StatefulSet{}
@@ -319,16 +348,13 @@ func (r *ConfigConnectorReconciler) removeNamespacedModeOnlySharedComponents(ctx
 	sc := &corev1.ServiceAccount{}
 	sc.Namespace = k8s.CNRMSystemNamespace
 	sc.Name = k8s.KCCUnmanagedDetectorComponent
-	if err := controllers.DeleteObject(ctx, c, sc); err != nil {
-		return err
-	}
 
-	return nil
+	return controllers.DeleteObject(ctx, c, sc)
 }
 
 // removeClusterModeOnlySharedComponents deletes shared components that are
 // available only when KCC is in cluster-mode (e.g. global KCC controller).
-func (r *ConfigConnectorReconciler) removeClusterModeOnlySharedComponents(ctx context.Context, c client.Client) error {
+func (r *Reconciler) removeClusterModeOnlySharedComponents(ctx context.Context, c client.Client) error {
 	r.log.Info("removing components that make up the cluster-mode controller manager")
 
 	svc := &corev1.Service{}
@@ -348,38 +374,67 @@ func (r *ConfigConnectorReconciler) removeClusterModeOnlySharedComponents(ctx co
 	sc := &corev1.ServiceAccount{}
 	sc.Namespace = k8s.CNRMSystemNamespace
 	sc.Name = k8s.KCCControllerManagerComponent
-	if err := controllers.DeleteObject(ctx, c, sc); err != nil {
-		return err
-	}
 
-	return nil
+	return controllers.DeleteObject(ctx, c, sc)
 }
 
-func setSecretVolume(object *manifest.Object, secretName string) (*manifest.Object, error) {
+func setVaultAnnotations(object *manifest.Object, secretName string) (*manifest.Object, error) {
 	u := object.UnstructuredObject()
-	volumes, ok, err := unstructured.NestedSlice(u.Object, "spec", "template", "spec", "volumes")
-	if err != nil || !ok || len(volumes) == 0 {
-		return nil, fmt.Errorf("couldn't find volumes from StatefulSet %v: %v", u.GetName(), err)
+	annotations, ok, err := unstructured.NestedMap(u.Object, "spec", "template", "metadata", "annotations")
+	if err != nil || !ok || len(annotations) == 0 {
+		return nil, fmt.Errorf("couldn't find annotations from StatefulSet %v: %v", u.GetName(), err)
 	}
-	for _, volume := range volumes {
-		volume := volume.(map[string]interface{})
-		if volume["name"] == "gcp-service-account" {
-			if err := unstructured.SetNestedField(volume, secretName, "secret", "secretName"); err != nil {
-				return nil, fmt.Errorf("error setting the secret volume for StatefulSet %v: %v", u.GetName(), err)
-			}
-			if err := unstructured.SetNestedSlice(u.Object, volumes, "spec", "template", "spec", "volumes"); err != nil {
-				return nil, fmt.Errorf("error setting the secret volume for StatefulSet %v: %v", u.GetName(), err)
-			}
-			return manifest.NewObject(u)
-		}
+	annotations["vault.hashicorp.com/agent-inject-secret-gcp-key"] = fmt.Sprintf("gcp/key/%s", secretName)
+	annotations["vault.hashicorp.com/agent-inject-template-gcp-key"] = fmt.Sprintf(`{{- with secret "gcp/key/%s" -}}
+{{ base64Decode .Data.private_key_data }}
+{{- end }}`, secretName)
+	if err := unstructured.SetNestedMap(u.Object, annotations, "spec", "template", "metadata", "annotations"); err != nil {
+		return nil, fmt.Errorf("error setting the secret volume for StatefulSet %v: %v", u.GetName(), err)
 	}
-	return nil, fmt.Errorf("couldn't find the gcp-service-account volume to set for StatefulSet %v", u.GetName())
+
+	return manifest.NewObject(u)
 }
 
-func (r *ConfigConnectorReconciler) verifyPerNamespaceControllerManagerPodsAreDeleted(ctx context.Context, c client.Client) error {
+func setVaultWatcherContainer(object *manifest.Object) (*manifest.Object, error) {
+	u := object.UnstructuredObject()
+	templateSpec, ok, err := unstructured.NestedMap(u.Object, "spec", "template", "spec")
+	if err != nil || !ok || len(templateSpec) == 0 {
+		return nil, fmt.Errorf("couldn't find template spec from StatefulSet %v: %v", u.GetName(), err)
+	}
+
+	containers, ok, err := unstructured.NestedSlice(templateSpec, "containers")
+	if err != nil || !ok || len(containers) == 0 {
+		return nil, fmt.Errorf("couldn't find spec containers from StatefulSet %v: %v", u.GetName(), err)
+	}
+	templateSpec["containers"] = append(containers, map[string]interface{}{
+		"name":  "watch-vault-updates",
+		"image": "eu.gcr.io/birota-cloud/k8s-tools:0.0.15",
+		"args": []string{
+			"watch-restart",
+			"--filepath",
+			"/vault/secrets",
+			"--type",
+			"statefulset",
+			"-s",
+			"cnrm-system",
+			"--name",
+			"cnrm-controller-manager",
+		},
+		"imagePullPolicy": "Always",
+	})
+	templateSpec["nodeSelector"] = map[string]interface{}{
+		"pool": "default",
+	}
+
+	u.Object["spec"].(map[string]interface{})["template"].(map[string]interface{})["spec"] = templateSpec
+
+	return manifest.NewObject(u)
+}
+
+func (r *Reconciler) verifyPerNamespaceControllerManagerPodsAreDeleted(ctx context.Context, c client.Client) error {
 	podLabelSelector, err := labels.Parse(k8s.KCCControllerPodLabelSelectorRaw)
 	if err != nil {
-		return fmt.Errorf("error parsing '%v' as a label selector: %v", k8s.KCCControllerPodLabelSelectorRaw, err)
+		return fmt.Errorf("error parsing '%v' as a label selector: %w", k8s.KCCControllerPodLabelSelectorRaw, err)
 	}
 	podList := &corev1.PodList{}
 	podOpts := &client.ListOptions{
@@ -402,11 +457,11 @@ func (r *ConfigConnectorReconciler) verifyPerNamespaceControllerManagerPodsAreDe
 	if len(podList.Items) == 1 && podList.Items[0].Name == k8s.ControllerManagerPodForClusterMode {
 		return nil
 	}
-	return fmt.Errorf("per-namespace controller manager pods are not yet deleted by configconnectorcontext controller, reenquee the reconcilation for another attempt later; "+
+	return fmt.Errorf("per-namespace controller manager pods are not yet deleted by configconnectorcontext controller, reenquee the reconciliation for another attempt later; "+
 		"remaining pods include, but may not be limited to %v", podNames)
 }
 
-func (r *ConfigConnectorReconciler) finalizeSystemComponentsDeletion(ctx context.Context, c client.Client) error {
+func (r *Reconciler) finalizeSystemComponentsDeletion(ctx context.Context, c client.Client) error {
 	// Delete the global controller manager workload (deployed by the ConfigConnector controller when in cluster mode) if any.
 	sts := &appsv1.StatefulSet{}
 	sts.Namespace = k8s.CNRMSystemNamespace
@@ -424,7 +479,7 @@ func (r *ConfigConnectorReconciler) finalizeSystemComponentsDeletion(ctx context
 
 	podLabelSelector, err := labels.Parse(k8s.KCCControllerPodLabelSelectorRaw)
 	if err != nil {
-		return fmt.Errorf("error parsing '%v' as a label selector: %v", k8s.KCCControllerPodLabelSelectorRaw, err)
+		return fmt.Errorf("error parsing '%v' as a label selector: %w", k8s.KCCControllerPodLabelSelectorRaw, err)
 	}
 	podList := &corev1.PodList{}
 	podOpts := &client.ListOptions{
@@ -464,7 +519,7 @@ func (r *ConfigConnectorReconciler) finalizeSystemComponentsDeletion(ctx context
 			allDeleted = false
 			r.log.Info("deleting CRD", "name", crd.GetName())
 			if err := c.Delete(ctx, &crd); err != nil && !apierrors.IsNotFound(err) {
-				return false, fmt.Errorf("error deleting CRD %v: %v", crd.GetName(), err)
+				return false, fmt.Errorf("error deleting CRD %v: %w", crd.GetName(), err)
 			}
 		}
 		return allDeleted, nil
@@ -512,30 +567,30 @@ func (r *ConfigConnectorReconciler) finalizeSystemComponentsDeletion(ctx context
 	return nil
 }
 
-func (r *ConfigConnectorReconciler) updateConfigConnectorStatus(ctx context.Context, cc *corev1beta1.ConfigConnector) error {
+func (r *Reconciler) updateConfigConnectorStatus(ctx context.Context, cc *corev1beta1.ConfigConnector) error {
 	if err := r.client.Status().Update(ctx, cc); err != nil {
 		if apierrors.IsConflict(err); err != nil {
 			return fmt.Errorf("couldn't update ConfigConnector on API server due to conflict")
 		}
-		return fmt.Errorf("failed to update ConfigConnector on API server: %v", err)
+		return fmt.Errorf("failed to update ConfigConnector on API server: %w", err)
 	}
 	return nil
 }
 
-func (r *ConfigConnectorReconciler) recordEvent(cc *corev1beta1.ConfigConnector, eventtype, reason, message string) {
+func (r *Reconciler) recordEvent(cc *corev1beta1.ConfigConnector, eventtype, reason, message string) {
 	r.recorder.Event(cc, eventtype, reason, message)
 }
 
-func (r *ConfigConnectorReconciler) installV1Beta1CRDsOnly() declarative.ObjectTransform {
+func (r *Reconciler) installV1Beta1CRDsOnly() declarative.ObjectTransform {
 	return func(ctx context.Context, o declarative.DeclarativeObject, m *manifest.Objects) error {
 		if err := r.selectCRDsByVersion(m, "v1beta1"); err != nil {
-			return fmt.Errorf("error installing v1beta1 CRDs only: error selecting CRDs by version v1beta1: %v", err)
+			return fmt.Errorf("error installing v1beta1 CRDs only: error selecting CRDs by version v1beta1: %w", err)
 		}
 		return nil
 	}
 }
 
-func (r *ConfigConnectorReconciler) selectCRDsByVersion(m *manifest.Objects, version string) error {
+func (r *Reconciler) selectCRDsByVersion(m *manifest.Objects, version string) error {
 	transformed := make([]*manifest.Object, 0, len(m.Items))
 	r.log.Info("selecting CRDs by version", "Desired CRD version", version)
 	for _, obj := range m.Items {
@@ -545,7 +600,7 @@ func (r *ConfigConnectorReconciler) selectCRDsByVersion(m *manifest.Objects, ver
 			}
 			hasVersion, err := containsVersion(obj, version)
 			if err != nil {
-				return fmt.Errorf("error checking if CRD %v contains version %v: %v", obj.UnstructuredObject().GetName(), version, err)
+				return fmt.Errorf("error checking if CRD %v contains version %v: %w", obj.UnstructuredObject().GetName(), version, err)
 			}
 			if hasVersion {
 				transformed = append(transformed, obj)
@@ -555,6 +610,252 @@ func (r *ConfigConnectorReconciler) selectCRDsByVersion(m *manifest.Objects, ver
 		}
 	}
 	m.Items = transformed
+	return nil
+}
+
+// applyCustomizations fetches and applies all cluster-scoped customization CRDs.
+func (r *Reconciler) applyCustomizations() declarative.ObjectTransform {
+	return func(ctx context.Context, o declarative.DeclarativeObject, m *manifest.Objects) error {
+		if err := r.fetchAndApplyAllControllerResourceCRs(ctx, m); err != nil {
+			r.log.Error(err, "error applying all controller resource customization CRs")
+			// Don't fail entire reconciliation if we cannot apply controller resource customization CRs.
+			// return err
+		}
+		if err := r.fetchAndApplyAllWebhookConfigurationCustomizationCRs(ctx); err != nil {
+			r.log.Error(err, "error applying all webhook configuration customization CRs")
+			// Don't fail entire reconciliation if we cannot apply webhook configuration customization CRs.
+			// return err
+		}
+		return nil
+	}
+}
+
+// fetchAndApplyAllControllerResourceCRs lists all cluster-scoped controller resource CRs, and applies them to
+// the corresponding manifest objects.
+func (r *Reconciler) fetchAndApplyAllControllerResourceCRs(ctx context.Context, m *manifest.Objects) error {
+	crs, err := controllers.ListControllerResources(ctx, r.client)
+	if err != nil {
+		return err
+	}
+	for _, cr := range crs {
+		r.log.Info("applying cluster-scoped controller resource customization", "name", cr.Name)
+		if err := r.applyControllerResourceCR(ctx, &cr, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// applyControllerResourceCR applies customizations specified in a ControllerResource CR.
+func (r *Reconciler) applyControllerResourceCR(ctx context.Context, cr *customizev1beta1.ControllerResource, m *manifest.Objects) error {
+	controllerGVK := schema.GroupVersionKind{
+		Group:   appsv1.SchemeGroupVersion.Group,
+		Version: appsv1.SchemeGroupVersion.Version,
+	}
+	switch cr.Name {
+	case "cnrm-controller-manager", "cnrm-deletiondefender", "cnrm-unmanaged-detector":
+		controllerGVK.Kind = "StatefulSet"
+	case "cnrm-webhook-manager", "cnrm-resource-stats-recorder":
+		controllerGVK.Kind = "Deployment"
+	default:
+		msg := fmt.Sprintf("resource customization for controller %s is not supported", cr.Name)
+		r.log.Info(msg)
+		return r.handleApplyControllerResourceCRFailed(ctx, cr, msg)
+	}
+	if err := controllers.ApplyContainerResourceCustomization(false, m, cr.Name, controllerGVK, cr.Spec.Containers, cr.Spec.Replicas); err != nil {
+		r.log.Error(err, "failed to apply customization", "Name", cr.Name)
+		return r.handleApplyControllerResourceCRFailed(ctx, cr, fmt.Sprintf("failed to apply customization %s: %v", cr.Name, err))
+	}
+	return r.handleApplyControllerResourceCRSucceeded(ctx, cr)
+}
+
+func (r *Reconciler) handleApplyControllerResourceCRFailed(ctx context.Context, cr *customizev1beta1.ControllerResource, msg string) error {
+	cr.Status.CommonStatus = v1alpha1.CommonStatus{
+		Healthy: false,
+		Errors:  []string{msg},
+	}
+	return r.updateControllerResourceStatus(ctx, cr)
+}
+
+func (r *Reconciler) handleApplyControllerResourceCRSucceeded(ctx context.Context, cr *customizev1beta1.ControllerResource) error {
+	cr.SetCommonStatus(v1alpha1.CommonStatus{
+		Healthy: true,
+		Errors:  []string{},
+	})
+	return r.updateControllerResourceStatus(ctx, cr)
+}
+
+func (r *Reconciler) updateControllerResourceStatus(ctx context.Context, cr *customizev1beta1.ControllerResource) error {
+	if err := r.client.Status().Update(ctx, cr); err != nil {
+		r.log.Error(err, "error updating ControllerResource status", "Name", cr.Name)
+		return fmt.Errorf("failed to update ControllerResource %v: %w", cr.Name, err)
+	}
+	return nil
+}
+
+// fetchAndApplyAllWebhookConfigurationCustomizationCRs lists all cluster-scoped webhook configuration customization CRs, and applies
+// them to the corresponding webhook configurations in the cluster.
+func (r *Reconciler) fetchAndApplyAllWebhookConfigurationCustomizationCRs(ctx context.Context) error {
+	vwhcrs, err := controllers.ListValidatingWebhookConfigurationCustomizations(ctx, r.client)
+	if err != nil {
+		return err
+	}
+	for _, cr := range vwhcrs {
+		r.log.Info("applying validating webhook configuration customization", "name", cr.Name)
+		if err := r.applyValidatingWebhookConfigurationCustomizationCR(ctx, &cr); err != nil {
+			return err
+		}
+	}
+	mwhcrs, err := controllers.ListMutatingWebhookConfigurationCustomizations(ctx, r.client)
+	if err != nil {
+		return err
+	}
+	for _, cr := range mwhcrs {
+		r.log.Info("applying mutating webhook configuration customization", "name", cr.Name)
+		if err := r.applyMutatingWebhookConfigurationCustomizationCR(ctx, &cr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// applyValidatingWebhookConfigurationCustomizationCR applies customizations specified in a ValidatingWebhookConfigurationCustomization CR.
+func (r *Reconciler) applyValidatingWebhookConfigurationCustomizationCR(ctx context.Context, cr *customizev1beta1.ValidatingWebhookConfigurationCustomization) error {
+	if err := checkForDuplicateWebhooks(cr.Spec.Webhooks); err != nil {
+		return r.handleApplyValidatingWebhookConfigurationCustomizationCRFailed(ctx, cr, fmt.Errorf("invalid webhook configuration customization: %w", err).Error())
+	}
+	// 1. get the webhook configuration.
+	whCfg := &admissionregistration.ValidatingWebhookConfiguration{}
+	targetWebhookConfigurationName := fmt.Sprintf("%s.cnrm.cloud.google.com", cr.Name)
+	if err := r.client.Get(ctx, client.ObjectKey{Name: targetWebhookConfigurationName}, whCfg); err != nil {
+		if apierrors.IsNotFound(err) {
+			r.log.Info("target webhook configuration not found, skipped customization", "target webhook configuration name", targetWebhookConfigurationName)
+			return nil
+		}
+		return r.handleApplyValidatingWebhookConfigurationCustomizationCRFailed(ctx, cr, fmt.Sprintf("failed to apply cusotmization to webhook configuration %s: %v", targetWebhookConfigurationName, err))
+	}
+	// 2. update webhook configuration.
+	whTimeouts := make(map[string]*int32) // whTimeouts is a map of webhook fully qualified name to its customized timeout value.
+	whApplied := make(map[string]bool)    // whApplied is a map of webhook fully qualified name to a boolean indicating whether the customization for this webhook is applied.
+	for _, wh := range cr.Spec.Webhooks {
+		fqn := fmt.Sprintf("%s.cnrm.cloud.google.com", wh.Name)
+		whTimeouts[fqn] = wh.TimeoutSeconds
+		whApplied[fqn] = false
+	}
+	for index, wh := range whCfg.Webhooks {
+		if _, found := whTimeouts[wh.Name]; found { // found a webhook that we want to customize.
+			whCfg.Webhooks[index].TimeoutSeconds = whTimeouts[wh.Name]
+			whApplied[wh.Name] = true
+		}
+	}
+	// 3. write back the updated webhook configuration.
+	if err := r.client.Update(ctx, whCfg); err != nil {
+		return r.handleApplyValidatingWebhookConfigurationCustomizationCRFailed(ctx, cr, fmt.Sprintf("error updating webhook configuration %s: %v", targetWebhookConfigurationName, err))
+	}
+	// 4. check for not applied webhook customization
+	var notApplied []string
+	for wh, applied := range whApplied {
+		if !applied {
+			notApplied = append(notApplied, wh)
+		}
+	}
+	if len(notApplied) > 0 {
+		return r.handleApplyValidatingWebhookConfigurationCustomizationCRFailed(ctx, cr, fmt.Sprintf("the following webhook customizations were not applied: %s", strings.Join(notApplied, ", ")))
+	}
+	return r.handleApplyValidatingWebhookConfigurationCustomizationCRSucceeded(ctx, cr)
+}
+
+// applyMutatingWebhookConfigurationCustomizationCR applies customizations specified in a MutatingWebhookConfigurationCustomization CR.
+func (r *Reconciler) applyMutatingWebhookConfigurationCustomizationCR(ctx context.Context, cr *customizev1beta1.MutatingWebhookConfigurationCustomization) error {
+	if err := checkForDuplicateWebhooks(cr.Spec.Webhooks); err != nil {
+		return r.handleApplyMutatingWebhookConfigurationCustomizationCRFailed(ctx, cr, fmt.Errorf("invalid webhook configuration customization: %w", err).Error())
+	}
+	// 1. get the webhook configuration.
+	whCfg := &admissionregistration.MutatingWebhookConfiguration{}
+	targetWebhookConfigurationName := fmt.Sprintf("%s.cnrm.cloud.google.com", cr.Name)
+	if err := r.client.Get(ctx, client.ObjectKey{Name: targetWebhookConfigurationName}, whCfg); err != nil {
+		if apierrors.IsNotFound(err) {
+			r.log.Info("target webhook configuration not found, skipped customization", "target webhook configuration name", targetWebhookConfigurationName)
+			return nil
+		}
+		return r.handleApplyMutatingWebhookConfigurationCustomizationCRFailed(ctx, cr, fmt.Sprintf("failed to apply cusotmization to webhook configuration %s: %v", targetWebhookConfigurationName, err))
+	}
+	// 2. update webhook configuration.
+	whTimeouts := make(map[string]*int32) // whTimeouts is a map of webhook fully qualified name to its customized timeout value.
+	whApplied := make(map[string]bool)    // whApplied is a map of webhook fully qualified name to a boolean indicating whether the customization for this webhook is applied.
+	for _, wh := range cr.Spec.Webhooks {
+		fqn := fmt.Sprintf("%s.cnrm.cloud.google.com", wh.Name)
+		whTimeouts[fqn] = wh.TimeoutSeconds
+		whApplied[fqn] = false
+	}
+	for index, wh := range whCfg.Webhooks {
+		if _, found := whTimeouts[wh.Name]; found { // found a webhook that we want to customize.
+			whCfg.Webhooks[index].TimeoutSeconds = whTimeouts[wh.Name]
+			whApplied[wh.Name] = true
+		}
+	}
+	// 3. write back the updated webhook configuration.
+	if err := r.client.Update(ctx, whCfg); err != nil {
+		return r.handleApplyMutatingWebhookConfigurationCustomizationCRFailed(ctx, cr, fmt.Sprintf("error updating webhook configuration %s: %v", targetWebhookConfigurationName, err))
+	}
+	// 4. check for not applied webhook customization
+	var notApplied []string
+	for wh, applied := range whApplied {
+		if !applied {
+			notApplied = append(notApplied, wh)
+		}
+	}
+	if len(notApplied) > 0 {
+		return r.handleApplyMutatingWebhookConfigurationCustomizationCRFailed(ctx, cr, fmt.Sprintf("the following webhook customizations were not applied: %s", strings.Join(notApplied, ", ")))
+	}
+	return r.handleApplyMutatingWebhookConfigurationCustomizationCRSucceeded(ctx, cr)
+}
+
+func (r *Reconciler) handleApplyValidatingWebhookConfigurationCustomizationCRFailed(ctx context.Context, cr *customizev1beta1.ValidatingWebhookConfigurationCustomization, msg string) error {
+	cr.SetCommonStatus(v1alpha1.CommonStatus{
+		Healthy: false,
+		Errors:  []string{msg},
+	})
+	return r.updateValidatingWebhookConfigurationCustomizationStatus(ctx, cr)
+}
+
+func (r *Reconciler) handleApplyValidatingWebhookConfigurationCustomizationCRSucceeded(ctx context.Context, cr *customizev1beta1.ValidatingWebhookConfigurationCustomization) error {
+	cr.SetCommonStatus(v1alpha1.CommonStatus{
+		Healthy: true,
+		Errors:  []string{},
+	})
+	return r.updateValidatingWebhookConfigurationCustomizationStatus(ctx, cr)
+}
+
+func (r *Reconciler) updateValidatingWebhookConfigurationCustomizationStatus(ctx context.Context, cr *customizev1beta1.ValidatingWebhookConfigurationCustomization) error {
+	if err := r.client.Status().Update(ctx, cr); err != nil {
+		r.log.Error(err, "error updating ValidatingWebhookConfigurationCustomization status", "Name", cr.Name)
+		return fmt.Errorf("failed to update ValidatingWebhookConfigurationCustomization %v: %w", cr.Name, err)
+	}
+	return nil
+}
+
+func (r *Reconciler) handleApplyMutatingWebhookConfigurationCustomizationCRFailed(ctx context.Context, cr *customizev1beta1.MutatingWebhookConfigurationCustomization, msg string) error {
+	cr.SetCommonStatus(v1alpha1.CommonStatus{
+		Healthy: false,
+		Errors:  []string{msg},
+	})
+	return r.updateMutatingWebhookConfigurationCustomizationStatus(ctx, cr)
+}
+
+func (r *Reconciler) handleApplyMutatingWebhookConfigurationCustomizationCRSucceeded(ctx context.Context, cr *customizev1beta1.MutatingWebhookConfigurationCustomization) error {
+	cr.SetCommonStatus(v1alpha1.CommonStatus{
+		Healthy: true,
+		Errors:  []string{},
+	})
+	return r.updateMutatingWebhookConfigurationCustomizationStatus(ctx, cr)
+}
+
+func (r *Reconciler) updateMutatingWebhookConfigurationCustomizationStatus(ctx context.Context, cr *customizev1beta1.MutatingWebhookConfigurationCustomization) error {
+	if err := r.client.Status().Update(ctx, cr); err != nil {
+		r.log.Error(err, "error updating MutatingWebhookConfigurationCustomization status", "Name", cr.Name)
+		return fmt.Errorf("failed to update MutatingWebhookConfigurationCustomization %v: %w", cr.Name, err)
+	}
 	return nil
 }
 
@@ -603,4 +904,16 @@ func containsVersion(object *manifest.Object, version string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func checkForDuplicateWebhooks(webhooks []customizev1beta1.WebhookCustomizationSpec) error {
+	var wNames []string
+	for _, w := range webhooks {
+		wNames = append(wNames, w.Name)
+	}
+	duplicates := controllers.FindDuplicateStrings(wNames)
+	if len(duplicates) > 0 {
+		return fmt.Errorf("the following webhooks are specified multiple times in the Spec: %s", strings.Join(duplicates, ", "))
+	}
+	return nil
 }

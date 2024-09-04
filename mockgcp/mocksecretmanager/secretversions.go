@@ -17,12 +17,10 @@ package mocksecretmanager
 import (
 	"context"
 	"fmt"
+	"hash/crc32"
 	"strconv"
 	"strings"
 
-	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/common/projects"
-	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/pkg/storage"
-	secretmanager "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -31,33 +29,33 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/common/projects"
+	pb "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/generated/mockgcp/cloud/secretmanager/v1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/pkg/storage"
 )
 
 // Creates a new [SecretVersion][google.cloud.secretmanager.v1.SecretVersion] containing secret data and attaches
 // it to an existing [Secret][google.cloud.secretmanager.v1.Secret].
-func (s *MockService) AddSecretVersion(ctx context.Context, req *secretmanager.AddSecretVersionRequest) (*secretmanager.SecretVersion, error) {
+func (s *SecretsV1) AddSecretVersion(ctx context.Context, req *pb.AddSecretVersionRequest) (*pb.SecretVersion, error) {
 	secretName, err := s.parseSecretName(req.Parent)
 	if err != nil {
 		return nil, err
 	}
 
-	var secret secretmanager.Secret
+	var secret pb.Secret
 
 	if err := s.storage.Get(ctx, secretName.String(), &secret); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, status.Errorf(codes.NotFound, "secret %q not found", req.Parent)
-
-		}
-		return nil, status.Errorf(codes.Internal, "error reading secret: %v", err)
+		return nil, err
 	}
 
-	secretVersionKind := (&secretmanager.SecretVersion{}).ProtoReflect().Descriptor()
+	secretVersionKind := (&pb.SecretVersion{}).ProtoReflect().Descriptor()
 
 	ids := make(map[int]bool)
 	if err := s.storage.List(ctx, secretVersionKind, storage.ListOptions{
 		Prefix: secretName.String() + "/",
 	}, func(obj proto.Message) error {
-		secretVersion := obj.(*secretmanager.SecretVersion)
+		secretVersion := obj.(*pb.SecretVersion)
 		id, err := strconv.Atoi(lastComponent(secretVersion.Name))
 		if err != nil {
 			return status.Errorf(codes.Internal, "error parsing Name %q: %v", secretVersion.Name, err)
@@ -87,18 +85,43 @@ func (s *MockService) AddSecretVersion(ctx context.Context, req *secretmanager.A
 	secretObj.Name = secretKey.Name
 	secretObj.Namespace = secretKey.Namespace
 	if req.Payload == nil {
-		req.Payload = &secretmanager.SecretPayload{}
+		req.Payload = &pb.SecretPayload{}
 	}
 	secretObj.Data = map[string][]byte{
 		"data": req.Payload.Data,
 	}
 
-	secretVersionObj := &secretmanager.SecretVersion{}
+	secretVersionObj := &pb.SecretVersion{}
 	secretVersionObj.Name = secretVersionName.String()
 	secretVersionObj.CreateTime = timestamppb.Now()
-	secretVersionObj.State = secretmanager.SecretVersion_ENABLED
+	secretVersionObj.State = pb.SecretVersion_ENABLED
+	secretVersionObj.Etag = computeEtag(secretVersionObj)
 
-	if err := s.kube.Create(ctx, secretObj); err != nil {
+	// TODO: Copy from secret
+	if secretVersionObj.ReplicationStatus == nil {
+		secretVersionObj.ReplicationStatus = &pb.ReplicationStatus{}
+	}
+	if secretVersionObj.ReplicationStatus.ReplicationStatus == nil {
+		secretVersionObj.ReplicationStatus.ReplicationStatus = &pb.ReplicationStatus_Automatic{
+			Automatic: &pb.ReplicationStatus_AutomaticStatus{},
+		}
+	}
+
+	// Ensure namespace exists
+	// (Would be good to clean this up / align with project creation)
+	{
+		ns := &corev1.Namespace{}
+		ns.SetName(secretKey.Namespace)
+		if err := s.KubeClient.Create(ctx, ns); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				// somewhat expected
+			} else {
+				return nil, status.Errorf(codes.Internal, "error creating namespace: %v", err)
+			}
+		}
+	}
+
+	if err := s.KubeClient.Create(ctx, secretObj); err != nil {
 		return nil, status.Errorf(codes.Internal, "error creating secret data: %v", err)
 	}
 	klog.Infof("created Secret %v", secretObj.GetNamespace()+"/"+secretObj.GetName())
@@ -106,24 +129,18 @@ func (s *MockService) AddSecretVersion(ctx context.Context, req *secretmanager.A
 	if err := s.storage.Create(ctx, secretVersionObj.Name, secretVersionObj); err != nil {
 		// TODO: Delete secret data?
 		// TODO: Owner ref?
-		return nil, status.Errorf(codes.Internal, "error creating secret version: %v", err)
+		return nil, err
 	}
 	klog.Infof("created SecretManagerSecretVersion %v", secretVersionObj.Name)
 
 	return secretVersionObj, nil
 }
 
-// Lists [SecretVersions][google.cloud.secretmanager.v1.SecretVersion]. This call does not return secret
-// data.
-func (s *MockService) ListSecretVersions(context.Context, *secretmanager.ListSecretVersionsRequest) (*secretmanager.ListSecretVersionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "ListSecretVersions not implemented")
-}
-
 // Gets metadata for a [SecretVersion][google.cloud.secretmanager.v1.SecretVersion].
 //
 // `projects/*/secrets/*/versions/latest` is an alias to the most recently
 // created [SecretVersion][google.cloud.secretmanager.v1.SecretVersion].
-func (s *MockService) GetSecretVersion(ctx context.Context, req *secretmanager.GetSecretVersionRequest) (*secretmanager.SecretVersion, error) {
+func (s *SecretsV1) GetSecretVersion(ctx context.Context, req *pb.GetSecretVersionRequest) (*pb.SecretVersion, error) {
 	rawName, err := s.parseSecretVersionName(req.Name)
 	if err != nil {
 		return nil, err
@@ -142,19 +159,19 @@ func (s *MockService) GetSecretVersion(ctx context.Context, req *secretmanager.G
 	return secretVersion, nil
 }
 
-func (s *MockService) getSecretVersion(ctx context.Context, name *secretVersionName) (*secretmanager.SecretVersion, error) {
-	secretVersionObj := &secretmanager.SecretVersion{}
+func (s *MockService) getSecretVersion(ctx context.Context, name *secretVersionName) (*pb.SecretVersion, error) {
+	secretVersionObj := &pb.SecretVersion{}
 	fqn := name.String()
 
 	if err := s.storage.Get(ctx, fqn, secretVersionObj); err != nil {
 		// TODO: Delete secret data?
 		// TODO: Owner ref?
-		return nil, status.Errorf(codes.Internal, "error creating secret version: %v", err)
+		return nil, err
 	}
 	return secretVersionObj, nil
 }
 
-func (s *MockService) accessSecret(ctx context.Context, secretVersion *secretmanager.SecretVersion) (*corev1.Secret, error) {
+func (s *MockService) accessSecret(ctx context.Context, secretVersion *pb.SecretVersion) (*corev1.Secret, error) {
 	name, err := s.parseSecretVersionName(secretVersion.Name)
 	if err != nil {
 		return nil, err
@@ -163,7 +180,7 @@ func (s *MockService) accessSecret(ctx context.Context, secretVersion *secretman
 	key := name.kubernetesSecretID()
 	secretObj := &corev1.Secret{}
 
-	if err := s.kube.Get(ctx, key, secretObj); err != nil {
+	if err := s.KubeClient.Get(ctx, key, secretObj); err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.Infof("did not find secret with id %v", key)
 			return nil, status.Errorf(codes.NotFound, "secret version %q not found", name)
@@ -178,7 +195,7 @@ func (s *MockService) accessSecret(ctx context.Context, secretVersion *secretman
 //
 // `projects/*/secrets/*/versions/latest` is an alias to the most recently
 // created [SecretVersion][google.cloud.secretmanager.v1.SecretVersion].
-func (s *MockService) AccessSecretVersion(ctx context.Context, req *secretmanager.AccessSecretVersionRequest) (*secretmanager.AccessSecretVersionResponse, error) {
+func (s *SecretsV1) AccessSecretVersion(ctx context.Context, req *pb.AccessSecretVersionRequest) (*pb.AccessSecretVersionResponse, error) {
 	rawName, err := s.parseSecretVersionName(req.Name)
 	if err != nil {
 		return nil, err
@@ -199,30 +216,26 @@ func (s *MockService) AccessSecretVersion(ctx context.Context, req *secretmanage
 		return nil, err
 	}
 
-	response := &secretmanager.AccessSecretVersionResponse{}
+	response := &pb.AccessSecretVersionResponse{}
 	response.Name = secretVersion.Name
 	if data, ok := secretData.Data["data"]; ok {
-		response.Payload = &secretmanager.SecretPayload{
+		response.Payload = &pb.SecretPayload{
 			Data: data,
 		}
+
+		crcTable := crc32.MakeTable(crc32.Castagnoli)
+		dataCrc32c := int64(crc32.Checksum(response.Payload.Data, crcTable))
+		response.Payload.DataCrc32C = &dataCrc32c
 	}
 
 	return response, nil
-}
-
-// Disables a [SecretVersion][google.cloud.secretmanager.v1.SecretVersion].
-//
-// Sets the [state][google.cloud.secretmanager.v1.SecretVersion.state] of the [SecretVersion][google.cloud.secretmanager.v1.SecretVersion] to
-// [DISABLED][google.cloud.secretmanager.v1.SecretVersion.State.DISABLED].
-func (s *MockService) DisableSecretVersion(ctx context.Context, req *secretmanager.DisableSecretVersionRequest) (*secretmanager.SecretVersion, error) {
-	return nil, status.Errorf(codes.Unimplemented, "DisableSecretVersion not implemented")
 }
 
 // Enables a [SecretVersion][google.cloud.secretmanager.v1.SecretVersion].
 //
 // Sets the [state][google.cloud.secretmanager.v1.SecretVersion.state] of the [SecretVersion][google.cloud.secretmanager.v1.SecretVersion] to
 // [ENABLED][google.cloud.secretmanager.v1.SecretVersion.State.ENABLED].
-func (s *MockService) EnableSecretVersion(ctx context.Context, req *secretmanager.EnableSecretVersionRequest) (*secretmanager.SecretVersion, error) {
+func (s *SecretsV1) EnableSecretVersion(ctx context.Context, req *pb.EnableSecretVersionRequest) (*pb.SecretVersion, error) {
 	name, err := s.parseSecretVersionName(req.Name)
 	if err != nil {
 		return nil, err
@@ -233,10 +246,30 @@ func (s *MockService) EnableSecretVersion(ctx context.Context, req *secretmanage
 		return nil, err
 	}
 
-	secretVersion.State = secretmanager.SecretVersion_ENABLED
+	secretVersion.State = pb.SecretVersion_ENABLED
 	fqn := secretVersion.Name
 	if err := s.storage.Update(ctx, fqn, secretVersion); err != nil {
-		return nil, status.Errorf(codes.Internal, "error updating secret version: %v", err)
+		return nil, err
+	}
+
+	return secretVersion, nil
+}
+
+func (s *SecretsV1) DisableSecretVersion(ctx context.Context, req *pb.DisableSecretVersionRequest) (*pb.SecretVersion, error) {
+	name, err := s.parseSecretVersionName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	secretVersion, err := s.getSecretVersion(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	secretVersion.State = pb.SecretVersion_DISABLED
+	fqn := secretVersion.Name
+	if err := s.storage.Update(ctx, fqn, secretVersion); err != nil {
+		return nil, err
 	}
 
 	return secretVersion, nil
@@ -247,9 +280,30 @@ func (s *MockService) EnableSecretVersion(ctx context.Context, req *secretmanage
 // Sets the [state][google.cloud.secretmanager.v1.SecretVersion.state] of the [SecretVersion][google.cloud.secretmanager.v1.SecretVersion] to
 // [DESTROYED][google.cloud.secretmanager.v1.SecretVersion.State.DESTROYED] and irrevocably destroys the
 // secret data.
-func (s *MockService) DestroySecretVersion(context.Context, *secretmanager.DestroySecretVersionRequest) (*secretmanager.SecretVersion, error) {
+func (s *SecretsV1) DestroySecretVersion(ctx context.Context, req *pb.DestroySecretVersionRequest) (*pb.SecretVersion, error) {
 	// Note that the secret version still exists in the list
-	return nil, status.Errorf(codes.Unimplemented, "DestroySecretVersion not implemented")
+	name, err := s.parseSecretVersionName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	secretVersion, err := s.getSecretVersion(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	now := timestamppb.Now()
+	// TODO: Delete the kube secret
+
+	secretVersion.State = pb.SecretVersion_DESTROYED
+	secretVersion.DestroyTime = now
+
+	fqn := secretVersion.Name
+	if err := s.storage.Update(ctx, fqn, secretVersion); err != nil {
+		return nil, err
+	}
+
+	return secretVersion, nil
 }
 
 func lastComponent(s string) string {
@@ -270,7 +324,7 @@ func (n *secretVersionName) String() string {
 func (s *MockService) parseSecretVersionName(name string) (*secretVersionName, error) {
 	tokens := strings.Split(name, "/")
 	if len(tokens) == 6 && tokens[0] == "projects" && tokens[2] == "secrets" && tokens[4] == "versions" {
-		project, err := s.projects.GetProjectByNumber(tokens[1])
+		project, err := s.Projects.GetProjectByNumber(tokens[1])
 		if err != nil {
 			return nil, err
 		}
@@ -308,11 +362,11 @@ func (s *MockService) resolveLatestVersion(ctx context.Context, secretVersionNam
 	}
 
 	maxVersion := 0
-	secretVersionKind := (&secretmanager.SecretVersion{}).ProtoReflect().Descriptor()
+	secretVersionKind := (&pb.SecretVersion{}).ProtoReflect().Descriptor()
 	if err := s.storage.List(ctx, secretVersionKind, storage.ListOptions{
 		Prefix: secretVersionName.String() + "/",
 	}, func(obj proto.Message) error {
-		secretVersion := obj.(*secretmanager.SecretVersion)
+		secretVersion := obj.(*pb.SecretVersion)
 		v, err := strconv.Atoi(lastComponent(secretVersion.Name))
 		if err != nil {
 			return status.Errorf(codes.Internal, "error parsing Name %q: %v", secretVersion, err)

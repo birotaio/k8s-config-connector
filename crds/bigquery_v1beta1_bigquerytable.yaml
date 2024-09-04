@@ -16,7 +16,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cnrm.cloud.google.com/version: 1.104.0
+    cnrm.cloud.google.com/version: 1.121.0
   creationTimestamp: null
   labels:
     cnrm.cloud.google.com/managed-by-kcc: "true"
@@ -213,6 +213,12 @@ spec:
                     required:
                     - quote
                     type: object
+                  fileSetSpecType:
+                    description: Specifies how source URIs are interpreted for constructing
+                      the file set to load.  By default source URIs are expanded against
+                      the underlying storage.  Other options include specifying manifest
+                      files. Only applicable to object storage systems.
+                    type: string
                   googleSheetsOptions:
                     description: Additional options if source_format is set to "GOOGLE_SHEETS".
                     properties:
@@ -257,10 +263,43 @@ spec:
                       an invalid error is returned in the job result. The default
                       value is false.
                     type: boolean
+                  jsonOptions:
+                    description: Additional properties to set if sourceFormat is set
+                      to JSON.".
+                    properties:
+                      encoding:
+                        description: The character encoding of the data. The supported
+                          values are UTF-8, UTF-16BE, UTF-16LE, UTF-32BE, and UTF-32LE.
+                          The default value is UTF-8.
+                        type: string
+                    type: object
                   maxBadRecords:
                     description: The maximum number of bad records that BigQuery can
                       ignore when reading data.
                     type: integer
+                  metadataCacheMode:
+                    description: Metadata Cache Mode for the table. Set this to enable
+                      caching of metadata from external data source.
+                    type: string
+                  objectMetadata:
+                    description: Object Metadata is used to create Object Tables.
+                      Object Tables contain a listing of objects (with their metadata)
+                      found at the sourceUris. If ObjectMetadata is set, sourceFormat
+                      should be omitted.
+                    type: string
+                  parquetOptions:
+                    description: Additional properties to set if sourceFormat is set
+                      to PARQUET.".
+                    properties:
+                      enableListInference:
+                        description: Indicates whether to use schema inference specifically
+                          for Parquet LIST logical type.
+                        type: boolean
+                      enumAsString:
+                        description: Indicates whether to infer Parquet ENUM logical
+                          type as STRING instead of BYTES by default.
+                        type: boolean
+                    type: object
                   referenceFileSchemaUri:
                     description: 'When creating an external table, the user can provide
                       a reference file with the table schema. This is enabled for
@@ -273,9 +312,10 @@ spec:
                       formats when using external tables.
                     type: string
                   sourceFormat:
-                    description: 'The data format. Supported values are: "CSV", "GOOGLE_SHEETS",
-                      "NEWLINE_DELIMITED_JSON", "AVRO", "PARQUET", "ORC" and "DATASTORE_BACKUP".
-                      To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly".'
+                    description: ' Please see sourceFormat under ExternalDataConfiguration
+                      in Bigquery''s public API documentation (https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#externaldataconfiguration)
+                      for supported formats. To use "GOOGLE_SHEETS" the scopes must
+                      include "googleapis.com/auth/drive.readonly".'
                     type: string
                   sourceUris:
                     description: A list of the fully-qualified URIs that point to
@@ -285,7 +325,6 @@ spec:
                     type: array
                 required:
                 - autodetect
-                - sourceFormat
                 - sourceUris
                 type: object
               friendlyName:
@@ -295,6 +334,10 @@ spec:
                 description: If specified, configures this table as a materialized
                   view.
                 properties:
+                  allowNonIncrementalDefinition:
+                    description: Immutable. Allow non incremental materialized view
+                      definition. The default value is false.
+                    type: boolean
                   enableRefresh:
                     description: Specifies if BigQuery should automatically refresh
                       materialized view when the base table is updated. The default
@@ -310,6 +353,11 @@ spec:
                 required:
                 - query
                 type: object
+              maxStaleness:
+                description: The maximum staleness of data that could be returned
+                  when the table (or stale MV) is queried. Staleness encoded as a
+                  string encoding of sql IntervalValue type.
+                type: string
               rangePartitioning:
                 description: If specified, configures range-based partitioning for
                   this table.
@@ -340,6 +388,10 @@ spec:
                 - field
                 - range
                 type: object
+              requirePartitionFilter:
+                description: If set to true, queries over this table require a partition
+                  filter that can be used for partition elimination to be specified.
+                type: boolean
               resourceID:
                 description: Immutable. Optional. The tableId of the resource. Used
                   for creation and acquisition. When unset, the value of `metadata.name`
@@ -348,6 +400,74 @@ spec:
               schema:
                 description: A JSON schema for the table.
                 type: string
+              tableConstraints:
+                description: Defines the primary key and foreign keys.
+                properties:
+                  foreignKeys:
+                    description: Present only if the table has a foreign key. The
+                      foreign key is not enforced.
+                    items:
+                      properties:
+                        columnReferences:
+                          description: The pair of the foreign key column and primary
+                            key column.
+                          properties:
+                            referencedColumn:
+                              description: The column in the primary key that are
+                                referenced by the referencingColumn.
+                              type: string
+                            referencingColumn:
+                              description: The column that composes the foreign key.
+                              type: string
+                          required:
+                          - referencedColumn
+                          - referencingColumn
+                          type: object
+                        name:
+                          description: Set only if the foreign key constraint is named.
+                          type: string
+                        referencedTable:
+                          description: The table that holds the primary key and is
+                            referenced by this foreign key.
+                          properties:
+                            datasetId:
+                              description: The ID of the dataset containing this table.
+                              type: string
+                            projectId:
+                              description: The ID of the project containing this table.
+                              type: string
+                            tableId:
+                              description: The ID of the table. The ID must contain
+                                only letters (a-z, A-Z), numbers (0-9), or underscores
+                                (_). The maximum length is 1,024 characters. Certain
+                                operations allow suffixing of the table ID with a
+                                partition decorator, such as sample_table$20190123.
+                              type: string
+                          required:
+                          - datasetId
+                          - projectId
+                          - tableId
+                          type: object
+                      required:
+                      - columnReferences
+                      - referencedTable
+                      type: object
+                    type: array
+                  primaryKey:
+                    description: Represents a primary key constraint on a table's
+                      columns. Present only if the table has a primary key. The primary
+                      key is not enforced.
+                    properties:
+                      columns:
+                        description: The columns that are composed of the primary
+                          key constraint.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - columns
+                    type: object
+                type: object
               timePartitioning:
                 description: If specified, configures time-based partitioning for
                   this table.
@@ -363,9 +483,10 @@ spec:
                       time.
                     type: string
                   requirePartitionFilter:
-                    description: If set to true, queries over this table require a
-                      partition filter that can be used for partition elimination
-                      to be specified.
+                    description: DEPRECATED. This field is deprecated; please use
+                      the top level field with the same name instead. If set to true,
+                      queries over this table require a partition filter that can
+                      be used for partition elimination to be specified.
                     type: boolean
                   type:
                     description: The supported types are DAY, HOUR, MONTH, and YEAR,

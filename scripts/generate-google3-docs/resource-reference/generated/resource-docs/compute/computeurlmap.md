@@ -70,9 +70,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -383,6 +380,7 @@ pathMatcher:
         - name: string
           value: string
         filterMatchCriteria: string
+      pathTemplateMatch: string
       prefixMatch: string
       queryParameterMatches:
       - exactMatch: string
@@ -433,6 +431,7 @@ pathMatcher:
       urlRewrite:
         hostRewrite: string
         pathPrefixRewrite: string
+        pathTemplateRewrite: string
       weightedBackendServices:
       - backendServiceRef:
           external: string
@@ -4191,6 +4190,24 @@ the provided metadata. Possible values: ["MATCH_ALL", "MATCH_ANY"].{% endverbati
     </tr>
     <tr>
         <td>
+            <p><code>pathMatcher[].routeRules[].matchRules[].pathTemplateMatch</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}For satisfying the matchRule condition, the path of the request
+must match the wildcard pattern specified in pathTemplateMatch
+after removing any query parameters and anchor that may be part
+of the original URL.
+
+pathTemplateMatch must be between 1 and 255 characters
+(inclusive).  The pattern specified by pathTemplateMatch may
+have at most 5 wildcard operators and at most 5 variable
+captures in total.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>pathMatcher[].routeRules[].matchRules[].prefixMatch</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -4798,6 +4815,29 @@ be between 1 and 1024 characters.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>pathMatcher[].routeRules[].routeAction.urlRewrite.pathTemplateRewrite</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Prior to forwarding the request to the selected origin, if the
+request matched a pathTemplateMatch, the matching portion of the
+request's path is replaced re-written using the pattern specified
+by pathTemplateRewrite.
+
+pathTemplateRewrite must be between 1 and 255 characters
+(inclusive), must start with a '/', and must only use variables
+captured by the route's pathTemplate matchers.
+
+pathTemplateRewrite may only be used when all of a route's
+MatchRules specify pathTemplate.
+
+Only one of pathPrefixRewrite and pathTemplateRewrite may be
+specified.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>pathMatcher[].routeRules[].routeAction.weightedBackendServices</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -5315,7 +5355,7 @@ service.{% endverbatim %}</p>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -5594,7 +5634,7 @@ spec:
                 name: computeurlmap-dep
             retryPolicy:
               numRetries: 4
-              retryTimeout:
+              perTryTimeout:
                 seconds: "30"
               retryConditions:
                 - "5xx"
@@ -5653,5 +5693,7 @@ spec:
   location: us-central1
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

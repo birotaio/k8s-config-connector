@@ -39,14 +39,14 @@ var (
 				return fmt.Errorf("expected only a single URL argument")
 			}
 			uri := args[0]
-			parsedUrl, err := url.Parse(uri)
+			parsedURL, err := url.Parse(uri)
 			if err != nil {
 				return fmt.Errorf("error parsing URL argument '%v': %w", uri, err)
 			}
-			if parsedUrl.Host == "" {
+			if parsedURL.Host == "" {
 				return fmt.Errorf("invalid URL argument '%v': host portion is empty", uri)
 			}
-			if parsedUrl.Path == "" || parsedUrl.Path == "/" {
+			if parsedURL.Path == "" || parsedURL.Path == "/" {
 				return fmt.Errorf("invalid URL argument '%v': path portion is empty", uri)
 			}
 			return nil
@@ -66,7 +66,7 @@ var (
 )
 
 func init() {
-	commonparams.AddOAuth2TokenParam(exportCmd, &exportParams.OAuth2Token)
+	commonparams.AddOAuth2TokenParam(exportCmd, &exportParams.GCPAccessToken)
 	commonparams.AddIAMFormatParam(exportCmd, &exportParams.IAMFormat)
 	commonparams.AddFilterDeletedIAMMembersParam(exportCmd, &exportParams.FilterDeletedIAMMembers)
 	commonparams.AddOutputParam(exportCmd, &exportParams.Output)

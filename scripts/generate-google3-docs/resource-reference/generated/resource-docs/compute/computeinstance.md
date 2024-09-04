@@ -91,9 +91,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -135,6 +132,7 @@ bootDisk:
   diskEncryptionKeySha256: string
   initializeParams:
     labels: {}
+    resourceManagerTags: {}
     size: integer
     sourceImageRef:
       external: string
@@ -182,12 +180,15 @@ networkInterface:
   aliasIpRange:
   - ipCidrRange: string
     subnetworkRangeName: string
+  internalIpv6PrefixLength: integer
   ipv6AccessConfig:
   - externalIpv6: string
     externalIpv6PrefixLength: string
+    name: string
     networkTier: string
     publicPtrDomainName: string
   ipv6AccessType: string
+  ipv6Address: string
   name: string
   networkIp: string
   networkIpRef:
@@ -209,6 +210,8 @@ networkInterface:
     namespace: string
 networkPerformanceConfig:
   totalEgressBandwidthTier: string
+params:
+  resourceManagerTags: {}
 reservationAffinity:
   specificReservation:
     key: string
@@ -223,6 +226,9 @@ resourcePolicies:
 scheduling:
   automaticRestart: boolean
   instanceTerminationAction: string
+  localSsdRecoveryTimeout:
+    nanos: integer
+    seconds: integer
   maintenanceInterval: string
   maxRunDuration:
     nanos: integer
@@ -611,6 +617,16 @@ zone: string
     </tr>
     <tr>
         <td>
+            <p><code>bootDisk.initializeParams.resourceManagerTags</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>bootDisk.initializeParams.size</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -626,7 +642,7 @@ zone: string
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}{% endverbatim %}</p>
+            <p>{% verbatim %}Immutable. The image from which to initialize this disk.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -726,7 +742,7 @@ zone: string
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}{% endverbatim %}</p>
+            <p>{% verbatim %}Immutable. The source disk used to create this disk.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -866,7 +882,7 @@ zone: string
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. The accelerator type resource exposed to this instance. E.g. nvidia-tesla-k80.{% endverbatim %}</p>
+            <p>{% verbatim %}Immutable. The accelerator type resource exposed to this instance. E.g. nvidia-tesla-t4.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1131,6 +1147,16 @@ zone: string
     </tr>
     <tr>
         <td>
+            <p><code>networkInterface[].internalIpv6PrefixLength</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">integer</code></p>
+            <p>{% verbatim %}The prefix length of the primary internal IPv6 range.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>networkInterface[].ipv6AccessConfig</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -1156,7 +1182,7 @@ zone: string
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The first IPv6 address of the external IPv6 range associated with this instance, prefix length is stored in externalIpv6PrefixLength in ipv6AccessConfig. The field is output only, an IPv6 address from a subnetwork associated with the instance will be allocated dynamically.{% endverbatim %}</p>
+            <p>{% verbatim %}Immutable. The first IPv6 address of the external IPv6 range associated with this instance, prefix length is stored in externalIpv6PrefixLength in ipv6AccessConfig. To use a static external IP address, it must be unused and in the same region as the instance's zone. If not specified, Google Cloud will automatically assign an external IPv6 address from the instance's subnetwork.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1166,7 +1192,17 @@ zone: string
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The prefix length of the external IPv6 range.{% endverbatim %}</p>
+            <p>{% verbatim %}Immutable. The prefix length of the external IPv6 range.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkInterface[].ipv6AccessConfig[].name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. The name of this access configuration. In ipv6AccessConfigs, the recommended name is External IPv6.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1197,6 +1233,16 @@ zone: string
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}One of EXTERNAL, INTERNAL to indicate whether the IP can be accessed from the Internet. This field is always inherited from its subnetwork.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkInterface[].ipv6Address</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}An IPv6 internal network address for this network interface. If not specified, Google Cloud will automatically assign an internal IPv6 address from the instance's subnetwork.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1411,6 +1457,26 @@ zone: string
     </tr>
     <tr>
         <td>
+            <p><code>params</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Stores additional params passed with the request, but not persisted as part of resource payload.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>params.resourceManagerTags</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>reservationAffinity</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -1557,6 +1623,43 @@ zone: string
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}Specifies the action GCE should take when SPOT VM is preempted.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>scheduling.localSsdRecoveryTimeout</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Specifies the maximum amount of time a Local Ssd Vm should wait while
+  recovery of the Local Ssd state is attempted. Its value should be in
+  between 0 and 168 hours with hour granularity and the default value being 1
+  hour.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>scheduling.localSsdRecoveryTimeout.nanos</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">integer</code></p>
+            <p>{% verbatim %}Immutable. Span of time that's a fraction of a second at nanosecond
+resolution. Durations less than one second are represented
+with a 0 seconds field and a positive nanos field. Must
+be from 0 to 999,999,999 inclusive.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>scheduling.localSsdRecoveryTimeout.seconds</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">integer</code></p>
+            <p>{% verbatim %}Immutable. Span of time at a resolution of a second.
+Must be from 0 to 315,576,000,000 inclusive.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1857,7 +1960,7 @@ Must be from 0 to 315,576,000,000 inclusive.{% endverbatim %}</p>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -1946,7 +2049,10 @@ tagsFingerprint: string
         <td><code>currentStatus</code></td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Current status of the instance.{% endverbatim %}</p>
+            <p>{% verbatim %}
+					Current status of the instance.
+					This could be one of the following values: PROVISIONING, STAGING, RUNNING, STOPPING, SUSPENDING, SUSPENDED, REPAIRING, and TERMINATED.
+					For more information about the status of the instance, see [Instance life cycle](https://cloud.google.com/compute/docs/instances/instance-life-cycle).{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -2395,5 +2501,7 @@ stringData:
   diskEncryptionKey: "SGVsbG8gZnJvbSBHb29nbGUgQ2xvdWQgUGxhdGZvcm0="
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

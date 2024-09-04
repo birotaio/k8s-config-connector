@@ -18,9 +18,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/logging"
 	"contrib.go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
+
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/logging"
 )
 
 func RegisterControllerOpenCensusViews() error {
@@ -38,7 +39,7 @@ func RegisterPrometheusExporter(addr string) error {
 		Namespace: "configconnector",
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create the Prometheus stats exporter: %v", err)
+		return fmt.Errorf("failed to create the Prometheus stats exporter: %w", err)
 	}
 
 	// Run the Prometheus exporter as a scrape endpoint.

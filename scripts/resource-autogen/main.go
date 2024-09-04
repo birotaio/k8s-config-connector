@@ -44,7 +44,18 @@ import (
 
 var (
 	randomSuffixKeyword = "%{random_suffix}"
-	uniqueIDHolder      = "${uniqueId}"
+	uniqueIDHolder      = "${uniqueID}"
+	// tfReservedFields are reserved field names for TF related metadata.
+	// related to TF GCP types.
+	tfReservedFields = []string{
+		"provider",
+		"lifecycle",
+		"depends_on",
+	}
+	// tfOnlyTypes are non GCP TF types.
+	tfOnlyTypes = map[string]bool{
+		"time_sleep": true,
+	}
 	// nonIDKRMFieldsRequiringUniqueValuesMap is the map of KRM kinds and the
 	// map of their non-ID string fields that require unique values.
 	nonIDKRMFieldsRequiringUniqueValuesMap = map[string]map[string]bool{
@@ -212,7 +223,7 @@ func convertTFSamplesToKRMTestdata(tfToGVK map[string]schema.GroupVersionKind, s
 
 		jsonStruct, err := convertHCLBytesToJSON(b)
 		if err != nil {
-			errToReturn := fmt.Errorf("error converting HCL to JSON for TF sample %s: %v", sf, err)
+			errToReturn := fmt.Errorf("error converting HCL to JSON for TF sample %s: %w", sf, err)
 			klog.Warningf("Failed sample conversion: %v", errToReturn)
 			errs = multierror.Append(errs, errToReturn)
 			continue
@@ -220,14 +231,14 @@ func convertTFSamplesToKRMTestdata(tfToGVK map[string]schema.GroupVersionKind, s
 
 		create, dependencies, err := tfSampleToKRMTestData(kind, jsonStruct, tfToGVK, smLoader)
 		if err != nil {
-			errToReturn := fmt.Errorf("error converting TF samples to KRM test data for TF sample %s: %v", sf, err)
+			errToReturn := fmt.Errorf("error converting TF samples to KRM test data for TF sample %s: %w", sf, err)
 			klog.Warningf("Failed sample conversion: %v", errToReturn)
 			errs = multierror.Append(errs, errToReturn)
 			continue
 		}
 
 		if err := insertTestData(create, dependencies, autoGenType, sampleName, generatedSamples); err != nil {
-			errToReturn := fmt.Errorf("error unmarshaling json for TF sample %s: %v", sf, err)
+			errToReturn := fmt.Errorf("error unmarshaling json for TF sample %s: %w", sf, err)
 			klog.Warningf("Failed sample conversion: %v", errToReturn)
 			errs = multierror.Append(errs, errToReturn)
 			continue
@@ -259,13 +270,13 @@ func convertHCLBytesToJSON(raw []byte) (map[string]interface{}, error) {
 	input := []byte(hcl)
 	convertedBytes, err := convert.Bytes(input, "", convert.Options{})
 	if err != nil {
-		return nil, fmt.Errorf("error parsing bytes: %v", err)
+		return nil, fmt.Errorf("error parsing bytes: %w", err)
 	}
 
 	jsonStruct := make(map[string]interface{})
 	err = json.Unmarshal(convertedBytes, &jsonStruct)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling json: %v", err)
+		return nil, fmt.Errorf("error unmarshaling json: %w", err)
 	}
 
 	return jsonStruct, nil
@@ -287,6 +298,9 @@ func tfSampleToKRMTestData(testKind string, tf map[string]interface{}, tfToGVK m
 	for tfType, resource := range resources {
 		gvk, ok := tfToGVK[tfType]
 		if !ok {
+			if _, ok := tfOnlyTypes[tfType]; ok {
+				continue
+			}
 			return nil, nil, fmt.Errorf("TF type %v doesn't exist in the service mappings", tfType)
 		}
 		// No need to parse the config for organizational resources that
@@ -394,17 +408,11 @@ func cleanupTFFields(configRaw interface{}, tfType string, dependencyGraph *samp
 		return "", nil, nil, fmt.Errorf("configuration value should be in the format of 'map[string]interface{}' but not %T", specArray[0])
 	}
 
-	provider, ok := spec["provider"]
-	if ok {
-		if provider != "${google-beta}" {
-			return "", nil, nil, fmt.Errorf("illegal provider value: %s", provider)
+	for _, field := range tfReservedFields {
+		_, ok := spec[field]
+		if ok {
+			delete(spec, field)
 		}
-		delete(spec, "provider")
-	}
-
-	_, ok = spec["lifecycle"]
-	if ok {
-		delete(spec, "lifecycle")
 	}
 
 	additionalRequiredFields, ok := additionalRequiredFieldsMap[rc.Kind]
@@ -565,7 +573,7 @@ func handleKRMFields(spec map[string]interface{}, containerAnnotation map[string
 	krmStruct["kind"] = gvk.Kind
 
 	metadata := make(map[string]interface{})
-	metadata["name"] = fmt.Sprintf("%s-${uniqueId}", strings.ToLower(gvk.Kind))
+	metadata["name"] = fmt.Sprintf("%s-${uniqueID}", strings.ToLower(gvk.Kind))
 
 	// Fields mapping to `metadata.name` and `metadata.labels` should be removed
 	// from `spec`.
@@ -618,7 +626,7 @@ func handleKRMFields(spec map[string]interface{}, containerAnnotation map[string
 		switch hr.Type {
 		case v1alpha1.HierarchicalReferenceTypeProject:
 			refVal := make(map[string]interface{})
-			refVal["name"] = "project-${uniqueId}"
+			refVal["name"] = "project-${uniqueID}"
 			spec["projectRef"] = refVal
 		case v1alpha1.HierarchicalReferenceTypeFolder:
 			spec["folderRef"] = map[string]string{"external": "${TEST_FOLDER_ID}"}
@@ -706,7 +714,7 @@ func insertTestData(createConfig map[string]interface{}, dependenciesConfig []ma
 
 	createFilePath := filepath.Join(folderPath, sampleName, "create.yaml")
 	if err := os.MkdirAll(filepath.Dir(createFilePath), 0770); err != nil {
-		return fmt.Errorf("error creating folder for path %v: %v", createFilePath, err)
+		return fmt.Errorf("error creating folder for path %v: %w", createFilePath, err)
 	}
 	createConfigInBytes, err := yaml.Marshal(createConfig)
 	if err != nil {
@@ -806,7 +814,7 @@ func isOrganizationContainer(container v1alpha1.Container) bool {
 
 func generateResourceID(kind string) (string, error) {
 	supportedLength, ok := ResourceIDLengthMap[kind]
-	resourceID := fmt.Sprintf("%s${uniqueId}", strings.ToLower(kind))
+	resourceID := fmt.Sprintf("%s${uniqueID}", strings.ToLower(kind))
 	if !ok {
 		return resourceID, nil
 	}

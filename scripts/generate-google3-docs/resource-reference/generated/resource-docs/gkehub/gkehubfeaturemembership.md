@@ -62,20 +62,6 @@ Note: GKE Hub REST documentation is under construction.
 ## Custom Resource Definition Properties
 
 
-### Annotations
-<table class="properties responsive">
-<thead>
-    <tr>
-        <th colspan="2">Fields</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
-</tbody>
-</table>
-
 
 ### Spec
 #### Schema
@@ -96,6 +82,10 @@ configmanagement:
       syncRepo: string
       syncRev: string
       syncWaitSecs: string
+    metricsGcpServiceAccountRef:
+      external: string
+      name: string
+      namespace: string
     oci:
       gcpServiceAccountRef:
         external: string
@@ -129,6 +119,7 @@ featureRef:
   name: string
   namespace: string
 location: string
+membershipLocation: string
 membershipRef:
   external: string
   name: string
@@ -136,6 +127,23 @@ membershipRef:
 mesh:
   controlPlane: string
   management: string
+policycontroller:
+  policyControllerHubConfig:
+    auditIntervalSeconds: integer
+    constraintViolationLimit: integer
+    exemptableNamespaces:
+    - string
+    installSpec: string
+    logDeniesEnabled: boolean
+    monitoring:
+      backends:
+      - string
+    mutationEnabled: boolean
+    policyContent:
+      templateLibrary:
+        installation: string
+    referentialRulesEnabled: boolean
+  version: string
 projectRef:
   external: string
   name: string
@@ -166,7 +174,7 @@ projectRef:
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}Binauthz configuration for the cluster.{% endverbatim %}</p>
+            <p>{% verbatim %}**DEPRECATED** Binauthz configuration for the cluster. This field will be ignored and should not be set.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -216,9 +224,7 @@ projectRef:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The GCP Service Account Email used for auth when secretType is gcpServiceAccount.
-
-Allowed value: The `email` field of an `IAMServiceAccount` resource.{% endverbatim %}</p>
+            <p>{% verbatim %}The `email` field of an `IAMServiceAccount` resource.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -313,6 +319,46 @@ Allowed value: The `email` field of an `IAMServiceAccount` resource.{% endverbat
     </tr>
     <tr>
         <td>
+            <p><code>configmanagement.configSync.metricsGcpServiceAccountRef</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>configmanagement.configSync.metricsGcpServiceAccountRef.external</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}The Email of the Google Cloud Service Account (GSA) used for exporting Config Sync metrics to Cloud Monitoring. The GSA should have the Monitoring Metric Writer(roles/monitoring.metricWriter) IAM role. The Kubernetes ServiceAccount `default` in the namespace `config-management-monitoring` should be bound to the GSA. Allowed value: The `email` field of an `IAMServiceAccount` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>configmanagement.configSync.metricsGcpServiceAccountRef.name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>configmanagement.configSync.metricsGcpServiceAccountRef.namespace</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>configmanagement.configSync.oci</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -338,9 +384,7 @@ Allowed value: The `email` field of an `IAMServiceAccount` resource.{% endverbat
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The GCP Service Account Email used for auth when secret_type is gcpserviceaccount. 
-
-Allowed value: The `email` field of an `IAMServiceAccount` resource.{% endverbatim %}</p>
+            <p>{% verbatim %}The `email` field of an `IAMServiceAccount` resource.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -430,7 +474,7 @@ Allowed value: The `email` field of an `IAMServiceAccount` resource.{% endverbat
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}Hierarchy Controller configuration for the cluster.{% endverbatim %}</p>
+            <p>{% verbatim %}**DEPRECATED** Configuring Hierarchy Controller through the configmanagement feature is no longer recommended. Use https://github.com/kubernetes-sigs/hierarchical-namespaces instead.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -470,7 +514,7 @@ Allowed value: The `email` field of an `IAMServiceAccount` resource.{% endverbat
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}Policy Controller configuration for the cluster.{% endverbatim %}</p>
+            <p>{% verbatim %}**DEPRECATED** Configuring Policy Controller through the configmanagement feature is no longer recommended. Use the policycontroller feature instead.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -540,7 +584,7 @@ Allowed value: The `email` field of an `IAMServiceAccount` resource.{% endverbat
         </td>
         <td>
             <p><code class="apitype">list (string)</code></p>
-            <p>{% verbatim %} Specifies the list of backends Policy Controller will export to. Specifying an empty value `[]` disables metrics export.{% endverbatim %}</p>
+            <p>{% verbatim %}Specifies the list of backends Policy Controller will export to. Specifying an empty value `[]` disables metrics export.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -610,9 +654,7 @@ Allowed value: The `email` field of an `IAMServiceAccount` resource.{% endverbat
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The name of the feature
-
-Allowed value: The Google Cloud resource name of a `GKEHubFeature` resource (format: `projects/{{project}}/locations/{{location}}/features/{{name}}`).{% endverbatim %}</p>
+            <p>{% verbatim %}The name of the feature. Allowed value: The Google Cloud resource name of a `GKEHubFeature` resource (format: `projects/{{project}}/locations/{{location}}/features/{{name}}`).{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -647,6 +689,16 @@ Allowed value: The Google Cloud resource name of a `GKEHubFeature` resource (for
     </tr>
     <tr>
         <td>
+            <p><code>membershipLocation</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. The location of the membership{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>membershipRef</code></p>
             <p><i>Required</i></p>
         </td>
@@ -662,9 +714,7 @@ Allowed value: The Google Cloud resource name of a `GKEHubFeature` resource (for
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The name of the membership
-
-Allowed value: The Google Cloud resource name of a `GKEHubMembership` resource (format: `projects/{{project}}/locations/{{location}}/memberships/{{name}}`).{% endverbatim %}</p>
+            <p>{% verbatim %}The name of the membership. Allowed value: The Google Cloud resource name of a `GKEHubMembership` resource (format: `projects/{{project}}/locations/{{location}}/memberships/{{name}}`).{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -719,6 +769,176 @@ Allowed value: The Google Cloud resource name of a `GKEHubMembership` resource (
     </tr>
     <tr>
         <td>
+            <p><code>policycontroller</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Policy Controller-specific spec.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Policy Controller configuration for the cluster.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.auditIntervalSeconds</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">integer</code></p>
+            <p>{% verbatim %}Sets the interval for Policy Controller Audit Scans (in seconds). When set to 0, this disables audit functionality altogether.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.constraintViolationLimit</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">integer</code></p>
+            <p>{% verbatim %}The maximum number of audit violations to be stored in a constraint. If not set, the internal default of 20 will be used.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.exemptableNamespaces</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}The set of namespaces that are excluded from Policy Controller checks. Namespaces do not need to currently exist on the cluster.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.exemptableNamespaces[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.installSpec</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Configures the mode of the Policy Controller installation. Possible values: INSTALL_SPEC_UNSPECIFIED, INSTALL_SPEC_NOT_INSTALLED, INSTALL_SPEC_ENABLED, INSTALL_SPEC_SUSPENDED, INSTALL_SPEC_DETACHED{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.logDeniesEnabled</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Logs all denies and dry run failures.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.monitoring</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Specifies the backends Policy Controller should export metrics to. For example, to specify metrics should be exported to Cloud Monitoring and Prometheus, specify backends: ["cloudmonitoring", "prometheus"]. Default: ["cloudmonitoring", "prometheus"]{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.monitoring.backends</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}Specifies the list of backends Policy Controller will export to. Specifying an empty value `[]` disables metrics export.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.monitoring.backends[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.mutationEnabled</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Enables the ability to mutate resources using Policy Controller.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.policyContent</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Specifies the desired policy content on the cluster.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.policyContent.templateLibrary</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Configures the installation of the Template Library.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.policyContent.templateLibrary.installation</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Configures the manner in which the template library is installed on the cluster. Possible values: INSTALLATION_UNSPECIFIED, NOT_INSTALLED, ALL{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.policyControllerHubConfig.referentialRulesEnabled</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Enables the ability to use Constraint Templates that reference to objects other than the object currently being evaluated.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>policycontroller.version</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Optional. Version of Policy Controller to install. Defaults to the latest version.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>projectRef</code></p>
             <p><i>Required</i></p>
         </td>
@@ -734,9 +954,7 @@ Allowed value: The Google Cloud resource name of a `GKEHubMembership` resource (
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The project of the feature
-
-Allowed value: The Google Cloud resource name of a `Project` resource (format: `projects/{{name}}`).{% endverbatim %}</p>
+            <p>{% verbatim %}The project of the feature. Allowed value: The Google Cloud resource name of a `Project` resource (format: `projects/{{name}}`).{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -763,6 +981,8 @@ Allowed value: The Google Cloud resource name of a `Project` resource (format: `
 </table>
 
 
+<p>* Field is required when parent field is specified</p>
+
 
 ### Status
 #### Schema
@@ -787,7 +1007,7 @@ observedGeneration: integer
         <td><code>conditions</code></td>
         <td>
             <p><code class="apitype">list (object)</code></p>
-            <p>{% verbatim %}Conditions represent the latest available observation of the resource's current state.{% endverbatim %}</p>
+            <p>{% verbatim %}Conditions represent the latest available observations of the GKEHubFeatureMembership's current state.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -868,6 +1088,8 @@ spec:
   projectRef:
     name: gkehubfeaturemembership-dep-acm
   location: global
+  # membershipLocation needs to be explicitly set here because the dependent membership is regional.
+  membershipLocation: us-central1
   membershipRef:
     name: gkehubfeaturemembership-dep-acm
   featureRef:
@@ -876,26 +1098,10 @@ spec:
     configSync:
       sourceFormat: unstructured
       git:
-        syncRepo: "https://github.com/GoogleCloudPlatform/cloud-foundation-toolkit"
-        syncBranch: "master"
-        policyDir: "config-connector"
-        syncWaitSecs: "20"
-        syncRev: "HEAD"
+        syncRepo: "https://github.com/GoogleCloudPlatform/anthos-config-management-samples"
+        syncBranch: "main"
+        policyDir: "config-sync-quickstart/multirepo/root"
         secretType: "none"
-    policyController:
-      enabled: true
-      exemptableNamespaces:
-        - "test-namespace"
-      referentialRulesEnabled: true
-      logDeniesEnabled: true
-      templateLibraryInstalled: true
-      auditIntervalSeconds: "20"
-    binauthz:
-      enabled: true
-    hierarchyController:
-      enabled: true
-      enablePodTreeLabels: true
-      enableHierarchicalResourceQuota: true
 ---
 apiVersion: container.cnrm.cloud.google.com/v1beta1
 kind: ContainerCluster
@@ -914,6 +1120,10 @@ apiVersion: gkehub.cnrm.cloud.google.com/v1beta1
 kind: GKEHubFeature
 metadata:
   name: gkehubfeaturemembership-dep-acm
+  # The GKEHubFeature is a global resource in your project.
+  # In case you might have configured the resource using other clients like gcloud, abandon the resource when deleted.
+  annotations:
+    cnrm.cloud.google.com/deletion-policy: abandon
 spec:
   projectRef:
     name: gkehubfeaturemembership-dep-acm
@@ -929,7 +1139,7 @@ metadata:
     cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-acm
   name: gkehubfeaturemembership-dep-acm
 spec:
-  location: global
+  location: us-central1
   authority:
     # Issuer must contain a link to a valid JWT issuer. Your ContainerCluster is one.
     issuer: https://container.googleapis.com/v1/projects/gkehubfeaturemembership-dep-acm/locations/us-central1-a/clusters/gkehubfeaturemembership-dep-acm
@@ -957,7 +1167,7 @@ kind: Service
 metadata:
   annotations:
     cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-acm
-    cnrm.cloud.google.com/disable-dependent-services: "false"
+    cnrm.cloud.google.com/deletion-policy: "abandon"
   name: gkehubfeaturemembership-dep1-acm1
 spec:
   resourceID: container.googleapis.com
@@ -967,7 +1177,7 @@ kind: Service
 metadata:
   annotations:
     cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-acm
-    cnrm.cloud.google.com/disable-dependent-services: "false"
+    cnrm.cloud.google.com/deletion-policy: "abandon"
   name: gkehubfeaturemembership-dep2-acm
 spec:
   resourceID: gkehub.googleapis.com
@@ -977,7 +1187,7 @@ kind: Service
 metadata:
   annotations:
     cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-acm
-    cnrm.cloud.google.com/disable-dependent-services: "false"
+    cnrm.cloud.google.com/deletion-policy: "abandon"
   name: gkehubfeaturemembership-dep3-acm
 spec:
   resourceID: anthosconfigmanagement.googleapis.com
@@ -1081,5 +1291,7 @@ spec:
     name: gkehubfeaturemembership-dep-asm
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

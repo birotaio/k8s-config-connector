@@ -101,7 +101,7 @@ spec:
           description: The secret required
           key: secretRef
           gvk:
-            kind: SecretManagerSecret
+            kind: SecretManagerSecretVersion
             version: v1beta1
             group: secretmanager.cnrm.cloud.google.com
           targetField: name
@@ -177,5 +177,57 @@ spec:
             version: v1beta1
             group: cloudbuild.cnrm.cloud.google.com
           targetField: name
+        - tfField: source_to_build.repository
+          key: repositoryRef
+          description: |-
+            Only `external` field is supported to configure the reference.
+
+            The qualified resource name of the Repo API repository.
+            Either uri or repository can be specified and is required.
+          gvk:
+            kind: CloudBuildV2Repository
+            version: v1beta1
+            group: cloudbuild.cnrm.cloud.google.com
+          targetField: name
+        - tfField: git_file_source.repository
+          key: repositoryRef
+          description: |-
+            Only `external` field is supported to configure the reference.
+
+            The fully qualified resource name of the Repo API repository. The fully qualified resource name of the Repo API repository.
+            If unspecified, the repo from which the trigger invocation originated is assumed to be the repo from which to read the specified path.
+          gvk:
+            kind: CloudBuildV2Repository
+            version: v1beta1
+            group: cloudbuild.cnrm.cloud.google.com
+          targetField: name
+        - tfField: git_file_source.bitbucket_server_config
+          key: bitbucketServerConfigRef
+          description: |-
+            Only `external` field is supported to configure the reference.
+
+            The full resource name of the bitbucket server config. Format:
+            projects/{project}/locations/{location}/bitbucketServerConfigs/{id}.
+          gvk:
+            kind: CloudBuildBitbucketServerConfig
+            version: v1beta1
+            group: cloudbuild.cnrm.cloud.google.com
+          targetField: name
+        - tfField: source_to_build.bitbucket_server_config
+          key: bitbucketServerConfigRef
+          description: |-
+            Only `external` field is supported to configure the reference.
+
+            The full resource name of the bitbucket server config. Format:
+            projects/{project}/locations/{location}/bitbucketServerConfigs/{id}.
+          gvk:
+            kind: CloudBuildBitbucketServerConfig
+            version: v1beta1
+            group: cloudbuild.cnrm.cloud.google.com
+          targetField: name
       ignoredFields:
         - trigger_template.project_id
+
+    - name: google_cloudbuild_workerpool
+      kind: CloudBuildWorkerPool
+      direct: true

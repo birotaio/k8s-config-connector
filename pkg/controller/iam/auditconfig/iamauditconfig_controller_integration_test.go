@@ -53,7 +53,9 @@ var (
 )
 
 func TestReconcileIAMAuditConfigResourceLevelCreate(t *testing.T) {
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	ctx := context.TODO()
+
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -64,16 +66,40 @@ func TestReconcileIAMAuditConfigResourceLevelCreate(t *testing.T) {
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelCreate(t, mgr, k8sAuditConfig)
+		testReconcileResourceLevelCreate(ctx, t, mgr, k8sAuditConfig)
 	}
-	testiam.RunResourceLevelTest(t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
+	testiam.RunResourceLevelTest(ctx, t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
+}
+
+func TestReconcileIAMAuditConfigResourceLevelCreateWithSISMerge(t *testing.T) {
+	ctx := context.TODO()
+
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+		auditLogConfigs := []iamv1beta1.AuditLogConfig{
+			{
+				LogType: "DATA_WRITE",
+			},
+			{
+				LogType:         "DATA_READ",
+				ExemptedMembers: []v1beta1.Member{v1beta1.Member(testgcp.GetIAMPolicyBindingMember(t))},
+			},
+		}
+		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
+		k8sAuditConfig.ObjectMeta.Annotations = map[string]string{
+			"cnrm.cloud.google.com/state-into-spec": "merge",
+		}
+		testReconcileResourceLevelCreate(ctx, t, mgr, k8sAuditConfig)
+	}
+	testiam.RunResourceLevelTest(ctx, t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelCreateWithExternalRef(t *testing.T) {
+	ctx := context.TODO()
+
 	shouldRun := func(fixture resourcefixture.ResourceFixture) bool {
 		return testiam.ShouldRunWithAuditConfigs(fixture) && testiam.ShouldRunWithExternalRef(fixture)
 	}
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -84,21 +110,21 @@ func TestReconcileIAMAuditConfigResourceLevelCreateWithExternalRef(t *testing.T)
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelCreate(t, mgr, k8sAuditConfig)
+		testReconcileResourceLevelCreate(ctx, t, mgr, k8sAuditConfig)
 	}
-	testiam.RunResourceLevelTestWithExternalRef(t, mgr, testFunc, shouldRun)
+	testiam.RunResourceLevelTestWithExternalRef(ctx, t, mgr, testFunc, shouldRun)
 }
 
-func testReconcileResourceLevelCreate(t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig) {
+func testReconcileResourceLevelCreate(ctx context.Context, t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig) {
 	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
 	smLoader := testservicemappingloader.New(t)
 	kubeClient := mgr.GetClient()
 	tfIamClient := kcciamclient.New(provider, smLoader, kubeClient, nil, nil).TFIAMClient
 	reconciler := testreconciler.New(t, mgr, provider)
-	if _, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig); !errors.Is(err, kcciamclient.NotFoundError) {
-		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.NotFoundError)
+	if _, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig); !errors.Is(err, kcciamclient.ErrNotFound) {
+		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.ErrNotFound)
 	}
-	if err := kubeClient.Create(context.TODO(), k8sAuditConfig); err != nil {
+	if err := kubeClient.Create(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error creating k8s resource: %v", err)
 	}
 	preReconcileGeneration := k8sAuditConfig.GetGeneration()
@@ -110,22 +136,24 @@ func testReconcileResourceLevelCreate(t *testing.T, mgr manager.Manager, k8sAudi
 	if err != nil {
 		t.Fatalf("error marshalling %v as unstructured: %v", k8sAuditConfig, err)
 	}
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, testreconciler.ExpectedSuccessfulReconcileResultFor(reconciler, u), nil)
-	gcpAuditConfig, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig)
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, testreconciler.ExpectedSuccessfulReconcileResultFor(reconciler, u), nil)
+	gcpAuditConfig, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig)
 	if err != nil {
 		t.Fatalf("error retrieving GCP audit config: %v", err)
 	}
 	assertSameAuditConfigs(t, k8sAuditConfig, gcpAuditConfig)
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
 		t.Fatalf("unexpected error getting k8s resource: %v", err)
 	}
-	testcontroller.AssertReadyCondition(t, k8sAuditConfig.Status.Conditions)
+	testcontroller.AssertReadyCondition(t, k8sAuditConfig, preReconcileGeneration)
 	testcontroller.AssertEventRecordedForObjectMetaAndKind(t, kubeClient, iamv1beta1.IAMAuditConfigGVK.Kind, &k8sAuditConfig.ObjectMeta, k8s.UpToDate)
 	assertObservedGenerationEquals(t, k8sAuditConfig, preReconcileGeneration)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelUpdate(t *testing.T) {
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	ctx := context.TODO()
+
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -143,16 +171,18 @@ func TestReconcileIAMAuditConfigResourceLevelUpdate(t *testing.T) {
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
 		newK8sAuditConfig := k8sAuditConfig.DeepCopy()
 		newK8sAuditConfig.Spec.AuditLogConfigs = newAuditLogConfigs
-		testReconcileResourceLevelUpdate(t, mgr, k8sAuditConfig, newK8sAuditConfig)
+		testReconcileResourceLevelUpdate(ctx, t, mgr, k8sAuditConfig, newK8sAuditConfig)
 	}
-	testiam.RunResourceLevelTest(t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
+	testiam.RunResourceLevelTest(ctx, t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelUpdateWithExternalRef(t *testing.T) {
+	ctx := context.TODO()
+
 	shouldRun := func(fixture resourcefixture.ResourceFixture) bool {
 		return testiam.ShouldRunWithAuditConfigs(fixture) && testiam.ShouldRunWithExternalRef(fixture)
 	}
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -170,55 +200,57 @@ func TestReconcileIAMAuditConfigResourceLevelUpdateWithExternalRef(t *testing.T)
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
 		newK8sAuditConfig := k8sAuditConfig.DeepCopy()
 		newK8sAuditConfig.Spec.AuditLogConfigs = newAuditLogConfigs
-		testReconcileResourceLevelUpdate(t, mgr, k8sAuditConfig, newK8sAuditConfig)
+		testReconcileResourceLevelUpdate(ctx, t, mgr, k8sAuditConfig, newK8sAuditConfig)
 	}
-	testiam.RunResourceLevelTestWithExternalRef(t, mgr, testFunc, shouldRun)
+	testiam.RunResourceLevelTestWithExternalRef(ctx, t, mgr, testFunc, shouldRun)
 }
 
-func testReconcileResourceLevelUpdate(t *testing.T, mgr manager.Manager, k8sAuditConfig, newK8sAuditConfig *iamv1beta1.IAMAuditConfig) {
+func testReconcileResourceLevelUpdate(ctx context.Context, t *testing.T, mgr manager.Manager, k8sAuditConfig, newK8sAuditConfig *iamv1beta1.IAMAuditConfig) {
 	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
 	smLoader := testservicemappingloader.New(t)
 	kubeClient := mgr.GetClient()
 	tfIamClient := kcciamclient.New(provider, smLoader, kubeClient, nil, nil).TFIAMClient
 	reconciler := testreconciler.New(t, mgr, provider)
-	if _, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig); !errors.Is(err, kcciamclient.NotFoundError) {
-		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.NotFoundError)
+	if _, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig); !errors.Is(err, kcciamclient.ErrNotFound) {
+		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.ErrNotFound)
 	}
-	if err := kubeClient.Create(context.TODO(), k8sAuditConfig); err != nil {
+	if err := kubeClient.Create(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error creating k8s resource: %v", err)
 	}
 	preReconcileGeneration := k8sAuditConfig.GetGeneration()
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
-	gcpAuditConfig, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig)
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
+	gcpAuditConfig, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig)
 	if err != nil {
 		t.Fatalf("error retrieving GCP audit config: %v", err)
 	}
 	assertSameAuditConfigs(t, k8sAuditConfig, gcpAuditConfig)
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
 		t.Fatalf("unexpected error getting k8s resource: %v", err)
 	}
 	assertObservedGenerationEquals(t, k8sAuditConfig, preReconcileGeneration)
 	newK8sAuditConfig.SetResourceVersion(k8sAuditConfig.GetResourceVersion())
-	if err := kubeClient.Update(context.TODO(), newK8sAuditConfig); err != nil {
+	if err := kubeClient.Update(ctx, newK8sAuditConfig); err != nil {
 		t.Fatalf("error updating k8s resource: %v", err)
 	}
 	preReconcileGeneration = newK8sAuditConfig.GetGeneration()
-	reconciler.ReconcileObjectMeta(newK8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(newK8sAuditConfig), newK8sAuditConfig); err != nil {
+	reconciler.ReconcileObjectMeta(ctx, newK8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(newK8sAuditConfig), newK8sAuditConfig); err != nil {
 		t.Fatalf("unexpected error getting k8s resource: %v", err)
 	}
-	gcpAuditConfig, err = tfIamClient.GetAuditConfig(context.TODO(), newK8sAuditConfig)
+	gcpAuditConfig, err = tfIamClient.GetAuditConfig(ctx, newK8sAuditConfig)
 	if err != nil {
 		t.Fatalf("error retrieving GCP audit config: %v", err)
 	}
 	assertSameAuditConfigs(t, newK8sAuditConfig, gcpAuditConfig)
-	testcontroller.AssertReadyCondition(t, newK8sAuditConfig.Status.Conditions)
+	testcontroller.AssertReadyCondition(t, newK8sAuditConfig, preReconcileGeneration)
 	testcontroller.AssertEventRecordedForObjectMetaAndKind(t, kubeClient, iamv1beta1.IAMAuditConfigGVK.Kind, &newK8sAuditConfig.ObjectMeta, k8s.UpToDate)
 	assertObservedGenerationEquals(t, newK8sAuditConfig, preReconcileGeneration)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelNoChanges(t *testing.T) {
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	ctx := context.TODO()
+
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -229,16 +261,18 @@ func TestReconcileIAMAuditConfigResourceLevelNoChanges(t *testing.T) {
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelNoChanges(t, mgr, k8sAuditConfig)
+		testReconcileResourceLevelNoChanges(ctx, t, mgr, k8sAuditConfig)
 	}
-	testiam.RunResourceLevelTest(t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
+	testiam.RunResourceLevelTest(ctx, t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelNoChangesWithExternalRef(t *testing.T) {
+	ctx := context.TODO()
+
 	shouldRun := func(fixture resourcefixture.ResourceFixture) bool {
 		return testiam.ShouldRunWithAuditConfigs(fixture) && testiam.ShouldRunWithExternalRef(fixture)
 	}
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -249,41 +283,41 @@ func TestReconcileIAMAuditConfigResourceLevelNoChangesWithExternalRef(t *testing
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelNoChanges(t, mgr, k8sAuditConfig)
+		testReconcileResourceLevelNoChanges(ctx, t, mgr, k8sAuditConfig)
 	}
-	testiam.RunResourceLevelTestWithExternalRef(t, mgr, testFunc, shouldRun)
+	testiam.RunResourceLevelTestWithExternalRef(ctx, t, mgr, testFunc, shouldRun)
 }
 
-func testReconcileResourceLevelNoChanges(t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig) {
+func testReconcileResourceLevelNoChanges(ctx context.Context, t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig) {
 	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
 	smLoader := testservicemappingloader.New(t)
 	kubeClient := mgr.GetClient()
 	tfIamClient := kcciamclient.New(provider, smLoader, kubeClient, nil, nil).TFIAMClient
 	reconciler := testreconciler.New(t, mgr, provider)
-	if _, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig); !errors.Is(err, kcciamclient.NotFoundError) {
-		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.NotFoundError)
+	if _, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig); !errors.Is(err, kcciamclient.ErrNotFound) {
+		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.ErrNotFound)
 	}
-	if err := kubeClient.Create(context.TODO(), k8sAuditConfig); err != nil {
+	if err := kubeClient.Create(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error creating k8s resource: %v", err)
 	}
 	preReconcileGeneration := k8sAuditConfig.GetGeneration()
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
-	gcpAuditConfig, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig)
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
+	gcpAuditConfig, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig)
 	if err != nil {
 		t.Fatalf("error retrieving GCP audit config: %v", err)
 	}
 	assertSameAuditConfigs(t, k8sAuditConfig, gcpAuditConfig)
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
 		t.Fatalf("unexpected error getting k8s resource: %v", err)
 	}
 	assertObservedGenerationEquals(t, k8sAuditConfig, preReconcileGeneration)
 	preReconcileGeneration = k8sAuditConfig.GetGeneration()
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
 	newK8sAuditConfig := &iamv1beta1.IAMAuditConfig{}
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(k8sAuditConfig), newK8sAuditConfig); err != nil {
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(k8sAuditConfig), newK8sAuditConfig); err != nil {
 		t.Fatalf("unexpected error getting k8s resource: %v", err)
 	}
-	gcpAuditConfig, err = tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig)
+	gcpAuditConfig, err = tfIamClient.GetAuditConfig(ctx, k8sAuditConfig)
 	if err != nil {
 		t.Fatalf("error retrieving GCP audit config: %v", err)
 	}
@@ -291,13 +325,15 @@ func testReconcileResourceLevelNoChanges(t *testing.T, mgr manager.Manager, k8sA
 	if k8sAuditConfig.GetResourceVersion() != newK8sAuditConfig.GetResourceVersion() {
 		t.Errorf("reconcile that was expected to be a no-op resulted in a write to the API server")
 	}
-	testcontroller.AssertReadyCondition(t, newK8sAuditConfig.Status.Conditions)
+	testcontroller.AssertReadyCondition(t, newK8sAuditConfig, preReconcileGeneration)
 	testcontroller.AssertEventRecordedForObjectMetaAndKind(t, kubeClient, iamv1beta1.IAMAuditConfigGVK.Kind, &newK8sAuditConfig.ObjectMeta, k8s.UpToDate)
 	assertObservedGenerationEquals(t, newK8sAuditConfig, preReconcileGeneration)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelDelete(t *testing.T) {
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	ctx := context.TODO()
+
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -308,16 +344,18 @@ func TestReconcileIAMAuditConfigResourceLevelDelete(t *testing.T) {
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelDelete(t, mgr, k8sAuditConfig)
+		testReconcileResourceLevelDelete(ctx, t, mgr, k8sAuditConfig)
 	}
-	testiam.RunResourceLevelTest(t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
+	testiam.RunResourceLevelTest(ctx, t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelDeleteWithExternalRef(t *testing.T) {
+	ctx := context.TODO()
+
 	shouldRun := func(fixture resourcefixture.ResourceFixture) bool {
 		return testiam.ShouldRunWithAuditConfigs(fixture) && testiam.ShouldRunWithExternalRef(fixture)
 	}
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -328,55 +366,58 @@ func TestReconcileIAMAuditConfigResourceLevelDeleteWithExternalRef(t *testing.T)
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelDelete(t, mgr, k8sAuditConfig)
+		testReconcileResourceLevelDelete(ctx, t, mgr, k8sAuditConfig)
 	}
-	testiam.RunResourceLevelTestWithExternalRef(t, mgr, testFunc, shouldRun)
+	testiam.RunResourceLevelTestWithExternalRef(ctx, t, mgr, testFunc, shouldRun)
 }
 
-func testReconcileResourceLevelDelete(t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig) {
+func testReconcileResourceLevelDelete(ctx context.Context, t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig) {
 	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
 	smLoader := testservicemappingloader.New(t)
 	kubeClient := mgr.GetClient()
 	tfIamClient := kcciamclient.New(provider, smLoader, kubeClient, nil, nil).TFIAMClient
 	reconciler := testreconciler.New(t, mgr, provider)
-	if _, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig); !errors.Is(err, kcciamclient.NotFoundError) {
-		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.NotFoundError)
+	if _, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig); !errors.Is(err, kcciamclient.ErrNotFound) {
+		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.ErrNotFound)
 	}
-	if err := kubeClient.Create(context.TODO(), k8sAuditConfig); err != nil {
+	if err := kubeClient.Create(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error creating k8s resource: %v", err)
 	}
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
-	gcpAuditConfig, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig)
+	preReconcileGeneration := k8sAuditConfig.GetGeneration()
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
+	gcpAuditConfig, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig)
 	if err != nil {
 		t.Fatalf("error retrieving GCP audit config: %v", err)
 	}
 	assertSameAuditConfigs(t, k8sAuditConfig, gcpAuditConfig)
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
 		t.Fatalf("unexpected error getting k8s resource: %v", err)
 	}
-	testcontroller.AssertReadyCondition(t, k8sAuditConfig.Status.Conditions)
+	testcontroller.AssertReadyCondition(t, k8sAuditConfig, preReconcileGeneration)
 	testcontroller.AssertEventRecordedForObjectMetaAndKind(t, kubeClient, iamv1beta1.IAMAuditConfigGVK.Kind, &k8sAuditConfig.ObjectMeta, k8s.UpToDate)
-	if err := kubeClient.Delete(context.TODO(), k8sAuditConfig); err != nil {
+	if err := kubeClient.Delete(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error deleting k8s resource: %v", err)
 	}
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, testreconciler.ExpectedRequeueReconcileStruct, nil)
-	_, err = tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig)
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, testreconciler.ExpectedRequeueReconcileStruct, nil)
+	_, err = tfIamClient.GetAuditConfig(ctx, k8sAuditConfig)
 	if err != nil {
 		t.Fatalf("expected audit config to exist in GCP, but got error: %v", err)
 	}
 	testk8s.RemoveDeletionDefenderFinalizer(t, k8sAuditConfig, v1beta1.IAMAuditConfigGVK, kubeClient)
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
-	if _, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig); !errors.Is(err, kcciamclient.NotFoundError) {
-		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.NotFoundError)
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
+	if _, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig); !errors.Is(err, kcciamclient.ErrNotFound) {
+		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.ErrNotFound)
 	}
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err == nil || !apierrors.IsNotFound(err) {
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err == nil || !apierrors.IsNotFound(err) {
 		t.Fatalf("unexpected error value: %v", err)
 	}
 	testcontroller.AssertEventRecordedForObjectMetaAndKind(t, kubeClient, v1beta1.IAMAuditConfigGVK.Kind, &k8sAuditConfig.ObjectMeta, k8s.Deleted)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelDeleteParentFirst(t *testing.T) {
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	ctx := context.TODO()
+
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -387,16 +428,18 @@ func TestReconcileIAMAuditConfigResourceLevelDeleteParentFirst(t *testing.T) {
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelDeleteParentFirst(t, mgr, k8sAuditConfig, refResource)
+		testReconcileResourceLevelDeleteParentFirst(ctx, t, mgr, k8sAuditConfig, refResource)
 	}
-	testiam.RunResourceLevelTest(t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
+	testiam.RunResourceLevelTest(ctx, t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelDeleteParentFirstWithExternalRef(t *testing.T) {
+	ctx := context.TODO()
+
 	shouldRun := func(fixture resourcefixture.ResourceFixture) bool {
 		return testiam.ShouldRunWithAuditConfigs(fixture) && testiam.ShouldRunWithExternalRef(fixture)
 	}
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -407,56 +450,59 @@ func TestReconcileIAMAuditConfigResourceLevelDeleteParentFirstWithExternalRef(t 
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelDeleteParentFirst(t, mgr, k8sAuditConfig, refResource)
+		testReconcileResourceLevelDeleteParentFirst(ctx, t, mgr, k8sAuditConfig, refResource)
 	}
-	testiam.RunResourceLevelTestWithExternalRef(t, mgr, testFunc, shouldRun)
+	testiam.RunResourceLevelTestWithExternalRef(ctx, t, mgr, testFunc, shouldRun)
 }
 
-func testReconcileResourceLevelDeleteParentFirst(t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig, refResource *unstructured.Unstructured) {
+func testReconcileResourceLevelDeleteParentFirst(ctx context.Context, t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig, refResource *unstructured.Unstructured) {
 	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
 	smLoader := testservicemappingloader.New(t)
 	kubeClient := mgr.GetClient()
 	tfIamClient := kcciamclient.New(provider, smLoader, kubeClient, nil, nil).TFIAMClient
 	reconciler := testreconciler.New(t, mgr, provider)
-	if _, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig); !errors.Is(err, kcciamclient.NotFoundError) {
-		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.NotFoundError)
+	if _, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig); !errors.Is(err, kcciamclient.ErrNotFound) {
+		t.Fatalf("unexpected error value: got '%v', want '%v'", err, kcciamclient.ErrNotFound)
 	}
-	if err := kubeClient.Create(context.TODO(), k8sAuditConfig); err != nil {
+	if err := kubeClient.Create(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error creating k8s resource: %v", err)
 	}
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
-	gcpAuditConfig, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig)
+	preReconcileGeneration := k8sAuditConfig.GetGeneration()
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
+	gcpAuditConfig, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig)
 	if err != nil {
 		t.Fatalf("error retrieving GCP audit config: %v", err)
 	}
 	assertSameAuditConfigs(t, k8sAuditConfig, gcpAuditConfig)
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
 		t.Fatalf("unexpected error getting k8s resource: %v", err)
 	}
-	testcontroller.AssertReadyCondition(t, k8sAuditConfig.Status.Conditions)
+	testcontroller.AssertReadyCondition(t, k8sAuditConfig, preReconcileGeneration)
 	testcontroller.AssertEventRecordedForObjectMetaAndKind(t, kubeClient, iamv1beta1.IAMAuditConfigGVK.Kind, &k8sAuditConfig.ObjectMeta, k8s.UpToDate)
 
 	// First, delete the parent resource of the IAMAuditConfig
-	if err := kubeClient.Delete(context.TODO(), refResource); err != nil {
+	if err := kubeClient.Delete(ctx, refResource); err != nil {
 		t.Fatalf("error deleting parent resource: %v", err)
 	}
 	testk8s.RemoveDeletionDefenderFinalizerForUnstructured(t, refResource, kubeClient)
-	reconciler.Reconcile(refResource, expectedReconcileResult, nil)
+	reconciler.Reconcile(ctx, refResource, expectedReconcileResult, nil)
 
 	// Then, delete the IAMAuditConfig
-	if err := kubeClient.Delete(context.TODO(), k8sAuditConfig); err != nil {
+	if err := kubeClient.Delete(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error deleting k8s resource: %v", err)
 	}
 	testk8s.RemoveDeletionDefenderFinalizer(t, k8sAuditConfig, v1beta1.IAMAuditConfigGVK, kubeClient)
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err == nil || !apierrors.IsNotFound(err) {
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err == nil || !apierrors.IsNotFound(err) {
 		t.Fatalf("unexpected error value: %v", err)
 	}
 	testcontroller.AssertEventRecordedForObjectMetaAndKind(t, kubeClient, v1beta1.IAMAuditConfigGVK.Kind, &k8sAuditConfig.ObjectMeta, k8s.Deleted)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelAcquire(t *testing.T) {
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	ctx := context.TODO()
+
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -467,16 +513,18 @@ func TestReconcileIAMAuditConfigResourceLevelAcquire(t *testing.T) {
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelAcquire(t, mgr, k8sAuditConfig)
+		testReconcileResourceLevelAcquire(ctx, t, mgr, k8sAuditConfig)
 	}
-	testiam.RunResourceLevelTest(t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
+	testiam.RunResourceLevelTest(ctx, t, mgr, testFunc, testiam.ShouldRunWithAuditConfigs)
 }
 
 func TestReconcileIAMAuditConfigResourceLevelAcquireWithExternalRef(t *testing.T) {
+	ctx := context.TODO()
+
 	shouldRun := func(fixture resourcefixture.ResourceFixture) bool {
 		return testiam.ShouldRunWithAuditConfigs(fixture) && testiam.ShouldRunWithExternalRef(fixture)
 	}
-	testFunc := func(t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
+	testFunc := func(ctx context.Context, t *testing.T, _ string, mgr manager.Manager, rc testiam.IAMResourceContext, refResource *unstructured.Unstructured, resourceRef v1beta1.ResourceReference) {
 		auditLogConfigs := []iamv1beta1.AuditLogConfig{
 			{
 				LogType: "DATA_WRITE",
@@ -487,12 +535,12 @@ func TestReconcileIAMAuditConfigResourceLevelAcquireWithExternalRef(t *testing.T
 			},
 		}
 		k8sAuditConfig := newIAMAuditConfigFixture(t, refResource, resourceRef, "allServices", auditLogConfigs)
-		testReconcileResourceLevelAcquire(t, mgr, k8sAuditConfig)
+		testReconcileResourceLevelAcquire(ctx, t, mgr, k8sAuditConfig)
 	}
-	testiam.RunResourceLevelTestWithExternalRef(t, mgr, testFunc, shouldRun)
+	testiam.RunResourceLevelTestWithExternalRef(ctx, t, mgr, testFunc, shouldRun)
 }
 
-func testReconcileResourceLevelAcquire(t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig) {
+func testReconcileResourceLevelAcquire(ctx context.Context, t *testing.T, mgr manager.Manager, k8sAuditConfig *iamv1beta1.IAMAuditConfig) {
 	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
 	smLoader := testservicemappingloader.New(t)
 	kubeClient := mgr.GetClient()
@@ -500,23 +548,23 @@ func testReconcileResourceLevelAcquire(t *testing.T, mgr manager.Manager, k8sAud
 	reconciler := testreconciler.New(t, mgr, provider)
 
 	// Create resource in GCP
-	if _, err := tfIamClient.SetAuditConfig(context.TODO(), k8sAuditConfig); err != nil {
+	if _, err := tfIamClient.SetAuditConfig(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error creating GCP audit config: %v", err)
 	}
 
 	// Acquire IAM Audit Config
-	if err := kubeClient.Create(context.TODO(), k8sAuditConfig); err != nil {
+	if err := kubeClient.Create(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error creating k8s resource: %v", err)
 	}
 	preReconcileGeneration := k8sAuditConfig.GetGeneration()
-	reconciler.ReconcileObjectMeta(k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
-	if _, err := tfIamClient.GetAuditConfig(context.TODO(), k8sAuditConfig); err != nil {
+	reconciler.ReconcileObjectMeta(ctx, k8sAuditConfig.ObjectMeta, iamv1beta1.IAMAuditConfigGVK.Kind, expectedReconcileResult, nil)
+	if _, err := tfIamClient.GetAuditConfig(ctx, k8sAuditConfig); err != nil {
 		t.Fatalf("error retrieving GCP audit config: %v", err)
 	}
-	if err := kubeClient.Get(context.TODO(), k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
+	if err := kubeClient.Get(ctx, k8s.GetNamespacedName(k8sAuditConfig), k8sAuditConfig); err != nil {
 		t.Fatalf("unexpected error getting k8s resource: %v", err)
 	}
-	testcontroller.AssertReadyCondition(t, k8sAuditConfig.Status.Conditions)
+	testcontroller.AssertReadyCondition(t, k8sAuditConfig, preReconcileGeneration)
 	testcontroller.AssertEventRecordedForObjectMetaAndKind(t, kubeClient, v1beta1.IAMAuditConfigGVK.Kind, &k8sAuditConfig.ObjectMeta, k8s.UpToDate)
 	assertObservedGenerationEquals(t, k8sAuditConfig, preReconcileGeneration)
 }
@@ -565,5 +613,5 @@ func name(t *testing.T) string {
 }
 
 func TestMain(m *testing.M) {
-	testmain.TestMainForIntegrationTests(m, &mgr)
+	testmain.ForIntegrationTests(m, &mgr)
 }

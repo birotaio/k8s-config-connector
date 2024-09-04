@@ -25,6 +25,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/dynamic"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/kccmanager"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test"
 	testcontroller "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/controller"
 	testgcp "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/gcp"
@@ -76,7 +77,7 @@ func TestSchemeIsUniqueAcrossManagers(t *testing.T) {
 
 func TestClusterModeManager(t *testing.T) {
 	ctx := context.TODO()
-	mgr, err := kccmanager.New(ctx, clusterModeManager.GetConfig(), kccmanager.Config{})
+	mgr, err := kccmanager.New(ctx, clusterModeManager.GetConfig(), kccmanager.Config{StateIntoSpecDefaultValue: k8s.StateIntoSpecDefaultValueV1Beta1})
 	if err != nil {
 		t.Fatalf("error creating manager: %v", err)
 	}
@@ -189,10 +190,24 @@ func waitForReconcile(t *testing.T, kubeClient client.Client, resource *unstruct
 			klog.Infof("Waiting for 'status' on %v '%v'", u.GetKind(), u.GetName())
 			return false, nil
 		}
-		conditions := dynamic.GetConditions(t, &u)
-		if len(conditions) == 0 {
+		objectStatus := dynamic.GetObjectStatus(t, &u)
+		if objectStatus.ObservedGeneration == nil {
+			klog.InfoS("resource does not yet have status.observedGeneration", "kind", u.GetKind(), "name", u.GetName())
 			return false, nil
 		}
+		if *objectStatus.ObservedGeneration < objectStatus.Generation {
+			klog.InfoS("resource status.observedGeneration is behind current generation",
+				"kind", u.GetKind(), "name", u.GetName(),
+				"status.observedGeneration", *objectStatus.ObservedGeneration, "generation", objectStatus.Generation)
+			return false, nil
+		}
+		for _, c := range objectStatus.Conditions {
+			if c.Type == "Ready" && c.Status == "True" {
+				klog.InfoS("resource is ready", "kind", u.GetKind(), "name", u.GetName())
+				return true, nil
+			}
+		}
+		klog.InfoS("resource is not yet ready", "kind", u.GetKind(), "name", u.GetName(), "conditions", objectStatus.Conditions)
 		return true, nil
 	}
 	if err := wait.PollImmediate(10*time.Second, 5*time.Minute, condFunc); err != nil {
@@ -205,5 +220,5 @@ func TestMain(m *testing.M) {
 		&clusterModeManager,
 		&namespacedModeManager,
 	}
-	testmain.TestMainSetupMultipleEnvironments(m, test.IntegrationTestType, nil, managers)
+	testmain.SetupMultipleEnvironments(m, test.IntegrationTestType, nil, managers)
 }

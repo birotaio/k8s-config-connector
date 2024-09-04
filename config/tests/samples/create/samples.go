@@ -15,10 +15,10 @@
 package create
 
 import (
-	"context"
+	"errors"
 	"fmt"
-	"io/ioutil"
-	"path"
+	"io/fs"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	opv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/dynamic"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test"
@@ -37,12 +38,15 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/repo"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang-collections/go-datastructures/queue"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+const DefaultWaitForReadyTimeout = 35 * time.Minute
 
 type Sample struct {
 	Name      string
@@ -59,14 +63,14 @@ func networksInSampleCount(sample Sample) int {
 	count := 0
 	for _, r := range sample.Resources {
 		if r.GetKind() == "ComputeNetwork" {
-			count += 1
+			count++
 		}
 	}
 	return count
 }
 
-func SetupNamespacesAndApplyDefaults(t *Harness, samples []Sample, project testgcp.GCPProject) {
-	namespaceNames := getNamespaces(samples)
+func SetupNamespacesAndApplyDefaults(t *Harness, resources []*unstructured.Unstructured, project testgcp.GCPProject) {
+	namespaceNames := getNamespacesIfConfigured(resources)
 	setupNamespaces(t, namespaceNames, project)
 }
 
@@ -76,66 +80,141 @@ func setupNamespaces(t *Harness, namespaces []string, project testgcp.GCPProject
 	}
 }
 
-func getNamespaces(samples []Sample) []string {
-	namespaces := make(map[string]bool)
-	for _, sample := range samples {
-		for _, unstruct := range sample.Resources {
-			namespaces[unstruct.GetNamespace()] = true
+func getNamespacesIfConfigured(resources []*unstructured.Unstructured) []string {
+	namespaces := sets.NewString()
+	for _, unstruct := range resources {
+		if ns := unstruct.GetNamespace(); ns != "" {
+			namespaces.Insert(unstruct.GetNamespace())
 		}
 	}
-	results := make([]string, 0, len(namespaces))
-	for k := range namespaces {
-		results = append(results, k)
-	}
-	return results
+	return namespaces.List()
 }
 
-func RunCreateDeleteTest(t *Harness, unstructs []*unstructured.Unstructured, cleanupResources bool) {
+type CreateDeleteTestOptions struct { //nolint:revive
+	// Create is the set of objects to create
+	Create []*unstructured.Unstructured
+
+	// Updates is the set of objects to update (after all objects have been created)
+	Updates []*unstructured.Unstructured
+
+	// CleanupResources is true if we should delete resources when we are done
+	CleanupResources bool
+
+	// SkipWaitForDelete true means that we don't wait to query that a resource has been deleted.
+	SkipWaitForDelete bool
+
+	// SkipWaitForReady true is mainly used for Paused resources as we don't emit an event for those yet.
+	SkipWaitForReady bool
+
+	// CreateInOrder true means that we create each object and wait for the object to be ready.
+	// This requires that objects be sorted in creation order.
+	CreateInOrder bool
+
+	// DeleteInOrder true means that we delete each object and wait for deletion to complete.
+	// This requires that objects be sorted in deletion order.
+	DeleteInOrder bool
+}
+
+func RunCreateDeleteTest(t *Harness, opt CreateDeleteTestOptions) {
+	ctx := t.Ctx
+
 	// Create and reconcile all resources & dependencies
-	for _, u := range unstructs {
-		if err := t.GetClient().Create(context.TODO(), u); err != nil {
+	for _, u := range opt.Create {
+		if err := t.GetClient().Create(ctx, u); err != nil {
 			t.Fatalf("error creating resource: %v", err)
 		}
+		if opt.CreateInOrder && !opt.SkipWaitForReady {
+			waitForReadySingleResource(t, u, DefaultWaitForReadyTimeout)
+		}
 	}
-	waitForReady(t, unstructs)
-	// Clean up resources on success or if cleanupResources flag is true
-	if cleanupResources {
-		cleanup(t, unstructs)
+
+	if !opt.CreateInOrder && !opt.SkipWaitForReady {
+		WaitForReady(t, DefaultWaitForReadyTimeout, opt.Create...)
+	}
+
+	if len(opt.Updates) != 0 {
+		// treat as a patch
+		for _, updateUnstruct := range opt.Updates {
+			if err := t.GetClient().Patch(ctx, updateUnstruct, client.Apply, client.FieldOwner("kcc-tests"), client.ForceOwnership); err != nil {
+				t.Fatalf("error updating resource: %v", err)
+			}
+			if opt.CreateInOrder && !opt.SkipWaitForReady {
+				waitForReadySingleResource(t, updateUnstruct, DefaultWaitForReadyTimeout)
+			}
+		}
+
+		if !opt.CreateInOrder && !opt.SkipWaitForReady {
+			WaitForReady(t, DefaultWaitForReadyTimeout, opt.Updates...)
+		}
+	}
+
+	// Clean up resources on success if CleanupResources flag is true
+	if opt.CleanupResources {
+		DeleteResources(t, opt)
 	}
 }
 
-func waitForReady(t *Harness, unstructs []*unstructured.Unstructured) {
+func WaitForReady(h *Harness, timeout time.Duration, unstructs ...*unstructured.Unstructured) {
 	var wg sync.WaitGroup
 	for _, u := range unstructs {
+		u := u
 		wg.Add(1)
-		go waitForReadySingleResource(t, &wg, u)
+		go func() {
+			defer wg.Done()
+			waitForReadySingleResource(h, u, timeout)
+		}()
 	}
 	wg.Wait()
 }
 
-func waitForReadySingleResource(t *Harness, wg *sync.WaitGroup, u *unstructured.Unstructured) {
+func waitForReadySingleResource(t *Harness, u *unstructured.Unstructured, timeout time.Duration) {
 	logger := log.FromContext(t.Ctx)
 
+	switch u.GroupVersionKind().GroupKind() {
+	case opv1beta1.ConfigConnectorGroupVersionKind.GroupKind():
+		logger.Info("ConfigConnector object does not have status.conditions; assuming ready")
+		return
+	case opv1beta1.ConfigConnectorContextGroupVersionKind.GroupKind():
+		logger.Info("ConfigConnectorContext object does not have status.conditions; assuming ready")
+		return
+	}
+
 	name := k8s.GetNamespacedName(u)
-	defer wg.Done()
-	err := wait.PollImmediate(15*time.Second, 35*time.Minute, func() (done bool, err error) {
+	err := wait.PollImmediate(1*time.Second, timeout, func() (done bool, err error) {
 		done = true
-		logger.Info("Testing to see if resource is ready", "kind", u.GetKind(), "name", u.GetName())
+		logger.V(2).Info("Testing to see if resource is ready", "kind", u.GetKind(), "name", u.GetName())
 		err = t.GetClient().Get(t.Ctx, name, u)
 		if err != nil {
 			logger.Info("Error getting resource", "kind", u.GetKind(), "name", u.GetName(), "error", err)
+			if t.Ctx.Err() != nil {
+				return false, t.Ctx.Err()
+			}
 			return false, nil
 		}
 		if u.GetKind() == "Secret" { // If unstruct is a Secret and it is found on the API server, then the Secret is ready
 			return true, nil
 		}
-		if u.Object["status"] == nil ||
-			u.Object["status"].(map[string]interface{})["conditions"] == nil { // status not ready
-			logger.Info("resource does not yet have status or conditions", "kind", u.GetKind(), "name", u.GetName())
+		if u.Object["status"] == nil {
+			logger.Info("resource does not yet have status", "kind", u.GetKind(), "name", u.GetName())
 			return false, nil
 		}
-		conditions := dynamic.GetConditions(t.T, u)
-		for _, c := range conditions {
+
+		if u.Object["status"].(map[string]interface{})["conditions"] == nil {
+			logger.Info("resource does not yet have conditions", "kind", u.GetKind(), "name", u.GetName())
+			return false, nil
+		}
+		objectStatus := dynamic.GetObjectStatus(t.T, u)
+		if objectStatus.ObservedGeneration == nil {
+			logger.Info("resource does not yet have status.observedGeneration", "kind", u.GetKind(), "name", u.GetName())
+			return false, nil
+		}
+		if *objectStatus.ObservedGeneration < objectStatus.Generation {
+			logger.Info("resource status.observedGeneration is behind current generation",
+				"kind", u.GetKind(), "name", u.GetName(),
+				"status.observedGeneration", *objectStatus.ObservedGeneration, "generation", objectStatus.Generation)
+			return false, nil
+		}
+		for _, c := range objectStatus.Conditions {
 			if c.Type == "Ready" && c.Status == "True" {
 				logger.Info("resource is ready", "kind", u.GetKind(), "name", u.GetName())
 				return true, nil
@@ -143,13 +222,13 @@ func waitForReadySingleResource(t *Harness, wg *sync.WaitGroup, u *unstructured.
 		}
 		// This resource is not completely ready. Let's keep polling.
 		logger.Info("resource is not ready", "kind", u.GetKind(), "name", u.GetName(),
-			"conditions", conditions)
+			"conditions", objectStatus.Conditions)
 		return false, nil
 	})
 	if err == nil {
 		return
 	}
-	if err != wait.ErrWaitTimeout {
+	if !errors.Is(err, wait.ErrWaitTimeout) {
 		t.Errorf("error while polling for ready on %v with name '%v': %v", u.GetKind(), u.GetName(), err)
 		return
 	}
@@ -158,37 +237,59 @@ func waitForReadySingleResource(t *Harness, wg *sync.WaitGroup, u *unstructured.
 		t.Errorf("%v, error retrieving final status.conditions: %v", baseMsg, err)
 		return
 	}
-	conditions := dynamic.GetConditions(t.T, u)
-	if len(conditions) == 0 {
-		t.Errorf("%v, no conditions on resource", baseMsg)
-		return
-	}
-	t.Errorf("%v, final status.conditions: %v", baseMsg, conditions)
+	objectStatus := dynamic.GetObjectStatus(t.T, u)
+	t.Errorf("%v, final status: %+v", baseMsg, objectStatus)
 }
 
-func cleanup(t *Harness, unstructs []*unstructured.Unstructured) {
+func DeleteResources(t *Harness, opts CreateDeleteTestOptions) {
 	logger := log.FromContext(t.Ctx)
 
-	for _, u := range unstructs {
+	unstructs := opts.Create
+	for i := len(unstructs) - 1; i >= 0; i-- {
+		u := unstructs[i]
 		logger.Info("Deleting resource", "kind", u.GetKind(), "name", u.GetName())
 		if err := t.GetClient().Delete(t.Ctx, u); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
 			t.Errorf("error deleting: %v", err)
 		}
+		if opts.DeleteInOrder && !opts.SkipWaitForDelete {
+			waitForDeleteToComplete(t, u)
+		}
 	}
+
+	if opts.SkipWaitForDelete {
+		logger.Info("Not waiting for resources to be deleted")
+		return
+	}
+
+	if opts.DeleteInOrder {
+		// Already deleted
+		return
+	}
+
 	var wg sync.WaitGroup
 	for _, u := range unstructs {
+		u := u
 		wg.Add(1)
-		go waitForDeleteToComplete(t, &wg, u)
+		go func() {
+			defer wg.Done()
+			waitForDeleteToComplete(t, u)
+		}()
 	}
 	wg.Wait()
 }
 
-func waitForDeleteToComplete(t *Harness, wg *sync.WaitGroup, u *unstructured.Unstructured) {
-	defer wg.Done()
+func waitForDeleteToComplete(t *Harness, u *unstructured.Unstructured) {
+	defer log.FromContext(t.Ctx).Info("Done waiting for resource to delete", "kind", u.GetKind(), "name", u.GetName())
 	// Do a best-faith cleanup of the resources. Gives a 30 minute buffer for cleanup, though
 	// resources that can be cleaned up quicker exit earlier.
-	err := wait.PollImmediate(15*time.Second, 30*time.Minute, func() (bool, error) {
-		if err := t.GetClient().Get(t.Ctx, k8s.GetNamespacedName(u), u); !errors.IsNotFound(err) {
+	err := wait.PollImmediate(1*time.Second, 30*time.Minute, func() (bool, error) {
+		if err := t.GetClient().Get(t.Ctx, k8s.GetNamespacedName(u), u); !apierrors.IsNotFound(err) {
+			if t.Ctx.Err() != nil {
+				return false, t.Ctx.Err()
+			}
 			return false, nil
 		}
 		return true, nil
@@ -199,65 +300,87 @@ func waitForDeleteToComplete(t *Harness, wg *sync.WaitGroup, u *unstructured.Uns
 	}
 }
 
-// LoadSamples loads all the samples
-func LoadSamples(t *testing.T, project testgcp.GCPProject) []Sample {
+// LoadAllSamples loads all the samples.
+func LoadAllSamples(t *testing.T, project testgcp.GCPProject) []Sample {
 	matchEverything := regexp.MustCompile(".*")
-	return loadSamplesOntoUnstructs(t, matchEverything, project)
+	return LoadMatchingSamples(t, matchEverything, project)
 }
 
-func loadSamplesOntoUnstructs(t *testing.T, regex *regexp.Regexp, project testgcp.GCPProject) []Sample {
+// LoadMatchingSamples loads the samples that match the regex
+func LoadMatchingSamples(t *testing.T, regex *regexp.Regexp, project testgcp.GCPProject) []Sample {
+	sampleKeys := ListMatchingSamples(t, regex)
+	var samples []Sample
+	for _, sampleKey := range sampleKeys {
+		sample := loadSampleOntoUnstructs(t, sampleKey, project)
+		samples = append(samples, sample)
+	}
+	return samples
+}
+
+// ListAllSamples gets the keys for all the samples without loading them.
+func ListAllSamples(t *testing.T) []SampleKey {
+	matchEverything := regexp.MustCompile(".*")
+	return ListMatchingSamples(t, matchEverything)
+}
+
+// LoadSample loads one sample
+func LoadSample(t *testing.T, sampleKey SampleKey, project testgcp.GCPProject) Sample {
+	return loadSampleOntoUnstructs(t, sampleKey, project)
+}
+
+// SampleKey contains the metadata for a sample.
+// This lets us defer variable substitution.
+type SampleKey struct {
+	Name      string
+	SourceDir string
+	files     []string
+}
+
+func loadSampleOntoUnstructs(t *testing.T, sampleKey SampleKey, project testgcp.GCPProject) Sample {
 	t.Helper()
 
-	samples := make([]Sample, 0)
-	sampleNamesToFiles := mapSampleNamesToFilePaths(t, regex)
 	subVars := newSubstitutionVariables(t, project)
-	for sample, files := range sampleNamesToFiles {
-		resources := make([]*unstructured.Unstructured, 0)
-		for _, f := range files {
-			unstructs := readFileToUnstructs(t, f, subVars)
-			resources = append(resources, unstructs...)
-		}
-		s := Sample{
-			Name:      sample,
-			Resources: resources,
-		}
-		samples = append(samples, s)
+	resources := make([]*unstructured.Unstructured, 0)
+	for _, f := range sampleKey.files {
+		unstructs := readFileToUnstructs(t, f, subVars)
+		resources = append(resources, unstructs...)
 	}
-	return samples
+	s := Sample{
+		Name:      sampleKey.Name,
+		Resources: resources,
+	}
+	return s
 }
 
-func mapSampleNamesToFilePaths(t *testing.T, regex *regexp.Regexp) map[string][]string {
+// ListMatchingSamples gets the keys for all samples matching the regex, without loading them.
+func ListMatchingSamples(t *testing.T, regex *regexp.Regexp) []SampleKey {
 	t.Helper()
-	samples := make(map[string][]string)
-	q := queue.New(1)
-	q.Put(repo.GetResourcesSamplesPath())
-	for !q.Empty() {
-		items, err := q.Get(1)
+	samples := make(map[string]SampleKey)
+	baseDir := repo.GetResourcesSamplesPath()
+	if err := filepath.WalkDir(baseDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			t.Fatalf("error retrieving an item from queue: %v", err)
+			return err
 		}
-		dir := items[0].(string)
-		fileInfos, err := ioutil.ReadDir(dir)
-		if err != nil {
-			t.Fatalf("error reading directory '%v': %v", dir, err)
+		if strings.HasSuffix(d.Name(), ".yaml") {
+			sampleName := filepath.Base(filepath.Dir(path))
+			if regex.MatchString(sampleName) {
+				sampleKey := samples[filepath.Dir(path)]
+				sampleKey.Name = sampleName
+				sampleKey.SourceDir = filepath.Dir(path)
+				sampleKey.files = append(sampleKey.files, path)
+				samples[filepath.Dir(path)] = sampleKey
+			}
 		}
-		for _, fi := range fileInfos {
-			if fi.IsDir() {
-				q.Put(path.Join(dir, fi.Name()))
-				continue
-			}
-			if !strings.HasSuffix(fi.Name(), ".yaml") {
-				continue
-			}
-			sampleName := path.Base(dir)
-			if !regex.MatchString(sampleName) {
-				continue
-			}
-			filePath := path.Join(dir, fi.Name())
-			samples[sampleName] = append(samples[sampleName], filePath)
-		}
+		return nil
+	}); err != nil {
+		t.Fatalf("error walking samples directory %q: %v", baseDir, err)
 	}
-	return samples
+
+	var list []SampleKey
+	for _, sampleKey := range samples {
+		list = append(list, sampleKey)
+	}
+	return list
 }
 
 func newSubstitutionVariables(t *testing.T, project testgcp.GCPProject) map[string]string {
@@ -265,12 +388,16 @@ func newSubstitutionVariables(t *testing.T, project testgcp.GCPProject) map[stri
 	subs["${HOST_PROJECT_ID?}"] = project.ProjectID
 	subs["${PROJECT_ID?}"] = project.ProjectID
 	subs["${PROJECT_NUMBER?}"] = strconv.FormatInt(project.ProjectNumber, 10)
-	subs["${FOLDER_ID?}"] = testgcp.GetFolderID(t)
-	subs["${ORG_ID?}"] = testgcp.GetOrgID(t)
-	subs["${BILLING_ACCOUNT_ID?}"] = testgcp.GetBillingAccountID(t)
-	subs["${BILLING_ACCOUNT_ID_FOR_BILLING_RESOURCES?}"] = testgcp.GetTestBillingAccountIDForBillingResources(t)
+	subs["${FOLDER_ID?}"] = testgcp.TestFolderID.Get()
+	subs["${ORG_ID?}"] = testgcp.TestOrgID.Get()
+	subs["${BILLING_ACCOUNT_ID?}"] = testgcp.TestBillingAccountID.Get()
+	subs["${BILLING_ACCOUNT_ID_FOR_BILLING_RESOURCES?}"] = testgcp.TestBillingAccountIDForBillingResources.Get()
 	subs["${GSA_EMAIL?}"] = getKCCServiceAccountEmail(t, project)
 	subs["${DLP_TEST_BUCKET?}"] = testgcp.GetDLPTestBucket(t)
+	subs["${ATTACHED_CLUSTER_NAME?}"] = testgcp.TestAttachedClusterName.Get()
+	subs["${KCC_ATTACHED_CLUSTER_TEST_PROJECT?}"] = testgcp.TestKCCAttachedClusterProject.Get()
+	subs["${KCC_VERTEX_AI_INDEX_TEST_BUCKET?}"] = testgcp.TestKCCVertexAIIndexBucket.Get()
+	subs["${KCC_VERTEX_AI_INDEX_TEST_DATA_URI?}"] = testgcp.TestKCCVertexAIIndexDataURI.Get()
 	return subs
 }
 
@@ -294,7 +421,7 @@ func readFileToUnstructs(t *testing.T, fileName string, subVars map[string]strin
 	t.Helper()
 	var returnUnstructs []*unstructured.Unstructured
 
-	b := testcontroller.ReadFileToBytes(t, fileName)
+	b := test.MustReadFile(t, fileName)
 	s := string(b)
 	for k, v := range subVars {
 		s = strings.ReplaceAll(s, k, v)
@@ -325,7 +452,7 @@ func replaceResourceNamesWithUniqueIDs(t *testing.T, unstructs []*unstructured.U
 	namesToUniqueIDs := make(map[string]string)
 	idReg := regexp.MustCompile("[a-z]")
 	for _, n := range namesToBeReplaced {
-		namesToUniqueIDs[n] = testvariable.RandomIdGenerator(idReg, uint(len(n)))
+		namesToUniqueIDs[n] = testvariable.RandomIDGenerator(idReg, uint(len(n)))
 	}
 
 	newUnstructs := make([]*unstructured.Unstructured, 0)
@@ -351,11 +478,63 @@ func replaceResourceNamesWithUniqueIDs(t *testing.T, unstructs []*unstructured.U
 			if err != nil {
 				t.Fatalf("error generating new spec.displayName value for Folder '%v': %v", u.GetName(), err)
 			}
-			unstructured.SetNestedField(newUnstruct.Object, newDisplayName, "spec", "displayName")
+			if err := unstructured.SetNestedField(newUnstruct.Object, newDisplayName, "spec", "displayName"); err != nil {
+				t.Fatal(err)
+			}
 		}
 		newUnstructs = append(newUnstructs, newUnstruct)
 	}
 	return newUnstructs
+}
+
+func updateProjectResourceWithExistingResourceIDs(t *testing.T, unstructs []*unstructured.Unstructured) []*unstructured.Unstructured {
+	// Hack: set abandon on delete annotation for dependent project as dynamically creation of billable GCP project is not supported
+	for _, u := range unstructs {
+		kind := u.GetKind()
+		if kind == "Project" {
+			b, found, err := unstructured.NestedString(u.Object, "spec", "billingAccountRef", "external")
+			if err != nil {
+				t.Fatalf("error getting billingAccountRef: %v", err)
+			}
+			// We cannot dynamically create GCP project with billingAccountRef, acquring pre-created project instead.
+			if found && b != "" {
+				annotations := u.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+				annotations["cnrm.cloud.google.com/deletion-policy"] = "abandon"
+				u.SetAnnotations(annotations)
+
+				var dp string
+				if annotations["cnrm.cloud.google.com/auto-create-network"] == "false" {
+					// We use a pre-created project without network
+					dp = testgcp.TestDependentNoNetworkProjectID.Get()
+				} else {
+					_, projectInFolder, err := unstructured.NestedString(u.Object, "spec", "folderRef", "external")
+					if err != nil {
+						t.Fatalf("error getting folderRef: %v", err)
+					}
+					_, projectInOrg, err := unstructured.NestedString(u.Object, "spec", "organizationRef", "external")
+					if err != nil {
+						t.Fatalf("error getting organizationRef: %v", err)
+					}
+
+					if projectInFolder {
+						dp = testgcp.TestDependentFolderProjectID.Get()
+					} else if projectInOrg {
+						dp = testgcp.TestDependentOrgProjectID.Get()
+					}
+				}
+
+				if err := unstructured.SetNestedField(u.Object, dp, strings.Split(k8s.ResourceIDFieldPath, ".")...); err != nil {
+					t.Fatalf("error setting resourceID for dependent project: %v", err)
+				}
+			}
+
+		}
+	}
+
+	return unstructs
 }
 
 // generateNewFolderDisplayName returns a string that can be used as a new
@@ -378,13 +557,13 @@ func generateNewFolderDisplayName(folderUnstruct *unstructured.Unstructured, idR
 			"least '%v' characters", folderUnstruct.GetName(), displayName, minDisplayNameLen)
 	}
 
-	return newDisplayNamePrefix + testvariable.RandomIdGenerator(idReg, uint(len(displayName)-len(newDisplayNamePrefix))), nil
+	return newDisplayNamePrefix + testvariable.RandomIDGenerator(idReg, uint(len(displayName)-len(newDisplayNamePrefix))), nil
 }
 
 func getFolderDisplayName(folderUnstruct *unstructured.Unstructured) (string, error) {
 	displayName, ok, err := unstructured.NestedString(folderUnstruct.Object, "spec", "displayName")
 	if err != nil {
-		return "", fmt.Errorf("error getting spec.displayName of Folder unstruct: %v", err)
+		return "", fmt.Errorf("error getting spec.displayName of Folder unstruct: %w", err)
 	}
 	if !ok {
 		return "", fmt.Errorf("spec.displayName not found for Folder unstruct")

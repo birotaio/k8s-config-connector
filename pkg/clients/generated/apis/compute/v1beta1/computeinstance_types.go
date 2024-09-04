@@ -55,11 +55,11 @@ type InstanceAdvancedMachineFeatures struct {
 
 	/* The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. */
 	// +optional
-	ThreadsPerCore *int `json:"threadsPerCore,omitempty"`
+	ThreadsPerCore *int64 `json:"threadsPerCore,omitempty"`
 
 	/* The number of physical cores to expose to an instance. Multiply by the number of threads per core to compute the total number of virtual CPUs to expose to the instance. If unset, the number of cores is inferred from the instance\'s nominal CPU count and the underlying platform\'s SMT width. */
 	// +optional
-	VisibleCoreCount *int `json:"visibleCoreCount,omitempty"`
+	VisibleCoreCount *int64 `json:"visibleCoreCount,omitempty"`
 }
 
 type InstanceAliasIpRange struct {
@@ -122,6 +122,7 @@ type InstanceBootDisk struct {
 	// +optional
 	Mode *string `json:"mode,omitempty"`
 
+	/* Immutable. The source disk used to create this disk. */
 	// +optional
 	SourceDiskRef *v1alpha1.ResourceRef `json:"sourceDiskRef,omitempty"`
 }
@@ -143,9 +144,9 @@ type InstanceDiskEncryptionKeyRaw struct {
 
 type InstanceGuestAccelerator struct {
 	/* Immutable. The number of the guest accelerator cards exposed to this instance. */
-	Count int `json:"count"`
+	Count int64 `json:"count"`
 
-	/* Immutable. The accelerator type resource exposed to this instance. E.g. nvidia-tesla-k80. */
+	/* Immutable. The accelerator type resource exposed to this instance. E.g. nvidia-tesla-t4. */
 	Type string `json:"type"`
 }
 
@@ -154,10 +155,15 @@ type InstanceInitializeParams struct {
 	// +optional
 	Labels *InstanceLabels `json:"labels,omitempty"`
 
+	/* Immutable. A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. */
+	// +optional
+	ResourceManagerTags *InstanceResourceManagerTags `json:"resourceManagerTags,omitempty"`
+
 	/* Immutable. The size of the image in gigabytes. */
 	// +optional
-	Size *int `json:"size,omitempty"`
+	Size *int64 `json:"size,omitempty"`
 
+	/* Immutable. The image from which to initialize this disk. */
 	// +optional
 	SourceImageRef *v1alpha1.ResourceRef `json:"sourceImageRef,omitempty"`
 
@@ -167,13 +173,17 @@ type InstanceInitializeParams struct {
 }
 
 type InstanceIpv6AccessConfig struct {
-	/* The first IPv6 address of the external IPv6 range associated with this instance, prefix length is stored in externalIpv6PrefixLength in ipv6AccessConfig. The field is output only, an IPv6 address from a subnetwork associated with the instance will be allocated dynamically. */
+	/* Immutable. The first IPv6 address of the external IPv6 range associated with this instance, prefix length is stored in externalIpv6PrefixLength in ipv6AccessConfig. To use a static external IP address, it must be unused and in the same region as the instance's zone. If not specified, Google Cloud will automatically assign an external IPv6 address from the instance's subnetwork. */
 	// +optional
 	ExternalIpv6 *string `json:"externalIpv6,omitempty"`
 
-	/* The prefix length of the external IPv6 range. */
+	/* Immutable. The prefix length of the external IPv6 range. */
 	// +optional
 	ExternalIpv6PrefixLength *string `json:"externalIpv6PrefixLength,omitempty"`
+
+	/* Immutable. The name of this access configuration. In ipv6AccessConfigs, the recommended name is External IPv6. */
+	// +optional
+	Name *string `json:"name,omitempty"`
 
 	/* The service-level to be provided for IPv6 traffic when the subnet has an external subnet. Only PREMIUM tier is valid for IPv6. */
 	NetworkTier string `json:"networkTier"`
@@ -186,17 +196,30 @@ type InstanceIpv6AccessConfig struct {
 type InstanceLabels struct {
 }
 
+type InstanceLocalSsdRecoveryTimeout struct {
+	/* Immutable. Span of time that's a fraction of a second at nanosecond
+	resolution. Durations less than one second are represented
+	with a 0 seconds field and a positive nanos field. Must
+	be from 0 to 999,999,999 inclusive. */
+	// +optional
+	Nanos *int64 `json:"nanos,omitempty"`
+
+	/* Immutable. Span of time at a resolution of a second.
+	Must be from 0 to 315,576,000,000 inclusive. */
+	Seconds int64 `json:"seconds"`
+}
+
 type InstanceMaxRunDuration struct {
 	/* Immutable. Span of time that's a fraction of a second at nanosecond
 	resolution. Durations less than one second are represented
 	with a 0 seconds field and a positive nanos field. Must
 	be from 0 to 999,999,999 inclusive. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Immutable. Span of time at a resolution of a second.
 	Must be from 0 to 315,576,000,000 inclusive. */
-	Seconds int `json:"seconds"`
+	Seconds int64 `json:"seconds"`
 }
 
 type InstanceMetadata struct {
@@ -214,6 +237,10 @@ type InstanceNetworkInterface struct {
 	// +optional
 	AliasIpRange []InstanceAliasIpRange `json:"aliasIpRange,omitempty"`
 
+	/* The prefix length of the primary internal IPv6 range. */
+	// +optional
+	InternalIpv6PrefixLength *int64 `json:"internalIpv6PrefixLength,omitempty"`
+
 	/* An array of IPv6 access configurations for this interface. Currently, only one IPv6 access config, DIRECT_IPV6, is supported. If there is no ipv6AccessConfig specified, then this instance will have no external IPv6 Internet access. */
 	// +optional
 	Ipv6AccessConfig []InstanceIpv6AccessConfig `json:"ipv6AccessConfig,omitempty"`
@@ -221,6 +248,10 @@ type InstanceNetworkInterface struct {
 	/* One of EXTERNAL, INTERNAL to indicate whether the IP can be accessed from the Internet. This field is always inherited from its subnetwork. */
 	// +optional
 	Ipv6AccessType *string `json:"ipv6AccessType,omitempty"`
+
+	/* An IPv6 internal network address for this network interface. If not specified, Google Cloud will automatically assign an internal IPv6 address from the instance's subnetwork. */
+	// +optional
+	Ipv6Address *string `json:"ipv6Address,omitempty"`
 
 	/* The name of the interface. */
 	// +optional
@@ -242,7 +273,7 @@ type InstanceNetworkInterface struct {
 
 	/* Immutable. The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified. */
 	// +optional
-	QueueCount *int `json:"queueCount,omitempty"`
+	QueueCount *int64 `json:"queueCount,omitempty"`
 
 	/* The stack type for this network interface to identify whether the IPv6 feature is enabled or not. If not specified, IPV4_ONLY will be used. */
 	// +optional
@@ -266,6 +297,12 @@ type InstanceNodeAffinities struct {
 	Value *InstanceValue `json:"value,omitempty"`
 }
 
+type InstanceParams struct {
+	/* Immutable. A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. */
+	// +optional
+	ResourceManagerTags *InstanceResourceManagerTags `json:"resourceManagerTags,omitempty"`
+}
+
 type InstanceReservationAffinity struct {
 	/* Immutable. Specifies the label selector for the reservation to use. */
 	// +optional
@@ -273,6 +310,9 @@ type InstanceReservationAffinity struct {
 
 	/* Immutable. The type of reservation from which this instance can consume resources. */
 	Type string `json:"type"`
+}
+
+type InstanceResourceManagerTags struct {
 }
 
 type InstanceScheduling struct {
@@ -284,6 +324,13 @@ type InstanceScheduling struct {
 	// +optional
 	InstanceTerminationAction *string `json:"instanceTerminationAction,omitempty"`
 
+	/* Immutable. Specifies the maximum amount of time a Local Ssd Vm should wait while
+	recovery of the Local Ssd state is attempted. Its value should be in
+	between 0 and 168 hours with hour granularity and the default value being 1
+	hour. */
+	// +optional
+	LocalSsdRecoveryTimeout *InstanceLocalSsdRecoveryTimeout `json:"localSsdRecoveryTimeout,omitempty"`
+
 	/* Specifies the frequency of planned maintenance events. The accepted values are: PERIODIC. */
 	// +optional
 	MaintenanceInterval *string `json:"maintenanceInterval,omitempty"`
@@ -293,7 +340,7 @@ type InstanceScheduling struct {
 	MaxRunDuration *InstanceMaxRunDuration `json:"maxRunDuration,omitempty"`
 
 	// +optional
-	MinNodeCpus *int `json:"minNodeCpus,omitempty"`
+	MinNodeCpus *int64 `json:"minNodeCpus,omitempty"`
 
 	// +optional
 	NodeAffinities []InstanceNodeAffinities `json:"nodeAffinities,omitempty"`
@@ -317,7 +364,7 @@ type InstanceScratchDisk struct {
 
 	/* Immutable. The size of the disk in gigabytes. One of 375 or 3000. */
 	// +optional
-	Size *int `json:"size,omitempty"`
+	Size *int64 `json:"size,omitempty"`
 }
 
 type InstanceServiceAccount struct {
@@ -356,7 +403,7 @@ type InstanceValue struct {
 type InstanceValueFrom struct {
 	/* Reference to a value with the given key in the given Secret in the resource's namespace. */
 	// +optional
-	SecretKeyRef *v1alpha1.ResourceRef `json:"secretKeyRef,omitempty"`
+	SecretKeyRef *v1alpha1.SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
 type ComputeInstanceSpec struct {
@@ -430,6 +477,10 @@ type ComputeInstanceSpec struct {
 	// +optional
 	NetworkPerformanceConfig *InstanceNetworkPerformanceConfig `json:"networkPerformanceConfig,omitempty"`
 
+	/* Immutable. Stores additional params passed with the request, but not persisted as part of resource payload. */
+	// +optional
+	Params *InstanceParams `json:"params,omitempty"`
+
 	/* Immutable. Specifies the reservations that this instance can consume from. */
 	// +optional
 	ReservationAffinity *InstanceReservationAffinity `json:"reservationAffinity,omitempty"`
@@ -474,7 +525,9 @@ type ComputeInstanceStatus struct {
 	// +optional
 	CpuPlatform *string `json:"cpuPlatform,omitempty"`
 
-	/* Current status of the instance. */
+	/* Current status of the instance.
+	This could be one of the following values: PROVISIONING, STAGING, RUNNING, STOPPING, SUSPENDING, SUSPENDED, REPAIRING, and TERMINATED.
+	For more information about the status of the instance, see [Instance life cycle](https://cloud.google.com/compute/docs/instances/instance-life-cycle). */
 	// +optional
 	CurrentStatus *string `json:"currentStatus,omitempty"`
 
@@ -492,7 +545,7 @@ type ComputeInstanceStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	/* The URI of the created resource. */
 	// +optional
@@ -505,6 +558,13 @@ type ComputeInstanceStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcomputeinstance;gcpcomputeinstances
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ComputeInstance is the Schema for the compute API
 // +k8s:openapi-gen=true

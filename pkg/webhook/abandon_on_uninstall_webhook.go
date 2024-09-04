@@ -17,6 +17,7 @@ package webhook
 import (
 	"context"
 
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -25,9 +26,15 @@ import (
 // attempted to be deleted.
 type abandonOnCRDUninstallWebhook struct{}
 
+func NewAbandonOnCRDUninstallWebhook() HandlerFunc {
+	return func(mgr manager.Manager) admission.Handler {
+		return &abandonOnCRDUninstallWebhook{}
+	}
+}
+
 // This webhook is now a no-op and will soon be removed as deletiondefender does not need this layer of protection any
 // longer. The reason to keep it for now is that the operator does not yet remove the old webhook registration. The
 // operator will be updated to remove this webhook registration and then the code can be deleted.
-func (a *abandonOnCRDUninstallWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (a *abandonOnCRDUninstallWebhook) Handle(_ context.Context, _ admission.Request) admission.Response {
 	return admission.ValidationResponse(true, "no-op: this webhook is deprecated")
 }

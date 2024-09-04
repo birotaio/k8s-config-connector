@@ -16,7 +16,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cnrm.cloud.google.com/version: 1.104.0
+    cnrm.cloud.google.com/version: 1.121.0
   creationTimestamp: null
   labels:
     cnrm.cloud.google.com/managed-by-kcc: "true"
@@ -162,6 +162,120 @@ spec:
                 description: Networking configuration for this NodePool. If specified,
                   it overrides the cluster-level defaults.
                 properties:
+                  additionalNodeNetworkConfigs:
+                    description: Immutable. We specify the additional node networks
+                      for this node pool using this list. Each node network corresponds
+                      to an additional interface.
+                    items:
+                      properties:
+                        networkRef:
+                          description: Immutable. Name of the VPC where the additional
+                            interface belongs.
+                          oneOf:
+                          - not:
+                              required:
+                              - external
+                            required:
+                            - name
+                          - not:
+                              anyOf:
+                              - required:
+                                - name
+                              - required:
+                                - namespace
+                            required:
+                            - external
+                          properties:
+                            external:
+                              description: 'Allowed value: The `selfLink` field of
+                                a `ComputeNetwork` resource.'
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              type: string
+                            namespace:
+                              description: 'Namespace of the referent. More info:
+                                https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                              type: string
+                          type: object
+                        subnetworkRef:
+                          description: Immutable. Name of the subnetwork where the
+                            additional interface belongs.
+                          oneOf:
+                          - not:
+                              required:
+                              - external
+                            required:
+                            - name
+                          - not:
+                              anyOf:
+                              - required:
+                                - name
+                              - required:
+                                - namespace
+                            required:
+                            - external
+                          properties:
+                            external:
+                              description: 'Allowed value: The `selfLink` field of
+                                a `ComputeSubnetwork` resource.'
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              type: string
+                            namespace:
+                              description: 'Namespace of the referent. More info:
+                                https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                              type: string
+                          type: object
+                      type: object
+                    type: array
+                  additionalPodNetworkConfigs:
+                    description: Immutable. We specify the additional pod networks
+                      for this node pool using this list. Each pod network corresponds
+                      to an additional alias IP range for the node.
+                    items:
+                      properties:
+                        maxPodsPerNode:
+                          description: Immutable. The maximum number of pods per node
+                            which use this pod network.
+                          type: integer
+                        secondaryPodRange:
+                          description: Immutable. The name of the secondary range
+                            on the subnet which provides IP address for this pod range.
+                          type: string
+                        subnetworkRef:
+                          description: Immutable. Name of the subnetwork where the
+                            additional pod network belongs.
+                          oneOf:
+                          - not:
+                              required:
+                              - external
+                            required:
+                            - name
+                          - not:
+                              anyOf:
+                              - required:
+                                - name
+                              - required:
+                                - namespace
+                            required:
+                            - external
+                          properties:
+                            external:
+                              description: 'Allowed value: The `selfLink` field of
+                                a `ComputeSubnetwork` resource.'
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              type: string
+                            namespace:
+                              description: 'Namespace of the referent. More info:
+                                https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                              type: string
+                          type: object
+                      type: object
+                    type: array
                   createPodRange:
                     description: Immutable. Whether to create a new range for pod
                       IPs in this node pool. Defaults are provided for pod_range and
@@ -238,6 +352,19 @@ spec:
                         description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                         type: string
                     type: object
+                  confidentialNodes:
+                    description: 'Immutable. Configuration for the confidential nodes
+                      feature, which makes nodes run on confidential VMs. Warning:
+                      This configuration can''t be changed (or added/removed) after
+                      pool creation without deleting and recreating the entire pool.'
+                    properties:
+                      enabled:
+                        description: Immutable. Whether Confidential Nodes feature
+                          is enabled for all nodes in this pool.
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
                   diskSizeGb:
                     description: Immutable. Size of the disk attached to each node,
                       specified in GB. The smallest allowed disk size is 10GB.
@@ -272,6 +399,15 @@ spec:
                     required:
                     - localSsdCount
                     type: object
+                  fastSocket:
+                    description: Enable or disable NCCL Fast Socket in the node pool.
+                    properties:
+                      enabled:
+                        description: Whether or not NCCL Fast Socket is enabled.
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
                   gcfsConfig:
                     description: Immutable. GCFS configuration for this node.
                     properties:
@@ -290,6 +426,17 @@ spec:
                           description: Immutable. The number of the accelerator cards
                             exposed to an instance.
                           type: integer
+                        gpuDriverInstallationConfig:
+                          description: Immutable. Configuration for auto installation
+                            of GPU driver.
+                          properties:
+                            gpuDriverVersion:
+                              description: Immutable. Mode for how the GPU driver
+                                is installed.
+                              type: string
+                          required:
+                          - gpuDriverVersion
+                          type: object
                         gpuPartitionSize:
                           description: Immutable. Size of partitions to create on
                             the GPU. Valid values are described in the NVIDIA mig
@@ -328,6 +475,16 @@ spec:
                     required:
                     - enabled
                     type: object
+                  hostMaintenancePolicy:
+                    description: Immutable. The maintenance policy for the hosts on
+                      which the GKE VMs run on.
+                    properties:
+                      maintenanceInterval:
+                        description: Immutable. .
+                        type: string
+                    required:
+                    - maintenanceInterval
+                    type: object
                   imageType:
                     description: The image type to use for this node. Note that for
                       a given image type, the latest version of it will be used.
@@ -362,14 +519,16 @@ spec:
                   linuxNodeConfig:
                     description: Parameters that can be configured on Linux nodes.
                     properties:
+                      cgroupMode:
+                        description: cgroupMode specifies the cgroup mode to be used
+                          on the node.
+                        type: string
                       sysctls:
                         additionalProperties:
                           type: string
                         description: The Linux kernel parameters to be applied to
                           the nodes and all pods running on the nodes.
                         type: object
-                    required:
-                    - sysctls
                     type: object
                   localNvmeSsdBlockConfig:
                     description: Immutable. Parameters for raw-block local NVMe SSDs.
@@ -522,6 +681,34 @@ spec:
                           Boot enabled.
                         type: boolean
                     type: object
+                  soleTenantConfig:
+                    description: Immutable. Node affinity options for sole tenant
+                      node pools.
+                    properties:
+                      nodeAffinity:
+                        description: Immutable. .
+                        items:
+                          properties:
+                            key:
+                              description: Immutable. .
+                              type: string
+                            operator:
+                              description: Immutable. .
+                              type: string
+                            values:
+                              description: Immutable. .
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - key
+                          - operator
+                          - values
+                          type: object
+                        type: array
+                    required:
+                    - nodeAffinity
+                    type: object
                   spot:
                     description: Immutable. Whether the nodes are created as spot
                       VM instances.
@@ -581,6 +768,40 @@ spec:
               placementPolicy:
                 description: Immutable. Specifies the node placement policy.
                 properties:
+                  policyNameRef:
+                    description: Immutable. If set, refers to the name of a custom
+                      resource policy supplied by the user. The resource policy must
+                      be in the same project and region as the node pool. If not found,
+                      InvalidArgument error is returned.
+                    oneOf:
+                    - not:
+                        required:
+                        - external
+                      required:
+                      - name
+                    - not:
+                        anyOf:
+                        - required:
+                          - name
+                        - required:
+                          - namespace
+                      required:
+                      - external
+                    properties:
+                      external:
+                        description: 'Allowed value: The `selfLink` field of a `ComputeResourcePolicy`
+                          resource.'
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                    type: object
+                  tpuTopology:
+                    description: TPU placement topology for pod slice node pool. https://cloud.google.com/tpu/docs/types-topologies#tpu_topologies.
+                    type: string
                   type:
                     description: Type defines the type of placement policy.
                     type: string
@@ -692,6 +913,12 @@ spec:
                   current reported status reflects the most recent desired state of
                   the resource.
                 type: integer
+              observedState:
+                description: The observed state of the underlying GCP resource.
+                properties:
+                  version:
+                    type: string
+                type: object
               operation:
                 type: string
             type: object

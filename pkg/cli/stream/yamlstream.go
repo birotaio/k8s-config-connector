@@ -16,6 +16,7 @@ package stream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -55,14 +56,14 @@ func (y *YAMLStream) Next(ctx context.Context) ([]byte, *unstructured.Unstructur
 	if y.nextErr == nil && y.nextBytes == nil {
 		// this occurs on the first call to Next() or AFTER an error, while putting a fillNext(...) in the
 		// NewYAMLStream(...) would result in cleaner code it would mean that NewYAMLStream(...) could take a "long time"
-		// while contacting GCP to get the first unstructured which could result in some undesireable user experiences
+		// while contacting GCP to get the first unstructured which could result in some undesirable user experiences
 		y.fillNext(ctx)
 	}
 	// if this is EOF and we have not YET returned the terminator AND we wrote at least one result, return "...", otherwise, return EOF
 	bytes, unstructured, err := y.nextBytes, y.nextUnstructured, y.nextErr
 	if err != nil {
 		// if the error is EOF and we have not yet returned the YAML terminator, '...', then return it
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			if !y.returnedTransmissionTerminator {
 				if y.returnedAtLeastOneNonErrorResult {
 					y.returnedTransmissionTerminator = true
@@ -88,8 +89,8 @@ func (y *YAMLStream) fillNext(ctx context.Context) {
 func (y *YAMLStream) getNext(ctx context.Context) ([]byte, *unstructured.Unstructured, error) {
 	unstructured, err := y.unstructuredStream.Next(ctx)
 	if err != nil {
-		if err != io.EOF {
-			err = fmt.Errorf("error getting unstructured: %v", err)
+		if !errors.Is(err, io.EOF) {
+			err = fmt.Errorf("error getting unstructured: %w", err)
 		}
 		return nil, unstructured, err
 	}
@@ -97,7 +98,7 @@ func (y *YAMLStream) getNext(ctx context.Context) ([]byte, *unstructured.Unstruc
 	delete(unstructured.Object, "status")
 	bytes, err := yaml.Marshal(unstructured.Object)
 	if err != nil {
-		return nil, unstructured, fmt.Errorf("error marshalling unstructured to YAML: %v", err)
+		return nil, unstructured, fmt.Errorf("error marshalling unstructured to YAML: %w", err)
 	}
 	return bytes, unstructured, nil
 }

@@ -122,12 +122,21 @@ func generateTFBasedCRDs() []*apiextensions.CustomResourceDefinition {
 				log.Fatal(err)
 			}
 			crds := make([]*apiextensions.CustomResourceDefinition, 0)
+			directCount := 0
 			for _, rc := range rcs {
+				if rc.Direct {
+					fmt.Printf("skip generate TF-based CRD for direct resource %s\n", rc.Kind)
+					directCount += 1
+					continue
+				}
 				crd, err := crdgeneration.GenerateTF2CRD(&sm, rc)
 				if err != nil {
 					log.Fatalf("error generating CRD for %v: %v", rc.Name, err)
 				}
 				crds = append(crds, crd)
+			}
+			if directCount == len(rcs) {
+				continue
 			}
 			crd, err := mergeCRDs(crds)
 			if err != nil {
@@ -236,7 +245,7 @@ func addOneOfRulesForMultiTypeResourceReferences(crd *apiextensions.CustomResour
 		}
 		jsonSchema = setOneOfRuleForField(jsonSchema, field, oneOfRule)
 	}
-	outCRD.Spec.Versions[0].Schema.OpenAPIV3Schema = jsonSchema
+	k8s.PreferredVersion(outCRD).Schema.OpenAPIV3Schema = jsonSchema
 	return outCRD
 }
 
@@ -404,7 +413,7 @@ func mergeCRDs(crds []*apiextensions.CustomResourceDefinition) (*apiextensions.C
 				return nil, fmt.Errorf("couldn't merge crds with different names: %v, %v", mergedCrd.Name, crd.Name)
 			}
 			if err := mergeJSONSchemaProps(k8s.GetOpenAPIV3SchemaFromCRD(mergedCrd), k8s.GetOpenAPIV3SchemaFromCRD(crd)); err != nil {
-				return nil, fmt.Errorf("couldn't merge crds for %v: %v", crd.Name, err)
+				return nil, fmt.Errorf("couldn't merge crds for %v: %w", crd.Name, err)
 			}
 		}
 	}
@@ -436,7 +445,7 @@ func mergeJSONSchemaPropsForNonArrayType(s1 *apiextensions.JSONSchemaProps, s2 *
 			s1.Properties[k] = v2
 		} else {
 			if err := mergeJSONSchemaProps(&v1, &v2); err != nil {
-				return fmt.Errorf("error merging JSON schema field %v: %v", k, err)
+				return fmt.Errorf("error merging JSON schema field %v: %w", k, err)
 			}
 			s1.Properties[k] = v1
 		}

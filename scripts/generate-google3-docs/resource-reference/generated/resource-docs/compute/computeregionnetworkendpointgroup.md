@@ -70,9 +70,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -532,7 +529,7 @@ spec:
     # Replace ${PROJECT_ID?} with your project ID
     external: "projects/${PROJECT_ID?}"
   region: us-west1
-  runtime: "nodejs8"
+  runtime: "nodejs10"
   sourceArchiveUrl: "gs://config-connector-samples/cloudfunctionsfunction/http_trigger.zip"
   entryPoint: "helloGET"
   httpsTrigger:
@@ -696,7 +693,7 @@ metadata:
     cnrm.cloud.google.com/project-id: ${PROJECT_ID?}
 spec:
   region: us-west3
-  ipCidrRange: 10.2.0.0/16
+  ipCidrRange: 10.180.0.0/10
   networkRef:
     name: computeregionnetworkendpointgroup-dep-psc
   purpose: PRIVATE_SERVICE_CONNECT
@@ -715,5 +712,7 @@ spec:
     name: computeregionnetworkendpointgroup-dep-psc
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

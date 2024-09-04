@@ -7,10 +7,6 @@
 
 
 
-Note: Ask your {{gcp_name_short}} account team to request access to workforce identity
-federation for your billing/quota project. The account team notifies you when the project is
-granted access.
-
 <table>
 <thead>
 <tr>
@@ -64,20 +60,6 @@ granted access.
 ## Custom Resource Definition Properties
 
 
-### Annotations
-<table class="properties responsive">
-<thead>
-    <tr>
-        <th colspan="2">Fields</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
-</tbody>
-</table>
-
 
 ### Spec
 #### Schema
@@ -91,8 +73,19 @@ displayName: string
 location: string
 oidc:
   clientId: string
+  clientSecret:
+    value:
+      plainText:
+        value: string
+        valueFrom:
+          secretKeyRef:
+            key: string
+            name: string
   issuerUri: string
+  jwksJson: string
   webSsoConfig:
+    additionalScopes:
+    - string
     assertionClaimsBehavior: string
     responseType: string
 resourceID: string
@@ -193,12 +186,102 @@ workforcePoolRef:
     </tr>
     <tr>
         <td>
+            <p><code>oidc.clientSecret</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The optional client secret. Required to enable Authorization Code flow for web sign-in.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>oidc.clientSecret.value</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The value of the client secret.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>oidc.clientSecret.value.plainText</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Input only. The plain text of the client secret value.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>oidc.clientSecret.value.plainText.value</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Value of the field. Cannot be used if 'valueFrom' is specified.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>oidc.clientSecret.value.plainText.valueFrom</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Source for the field's value. Cannot be used if 'value' is specified.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>oidc.clientSecret.value.plainText.valueFrom.secretKeyRef</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Reference to a value with the given key in the given Secret in the resource's namespace.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>oidc.clientSecret.value.plainText.valueFrom.secretKeyRef.key</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Key that identifies the value to be extracted.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>oidc.clientSecret.value.plainText.valueFrom.secretKeyRef.name</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Name of the Secret to extract a value from.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>oidc.issuerUri</code></p>
             <p><i>Required*</i></p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}Required. The OIDC issuer URI. Must be a valid URI using the 'https' scheme.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>oidc.jwksJson</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}OIDC JWKs in JSON String format. For details on definition of a JWK, see https:tools.ietf.org/html/rfc7517. If not set, then we use the `jwks_uri` from the discovery document fetched from the .well-known path for the `issuer_uri`. Currently, RSA and EC asymmetric keys are supported. The JWK must use following format and include only the following fields: ```{"keys": [{"kty": "RSA/EC", "alg": "<algorithm>", "use": "sig", "kid": "<key-id>", "n": "", "e": "", "x": "", "y": "", "crv": ""}]}```{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -213,12 +296,32 @@ workforcePoolRef:
     </tr>
     <tr>
         <td>
+            <p><code>oidc.webSsoConfig.additionalScopes</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}Additional scopes to request for in the OIDC authentication request on top of scopes requested by default. By default, the `openid`, `profile` and `email` scopes that are supported by the identity provider are requested. Each additional scope may be at most 256 characters. A maximum of 10 additional scopes may be configured.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>oidc.webSsoConfig.additionalScopes[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>oidc.webSsoConfig.assertionClaimsBehavior</code></p>
             <p><i>Required*</i></p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Required. The behavior for how OIDC Claims are included in the `assertion` object used for attribute mapping and attribute condition. Possible values: ASSERTION_CLAIMS_BEHAVIOR_UNSPECIFIED, ONLY_ID_TOKEN_CLAIMS{% endverbatim %}</p>
+            <p>{% verbatim %}Required. The behavior for how OIDC Claims are included in the `assertion` object used for attribute mapping and attribute condition. Possible values: ASSERTION_CLAIMS_BEHAVIOR_UNSPECIFIED, MERGE_USER_INFO_OVER_ID_TOKEN_CLAIMS, ONLY_ID_TOKEN_CLAIMS{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -228,7 +331,7 @@ workforcePoolRef:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Required. The Response Type to request for in the OIDC Authorization Request for web sign-in. Possible values: RESPONSE_TYPE_UNSPECIFIED, ID_TOKEN{% endverbatim %}</p>
+            <p>{% verbatim %}Required. The Response Type to request for in the OIDC Authorization Request for web sign-in. The `CODE` Response Type is recommended to avoid the Implicit Flow, for security reasons. Possible values: RESPONSE_TYPE_UNSPECIFIED, CODE, ID_TOKEN{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -307,7 +410,7 @@ Allowed value: The Google Cloud resource name of an `IAMWorkforcePool` resource 
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -320,6 +423,10 @@ conditions:
   status: string
   type: string
 observedGeneration: integer
+oidc:
+  clientSecret:
+    value:
+      thumbprint: string
 state: string
 ```
 
@@ -387,6 +494,34 @@ state: string
         </td>
     </tr>
     <tr>
+        <td><code>oidc</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>oidc.clientSecret</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>oidc.clientSecret.value</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>oidc.clientSecret.value.thumbprint</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Output only. A thumbprint to represent the current client secret value.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
         <td><code>state</code></td>
         <td>
             <p><code class="apitype">string</code></p>
@@ -400,7 +535,7 @@ state: string
 
 ### Oidc Workforce Pool Provider
 ```yaml
-# Copyright 2022 Google LLC
+# Copyright 2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -417,24 +552,35 @@ state: string
 apiVersion: iam.cnrm.cloud.google.com/v1beta1
 kind: IAMWorkforcePoolProvider
 metadata:
-  name: iamwfpp-sample-oidc
+  name: iamworkforcepoolprovider-sample-oidcworkforcepoolprovider
 spec:
   location: "global"
   workforcePoolRef:
-    name: "iamwfpp-dep-oidc"
+    name: "iamworkforcepoolprovider-dep-oidcworkforcepoolprovider"
   attributeMapping:
     google.subject: "assertion.sub"
   oidc:
     issuerUri: "https://example.com"
     clientId: "client-id"
+    clientSecret:
+      value:
+        plainText:
+          value: "client-secret"
+    jwksJson: "{\"keys\":[{\"kty\":\"RSA\",\"e\":\"AQAB\",\"use\":\"sig\",\"kid\"\
+      :\"1i-PmZZrF1j2rOUAxkcQaaz3MnOXcwwziuch_XWjvqI\",\"alg\":\"RS256\",\"n\":\"\
+      kFpYE2Zm32y--cnUiFLm4cYmFO8tR4-5KU5-aqhRwiHPP0FkgdQZSoSyp_1DO6PruYfluRMviwOpbmM6LH7KemxVdxLKqLDkHSG0XC3dZkACRFNvBBOdFrvJ0ABXv3vVx592lFE0m-Je5-FerRSQCml6E7icNiTSxizEmvDsTIe8mvArjsODDrgWP25bEFwDPBd5cCl3_2gtW6YdaCRewLXdzuB5Wmp_vOu6trTUzEKbnQlWFtDDCPfOpywYXF8dY1Lbwas5iwwIZozwD2_CuTiyXa3T2_4oa119_rQrIC2BAv7q_S1Xoa2lk3q2GZUSVQ5i3gIbJuDHmp-6yh3k4w\"\
+      }]}"
     webSsoConfig:
-      responseType: "ID_TOKEN"
-      assertionClaimsBehavior: "ONLY_ID_TOKEN_CLAIMS"
+      responseType: "CODE"
+      assertionClaimsBehavior: "MERGE_USER_INFO_OVER_ID_TOKEN_CLAIMS"
+      additionalScopes:
+      - "groups"
+      - "photos"
 ---
 apiVersion: iam.cnrm.cloud.google.com/v1beta1
 kind: IAMWorkforcePool
 metadata:
-  name: iamwfpp-dep-oidc
+  name: iamworkforcepoolprovider-dep-oidcworkforcepoolprovider
 spec:
   organizationRef:
     # Replace "${ORG_ID?}" with the numeric ID for your organization.
@@ -449,7 +595,7 @@ spec:
 
 ### Saml Workforce Pool Provider
 ```yaml
-# Copyright 2022 Google LLC
+# Copyright 2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -466,11 +612,11 @@ spec:
 apiVersion: iam.cnrm.cloud.google.com/v1beta1
 kind: IAMWorkforcePoolProvider
 metadata:
-  name: iamwfpp-sample-saml
+  name: iamworkforcepoolprovider-sample-samlworkforcepoolprovider
 spec:
   location: "global"
   workforcePoolRef:
-    name: "iamwfpp-dep-saml"
+    name: "iamworkforcepoolprovider-dep-samlworkforcepoolprovider"
   displayName: "Display name"
   description: "A sample SAML workforce pool provider."
   state: "ACTIVE"
@@ -489,7 +635,7 @@ spec:
 apiVersion: iam.cnrm.cloud.google.com/v1beta1
 kind: IAMWorkforcePool
 metadata:
-  name: iamwfpp-dep-saml
+  name: iamworkforcepoolprovider-dep-samlworkforcepoolprovider
 spec:
   organizationRef:
     # Replace "${ORG_ID?}" with the numeric ID for your organization.
@@ -502,5 +648,7 @@ spec:
   sessionDuration: "7200s"
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

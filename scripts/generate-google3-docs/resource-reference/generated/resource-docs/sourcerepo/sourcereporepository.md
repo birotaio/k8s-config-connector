@@ -88,9 +88,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -125,7 +122,7 @@ resourceID: string
         </td>
         <td>
             <p><code class="apitype">list (object)</code></p>
-            <p>{% verbatim %}How this repository publishes a change in the repository through Cloud Pub/Sub. 
+            <p>{% verbatim %}How this repository publishes a change in the repository through Cloud Pub/Sub.
 Keyed by the topic names.{% endverbatim %}</p>
         </td>
     </tr>
@@ -146,7 +143,7 @@ Keyed by the topic names.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The format of the Cloud Pub/Sub messages. 
+            <p>{% verbatim %}The format of the Cloud Pub/Sub messages.
 - PROTOBUF: The message payload is a serialized protocol buffer of SourceRepoEvent.
 - JSON: The message payload is a JSON string of SourceRepoEvent. Possible values: ["PROTOBUF", "JSON"].{% endverbatim %}</p>
         </td>
@@ -250,7 +247,7 @@ account.{% endverbatim %}</p>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -388,5 +385,7 @@ metadata:
   name: sourcereporepository-dep
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

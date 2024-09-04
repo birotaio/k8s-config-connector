@@ -29,7 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	customizev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/customize/v1beta1"
 	corev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/controllers"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/test/util/paths"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/kccmanager/nocache"
 )
@@ -48,14 +50,18 @@ func init() {
 	if err := appsv1.SchemeBuilder.AddToScheme(s); err != nil {
 		log.Fatalf("error registering apps v1 scheme: %v", err)
 	}
+	if err := customizev1beta1.SchemeBuilder.AddToScheme(s); err != nil {
+		log.Fatalf("error registering kcc customization scheme: %v", err)
+	}
 }
 
-// This starts a local K8S API server to run tests against. These tests do
-// not require an external API server to execute.
-func StartTestEnv() (*rest.Config, func()) {
+// startTestEnv starts a local K8S API server to run unit tests. Tests using
+// this function do not require an external API server to execute.
+func startTestEnv() (*rest.Config, func()) {
 	testEnv := &envtest.Environment{
 		CRDDirectoryPaths:        []string{paths.GetOperatorCRDsPath()},
 		ControlPlaneStartTimeout: time.Minute,
+		ControlPlaneStopTimeout:  time.Minute,
 	}
 	var err error
 	cfg, err := testEnv.Start()
@@ -71,9 +77,9 @@ func StartTestEnv() (*rest.Config, func()) {
 }
 
 func StartTestManager(cfg *rest.Config) (manager.Manager, func(), error) {
-	mgr, err := manager.New(cfg, manager.Options{
-		// Supply a concrete client to disable the default behavior of caching
-		NewClient: nocache.NoCacheClientFunc,
+	scheme := controllers.BuildScheme()
+
+	opts := manager.Options{
 		// Prevent manager from binding to a port to serve prometheus metrics
 		// since creating multiple managers for tests will fail if more than
 		// one manager tries to bind to the same port.
@@ -82,9 +88,14 @@ func StartTestManager(cfg *rest.Config) (manager.Manager, func(), error) {
 		// creating multiple managers for tests will fail if more than one
 		// manager tries to bind to the same port.
 		HealthProbeBindAddress: "0",
-	})
+		Scheme:                 scheme,
+	}
+	// Supply a concrete client to disable the default behavior of caching
+	nocache.TurnOffAllCaching(&opts)
+
+	mgr, err := manager.New(cfg, opts)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating manager: %v", err)
+		return nil, nil, fmt.Errorf("error creating manager: %w", err)
 	}
 	stopFunc := startMgr(mgr, log.Fatalf)
 	return mgr, stopFunc, nil
@@ -99,7 +110,7 @@ func startMgr(mgr manager.Manager, mgrStartErrHandler func(string, ...interface{
 	go func() {
 		defer wg.Done()
 		if err := mgr.Start(ctx); err != nil {
-			mgrStartErrHandler("unable to start manager: %v", err)
+			mgrStartErrHandler("unable to start manager: %w", err)
 		}
 	}()
 	stop := func() {
@@ -113,7 +124,7 @@ func startMgr(mgr manager.Manager, mgrStartErrHandler func(string, ...interface{
 }
 
 func StartTestManagerFromNewTestEnv() (manager.Manager, func()) {
-	cfg, stopEnv := StartTestEnv()
+	cfg, stopEnv := startTestEnv()
 	mgr, stopMgr, err := StartTestManager(cfg)
 	if err != nil {
 		log.Fatal(err)

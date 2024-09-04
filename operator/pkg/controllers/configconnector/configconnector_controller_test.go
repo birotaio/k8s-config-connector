@@ -20,8 +20,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	customizev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/customize/v1beta1"
 	corev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/controllers"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/k8s"
 	testcontroller "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/test/controller"
 	testmain "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/test/main"
@@ -33,7 +36,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	addonv1alpha1 "sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/addon/pkg/apis/v1alpha1"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/declarative/pkg/manifest"
 )
 
@@ -44,7 +50,7 @@ func TestHandleReconcileFailed(t *testing.T) {
 	defer stop()
 	c := mgr.GetClient()
 	mockEventRecorder := testmocks.NewMockEventRecorder(t, mgr.GetScheme())
-	r := ConfigConnectorReconciler{
+	r := Reconciler{
 		client:   c,
 		recorder: mockEventRecorder,
 	}
@@ -77,7 +83,7 @@ func TestHandleReconcileFailed(t *testing.T) {
 		t.Errorf("error handling failed reconciliation: %v", err)
 	}
 
-	expectedErrMsg := fmt.Sprintf(k8s.ReconcileErrMsgTmpl, reconcileErr)
+	expectedErrMsg := "error during reconciliation: reconciliation error"
 	mockEventRecorder.AssertEventRecorded(kind, nn, v1.EventTypeWarning, k8s.UpdateFailed, expectedErrMsg)
 
 	newCC := &corev1beta1.ConfigConnector{}
@@ -102,7 +108,7 @@ func TestHandleReconcileSucceeded(t *testing.T) {
 	defer stop()
 	c := mgr.GetClient()
 	mockEventRecorder := testmocks.NewMockEventRecorder(t, mgr.GetScheme())
-	r := ConfigConnectorReconciler{
+	r := Reconciler{
 		client:   c,
 		recorder: mockEventRecorder,
 	}
@@ -260,7 +266,7 @@ func TestHandleConfigConnectorCreate(t *testing.T) {
 			c := mgr.GetClient()
 			testcontroller.EnsureNamespaceExists(c, k8s.CNRMSystemNamespace)
 			testcontroller.EnsureNamespaceExists(c, k8s.OperatorSystemNamespace)
-			m := testcontroller.ParseObjects(t, ctx, tc.loadedManifest)
+			m := testcontroller.ParseObjects(ctx, t, tc.loadedManifest)
 			r := newConfigConnectorReconciler(c)
 
 			if err := c.Create(ctx, tc.cc); err != nil {
@@ -274,21 +280,21 @@ func TestHandleConfigConnectorCreate(t *testing.T) {
 				}
 			}
 
-			if err := handleLifecycles(t, ctx, r, tc.cc, m); err != nil {
+			if err := handleLifecycles(ctx, t, r, tc.cc, m); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			expectedObjs := tc.resultsFunc(t, c)
-			expectedManifest := testcontroller.ParseObjects(t, ctx, expectedObjs)
-			expectedJson, err := expectedManifest.JSONManifest()
+			expectedManifest := testcontroller.ParseObjects(ctx, t, expectedObjs)
+			expectedJSON, err := expectedManifest.JSONManifest()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			resJson, err := m.JSONManifest()
+			resJSON, err := m.JSONManifest()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if !reflect.DeepEqual(resJson, expectedJson) {
-				t.Fatalf("unexpected diff: %v", cmp.Diff(resJson, expectedJson))
+			if !reflect.DeepEqual(resJSON, expectedJSON) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(resJSON, expectedJSON))
 			}
 
 			// Verify that CCC objects are NOT attached finalizers by the CC controller.
@@ -412,7 +418,7 @@ func TestHandleConfigConnectorDelete(t *testing.T) {
 			c := mgr.GetClient()
 			testcontroller.EnsureNamespaceExists(c, k8s.OperatorSystemNamespace)
 			testcontroller.EnsureNamespaceExists(c, k8s.CNRMSystemNamespace)
-			m := testcontroller.ParseObjects(t, ctx, tc.installedObjectsFunc(t, c))
+			m := testcontroller.ParseObjects(ctx, t, tc.installedObjectsFunc(t, c))
 			r := newConfigConnectorReconciler(c)
 			if err := c.Create(ctx, tc.cc); err != nil {
 				t.Fatalf("error creating %v %v: %v", tc.cc.Kind, tc.cc.Name, err)
@@ -445,7 +451,7 @@ func TestHandleConfigConnectorDelete(t *testing.T) {
 			}
 			if len(tc.cccs) > 0 {
 				// Expect that the first attempt returns an error.
-				if err := handleLifecycles(t, ctx, r, tc.cc, m); err == nil {
+				if err := handleLifecycles(ctx, t, r, tc.cc, m); err == nil {
 					t.Fatalf("expect to have an error because the controller manager pod per namespace is not deleted, but got nil")
 				}
 				// Simulate that CCC controller kicks in and deletes the controller manager pod.
@@ -457,21 +463,21 @@ func TestHandleConfigConnectorDelete(t *testing.T) {
 					}
 				}
 			}
-			if err := handleLifecycles(t, ctx, r, tc.cc, m); err != nil {
+			if err := handleLifecycles(ctx, t, r, tc.cc, m); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			expectedObjs := tc.resultsFunc(t, c)
-			expectedManifest := testcontroller.ParseObjects(t, ctx, expectedObjs)
-			expectedJson, err := expectedManifest.JSONManifest()
+			expectedManifest := testcontroller.ParseObjects(ctx, t, expectedObjs)
+			expectedJSON, err := expectedManifest.JSONManifest()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			resJson, err := m.JSONManifest()
+			resJSON, err := m.JSONManifest()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if !reflect.DeepEqual(resJson, expectedJson) {
-				t.Fatalf("unexpected diff: %v", cmp.Diff(resJson, expectedJson))
+			if !reflect.DeepEqual(resJSON, expectedJSON) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(resJSON, expectedJSON))
 			}
 
 			// Assert that the ConfigConnector object is deleted.
@@ -755,7 +761,7 @@ func TestConfigConnectorUpdate(t *testing.T) {
 				}
 			}
 			installedComponents := tc.installedObjectsFunc(t, c)
-			installedManifest := testcontroller.ParseObjects(t, ctx, installedComponents)
+			installedManifest := testcontroller.ParseObjects(ctx, t, installedComponents)
 			for _, item := range installedManifest.Items {
 				if err := c.Create(ctx, item.UnstructuredObject()); err != nil && !apierrors.IsAlreadyExists(err) {
 					t.Fatalf("error creating %v %v: %v", item.GroupKind(), item.GetName(), err)
@@ -768,9 +774,9 @@ func TestConfigConnectorUpdate(t *testing.T) {
 				t.Fatalf("error updating %v %v: %v", tc.updatedCc.Kind, tc.updatedCc.Name, err)
 			}
 
-			m := testcontroller.ParseObjects(t, ctx, tc.manifest)
+			m := testcontroller.ParseObjects(ctx, t, tc.manifest)
 			if tc.cc.GetMode() == "namespaced" {
-				if err := handleLifecycles(t, ctx, r, tc.updatedCc, m); err == nil {
+				if err := handleLifecycles(ctx, t, r, tc.updatedCc, m); err == nil {
 					t.Fatalf("got nil, but want to have an error because the controller manager pod per namespace is not deleted")
 				}
 				// Simulate that CCC controller kicks in and deletes the controller manager pod.
@@ -782,21 +788,21 @@ func TestConfigConnectorUpdate(t *testing.T) {
 					}
 				}
 			}
-			if err := handleLifecycles(t, ctx, r, tc.updatedCc, m); err != nil {
+			if err := handleLifecycles(ctx, t, r, tc.updatedCc, m); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			expectedObjs := tc.resultsFunc(t, c)
-			expectedManifest := testcontroller.ParseObjects(t, ctx, expectedObjs)
-			expectedJson, err := expectedManifest.JSONManifest()
+			expectedManifest := testcontroller.ParseObjects(ctx, t, expectedObjs)
+			expectedJSON, err := expectedManifest.JSONManifest()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			resJson, err := m.JSONManifest()
+			resJSON, err := m.JSONManifest()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if !reflect.DeepEqual(resJson, expectedJson) {
-				t.Fatalf("unexpected diff: %v", cmp.Diff(resJson, expectedJson))
+			if !reflect.DeepEqual(resJSON, expectedJSON) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(resJSON, expectedJSON))
 			}
 			// assert unneeded components are deleted
 			unneededComponents := tc.toDeleteObjectsFunc(t, c)
@@ -819,8 +825,7 @@ type testCaseStruct struct {
 	resultsFunc    func(t *testing.T, c client.Client) []string
 }
 
-func handleLifecycles(t *testing.T, ctx context.Context,
-	r *ConfigConnectorReconciler, cc *corev1beta1.ConfigConnector, m *manifest.Objects) error {
+func handleLifecycles(ctx context.Context, t *testing.T, r *Reconciler, cc *corev1beta1.ConfigConnector, m *manifest.Objects) error {
 	t.Helper()
 
 	fn := r.transformForClusterMode()
@@ -828,14 +833,12 @@ func handleLifecycles(t *testing.T, ctx context.Context,
 		return err
 	}
 	fn = r.handleConfigConnectorLifecycle()
-	if err := fn(ctx, cc, m); err != nil {
-		return err
-	}
-	return nil
+
+	return fn(ctx, cc, m)
 }
 
-func newConfigConnectorReconciler(c client.Client) *ConfigConnectorReconciler {
-	return &ConfigConnectorReconciler{
+func newConfigConnectorReconciler(c client.Client) *Reconciler {
+	return &Reconciler{
 		client: c,
 		log:    logr.Discard(),
 	}
@@ -882,7 +885,7 @@ func TestSelectingCRDsByVersion(t *testing.T) {
 			mgr, stop := testmain.StartTestManagerFromNewTestEnv()
 			defer stop()
 			c := mgr.GetClient()
-			manifests := testcontroller.ParseObjects(t, ctx, tc.manifests)
+			manifests := testcontroller.ParseObjects(ctx, t, tc.manifests)
 			r := newConfigConnectorReconciler(c)
 
 			err := r.selectCRDsByVersion(manifests, tc.version)
@@ -899,7 +902,7 @@ func TestSelectingCRDsByVersion(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			expectedManifests := testcontroller.ParseObjects(t, ctx, tc.expectedManifests)
+			expectedManifests := testcontroller.ParseObjects(ctx, t, tc.expectedManifests)
 			expectedJSON, err := expectedManifests.JSONManifest()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -909,4 +912,340 @@ func TestSelectingCRDsByVersion(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestConfigConnectorContextControllerWatchMultipleCustomizationCR verifies the correct behavior of
+// the customization watcher of configConnectorContext operator.
+func TestConfigConnectorControllerWatchCustomizationCR(t *testing.T) {
+	var (
+		CC = &corev1beta1.ConfigConnector{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: k8s.ConfigConnectorAllowedName,
+			},
+		}
+		CR = &customizev1beta1.ControllerResource{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cnrm-webhook-manager",
+			},
+			Spec: customizev1beta1.ControllerResourceSpec{
+				Containers: []customizev1beta1.ContainerResourceSpec{
+					{
+						Name:      "webhook",
+						Resources: customizev1beta1.ResourceRequirements{},
+					},
+				},
+			},
+		}
+	)
+
+	// test setup
+	ctx, cancel := context.WithCancel(context.Background())
+	mgr, stop := testmain.StartTestManagerFromNewTestEnv()
+	defer func() {
+		cancel()
+		stop()
+	}()
+	r := newConfigConnectorReconcilerWithCustomizationWatcher(mgr)
+	if err := r.customizationWatcher.EnsureWatchStarted(ctx, types.NamespacedName{Namespace: CC.Namespace, Name: CC.Name}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := mgr.GetClient()
+
+	// after a ControllerResource object is created,
+	// check that a watch event is raised with the correct name and namespace.
+	if err := c.Create(ctx, CR); err != nil {
+		t.Fatalf("error creating %v %v/%v: %v", CR.Kind, CR.Namespace, CR.Name, err)
+	}
+	select { // expect watch event raised on "/configconnector.core.cnrm.cloud.google.com"
+	case e := <-r.customizationWatcher.Events():
+		if e.Object.GetNamespace() != "" {
+			t.Fatalf("unexpected namespace for watch event object, want \"\" (global), got %v", e.Object.GetNamespace())
+		}
+		if e.Object.GetName() != k8s.ConfigConnectorAllowedName {
+			t.Fatalf("unexpected name for watch event object, want %v, got %v", k8s.ConfigConnectorAllowedName, e.Object.GetName())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatalf("expect watch event, got no event")
+	}
+	select { // expect no more watch event
+	case e := <-r.customizationWatcher.Events():
+		t.Fatalf("unexpected watch event object: %v", e.Object)
+	default:
+	}
+
+	// after delete a ControllerResource, check that a watch event is raised with the correct name and namespace.
+	if err := c.Delete(ctx, CR); err != nil {
+		t.Fatalf("error deleting %v %v/%v: %v", CR.Kind, CR.Namespace, CR.Name, err)
+	}
+	select { // expect watch event raised on "/configconnector.core.cnrm.cloud.google.com"
+	case e := <-r.customizationWatcher.Events():
+		if e.Object.GetNamespace() != "" {
+			t.Fatalf("unexpected namespace for watch event object, want \"\" (global), got %v", e.Object.GetNamespace())
+		}
+		if e.Object.GetName() != k8s.ConfigConnectorAllowedName {
+			t.Fatalf("unexpected name for watch event object, want %v, got %v", k8s.ConfigConnectorAllowedName, e.Object.GetName())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatalf("expect watch event, got no event")
+	}
+}
+
+// TestApplyFailsForDuplicatedWebhook ensures that applying a webhook configuration CR with duplicate Webhooks fails.
+// Due to the current implementation, it is not easy to test the happy path in unit test. We do plan to change the
+// implementation and move webhook configurations to be directly owned by the KCC operator.
+func TestApplyFailsForDuplicatedWebhook(t *testing.T) {
+	tests := []struct {
+		name                             string
+		validatingWebhookCustomizationCR *customizev1beta1.ValidatingWebhookConfigurationCustomization
+		mutatingWebhookCustomizationCR   *customizev1beta1.MutatingWebhookConfigurationCustomization
+		expectedCustomizationCRStatus    customizev1beta1.WebhookConfigurationCustomizationStatus
+	}{
+		{
+			name:                             "customize for the same webhook multiple times in ValidatingWebhookCRForDuplicatedWebhook fails",
+			validatingWebhookCustomizationCR: testcontroller.ValidatingWebhookCRForDuplicatedWebhook,
+			expectedCustomizationCRStatus: customizev1beta1.WebhookConfigurationCustomizationStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: false,
+					Errors:  []string{testcontroller.ErrDuplicatedWebhookForValidatingWebhookCR},
+				},
+			},
+		},
+		{
+			name:                           "customize for the same webhook multiple times in MutatingWebhookCRForDuplicatedWebhook fails",
+			mutatingWebhookCustomizationCR: testcontroller.MutatingWebhookCRForDuplicatedWebhook,
+			expectedCustomizationCRStatus: customizev1beta1.WebhookConfigurationCustomizationStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: false,
+					Errors:  []string{testcontroller.ErrDuplicatedWebhookForMutatingWebhookCR},
+				},
+			},
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// test setup
+			ctx := context.TODO()
+			mgr, stop := testmain.StartTestManagerFromNewTestEnv()
+			defer stop()
+			c := mgr.GetClient()
+			if tc.validatingWebhookCustomizationCR != nil {
+				cr := tc.validatingWebhookCustomizationCR
+				if err := c.Create(ctx, cr); err != nil {
+					t.Fatalf("error creating %v %v/%v: %v", cr.Kind, cr.Namespace, cr.Name, err)
+				}
+			}
+			if tc.mutatingWebhookCustomizationCR != nil {
+				cr := tc.mutatingWebhookCustomizationCR
+				if err := c.Create(ctx, cr); err != nil {
+					t.Fatalf("error creating %v %v/%v: %v", cr.Kind, cr.Namespace, cr.Name, err)
+				}
+			}
+			r := newConfigConnectorReconciler(c)
+
+			// run the test function
+			if err := r.fetchAndApplyAllWebhookConfigurationCustomizationCRs(ctx); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// check the status of cluster-scoped customization CR
+			if tc.validatingWebhookCustomizationCR != nil {
+				updatedCR := &customizev1beta1.ValidatingWebhookConfigurationCustomization{}
+				if err := c.Get(ctx, types.NamespacedName{Namespace: tc.validatingWebhookCustomizationCR.Namespace, Name: tc.validatingWebhookCustomizationCR.Name}, updatedCR); err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				status := updatedCR.Status
+				if !reflect.DeepEqual(status, tc.expectedCustomizationCRStatus) {
+					t.Fatalf("unexpected diff: %v", cmp.Diff(status, tc.expectedCustomizationCRStatus))
+				}
+			}
+			if tc.mutatingWebhookCustomizationCR != nil {
+				updatedCR := &customizev1beta1.MutatingWebhookConfigurationCustomization{}
+				if err := c.Get(ctx, types.NamespacedName{Namespace: tc.mutatingWebhookCustomizationCR.Namespace, Name: tc.mutatingWebhookCustomizationCR.Name}, updatedCR); err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				status := updatedCR.Status
+				if !reflect.DeepEqual(status, tc.expectedCustomizationCRStatus) {
+					t.Fatalf("unexpected diff: %v", cmp.Diff(status, tc.expectedCustomizationCRStatus))
+				}
+			}
+		})
+	}
+}
+
+func TestApplyCustomizations(t *testing.T) {
+	tests := []struct {
+		name                          string
+		manifests                     []string
+		clusterScopedCustomizationCR  *customizev1beta1.ControllerResource
+		namespacedCustomizationCR     *customizev1beta1.NamespacedControllerResource
+		expectedManifests             []string
+		expectedCustomizationCRStatus customizev1beta1.ControllerResourceStatus
+		skipCheckingCRStatus          bool
+	}{
+		{
+			name:                         "customize the resources for cnrm-controller-manager",
+			manifests:                    testcontroller.ClusterModeComponents,
+			clusterScopedCustomizationCR: testcontroller.ControllerResourceCRForControllerManagerResources,
+			expectedManifests:            testcontroller.ClusterModeComponentsWithCustomizedControllerManager,
+			expectedCustomizationCRStatus: customizev1beta1.ControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: true,
+				},
+			},
+		},
+		{
+			name:                         "customize the resources and replica for cnrm-webhook-manager",
+			manifests:                    testcontroller.ClusterModeComponents,
+			clusterScopedCustomizationCR: testcontroller.ControllerResourceCRForWebhookManagerResourcesAndReplicas,
+			expectedManifests:            testcontroller.ClusterModeComponentsWithCustomizedWebhookManager,
+			expectedCustomizationCRStatus: customizev1beta1.ControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: true,
+				},
+			},
+		},
+		{
+			name:                         "customize for a non-existing controller fails",
+			manifests:                    testcontroller.ClusterModeComponents,
+			clusterScopedCustomizationCR: testcontroller.ControllerResourceCRForNonExistingController,
+			expectedManifests:            testcontroller.ClusterModeComponents, // same as the input manifests
+			expectedCustomizationCRStatus: customizev1beta1.ControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: false,
+					Errors:  []string{testcontroller.ErrNonExistingController},
+				},
+			},
+		},
+		{
+			name:                         "customize for the same container multiple times in the CR fails",
+			manifests:                    testcontroller.ClusterModeComponents,
+			clusterScopedCustomizationCR: testcontroller.ControllerResourceCRForDuplicatedContainer,
+			expectedManifests:            testcontroller.ClusterModeComponents, // same as the input manifests
+			expectedCustomizationCRStatus: customizev1beta1.ControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: false,
+					Errors:  []string{testcontroller.ErrDuplicatedContainer},
+				},
+			},
+		},
+		{
+			name:                         "customize for a non-existing container in a valid controller fails",
+			manifests:                    testcontroller.ClusterModeComponents,
+			clusterScopedCustomizationCR: testcontroller.ControllerResourceCRForNonExistingContainer,
+			expectedManifests:            testcontroller.ClusterModeComponents, // same as the input manifests
+			expectedCustomizationCRStatus: customizev1beta1.ControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: false,
+					Errors:  []string{testcontroller.ErrNonExistingContainer},
+				},
+			},
+		},
+		{
+			name:                         "customize the replicas for cnrm-controller-manager has no effect",
+			manifests:                    testcontroller.ClusterModeComponents,
+			clusterScopedCustomizationCR: testcontroller.ControllerResourceCRForControllerManagerReplicas,
+			expectedManifests:            testcontroller.ClusterModeComponents, // same as the input manifests
+			expectedCustomizationCRStatus: customizev1beta1.ControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: true,
+				},
+			},
+		},
+		{
+			name:                         "customize the replicas for cnrm-webhook-manager to a value large than the maxReplicas of HPA",
+			manifests:                    testcontroller.ClusterModeComponents,
+			clusterScopedCustomizationCR: testcontroller.ControllerResourceCRForWebhookManagerWithLargeReplicas,
+			expectedManifests:            testcontroller.ClusterModeComponentsWithCustomizedWebhookManagerWithLargeReplicas,
+			expectedCustomizationCRStatus: customizev1beta1.ControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: true,
+				},
+			},
+		},
+		{
+			name:                      "namespaced customization CR has no effect",
+			manifests:                 testcontroller.ClusterModeComponents,
+			namespacedCustomizationCR: testcontroller.NamespacedControllerResourceCRForControllerManagerResources,
+			expectedManifests:         testcontroller.ClusterModeComponents, // same as the input manifests
+			skipCheckingCRStatus:      true,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// test setup
+			ctx := context.TODO()
+			mgr, stop := testmain.StartTestManagerFromNewTestEnv()
+			defer stop()
+			c := mgr.GetClient()
+			if tc.clusterScopedCustomizationCR != nil {
+				cr := tc.clusterScopedCustomizationCR
+				if err := c.Create(ctx, cr); err != nil {
+					t.Fatalf("error creating %v %v/%v: %v", cr.Kind, cr.Namespace, cr.Name, err)
+				}
+			}
+			if tc.namespacedCustomizationCR != nil {
+				cr := tc.namespacedCustomizationCR
+				testcontroller.EnsureNamespaceExists(c, cr.Namespace)
+				if err := c.Create(ctx, cr); err != nil {
+					t.Fatalf("error creating %v %v/%v: %v", cr.Kind, cr.Namespace, cr.Name, err)
+				}
+			}
+			manifests := testcontroller.ParseObjects(ctx, t, tc.manifests)
+			r := newConfigConnectorReconciler(c)
+
+			// run the test function
+			fn := r.applyCustomizations()
+			if err := fn(ctx, nil, manifests); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// check the resulting manifests
+			gotJSON, err := manifests.JSONManifest()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			expectedManifests := testcontroller.ParseObjects(ctx, t, tc.expectedManifests)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			expectedJSON, err := expectedManifests.JSONManifest()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(gotJSON, expectedJSON) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(gotJSON, expectedJSON))
+			}
+
+			// check the status of cluster-scoped customization CR
+			if tc.skipCheckingCRStatus {
+				return
+			}
+			updatedCR := &customizev1beta1.ControllerResource{}
+			if err := c.Get(ctx, types.NamespacedName{Namespace: tc.clusterScopedCustomizationCR.Namespace, Name: tc.clusterScopedCustomizationCR.Name}, updatedCR); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			gotStatus := updatedCR.Status
+			if !reflect.DeepEqual(gotStatus, tc.expectedCustomizationCRStatus) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(gotStatus, tc.expectedCustomizationCRStatus))
+			}
+		})
+	}
+}
+
+func newConfigConnectorReconcilerWithCustomizationWatcher(m ctrl.Manager) *Reconciler {
+	r := &Reconciler{
+		client: m.GetClient(),
+		log:    logr.Discard(),
+	}
+	r.customizationWatcher = controllers.NewWithDynamicClient(
+		dynamic.NewForConfigOrDie(m.GetConfig()),
+		controllers.CustomizationWatcherOptions{
+			TriggerGVRs: controllers.CustomizationCRsToWatch,
+			Log:         logr.Discard(),
+		})
+	return r
 }

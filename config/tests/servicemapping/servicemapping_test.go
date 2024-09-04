@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/core/v1alpha1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/crd/crdgeneration"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/crd/crdloader"
 	dclmetadata "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/metadata"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gvks/supportedgvks"
@@ -30,6 +31,7 @@ import (
 	tfprovider "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/tf/provider"
 	tfresource "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/tf/resource"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/slice"
+	autogenloader "github.com/GoogleCloudPlatform/k8s-config-connector/scripts/resource-autogen/servicemapping/servicemappingloader"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,6 +47,9 @@ func TestIDTemplateCanBeUsedToMatchResourceNameShouldHaveValue(t *testing.T) {
 	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
 	for _, sm := range serviceMappings {
 		for _, rc := range sm.Spec.Resources {
+			if rc.Direct {
+				continue
+			}
 			if rc.IDTemplateCanBeUsedToMatchResourceName == nil {
 				t.Fatalf("resource config '%v' is missing required field 'IDTemplateCanBeUsedToMatchResourceName'",
 					rc.Name)
@@ -211,7 +216,7 @@ func TestResourcesListedAlphabetically(t *testing.T) {
 func TestTerraformFieldsAreInResourceSchema(t *testing.T) {
 	t.Parallel()
 	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
-	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
+	provider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
 	for _, sm := range serviceMappings {
 		sm := sm
 		t.Run(sm.Name, func(t *testing.T) {
@@ -234,8 +239,18 @@ func TestTerraformFieldsAreInResourceSchema(t *testing.T) {
 				for _, f := range rc.IgnoredFields {
 					fields = append(fields, f)
 				}
+				if rc.IgnoredOutputOnlySpecFields != nil {
+					for _, o := range *rc.IgnoredOutputOnlySpecFields {
+						fields = append(fields, o)
+					}
+				}
 				for _, c := range rc.Containers {
 					fields = append(fields, c.TFField)
+				}
+				if rc.ObservedFields != nil {
+					for _, o := range *rc.ObservedFields {
+						fields = append(fields, o)
+					}
 				}
 				// Check the fields to ensure they're in the schema
 				for _, f := range fields {
@@ -243,8 +258,8 @@ func TestTerraformFieldsAreInResourceSchema(t *testing.T) {
 						continue
 					}
 					if !tfresource.TFResourceHasField(tfResource, f) {
-						if isAutogenAlphaResource(&sm, &rc) {
-							// TODO(b/278948939): Remove once the unknown fields are cleaned up.
+						// TODO(b/278948939): Remove once the unknown fields are cleaned up in google_apigee_addons_config.
+						if rc.Name == "google_apigee_addons_config" {
 							t.Logf("field '%v' mentioned in ServiceMapping for the auto-generated v1alpha1 resource '%v' but is not found in resource schema", f, rc.Name)
 						} else {
 							t.Errorf("field '%v' mentioned in ServiceMapping for '%v' but is not found in resource schema", f, rc.Name)
@@ -259,7 +274,7 @@ func TestTerraformFieldsAreInResourceSchema(t *testing.T) {
 func TestReferencedTargetFieldsAreInReferencedResourceSchema(t *testing.T) {
 	t.Parallel()
 	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
-	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
+	provider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
 	kindToTFResources := createKindToTFResourcesMap(serviceMappings)
 	for _, sm := range serviceMappings {
 		sm := sm
@@ -290,6 +305,10 @@ func testReferencedTargetFieldsAreInReferencedResourceSchema(t *testing.T, rc v1
 			}
 			if tc.GVK.Kind == "" {
 				t.Errorf("kind %v has a resource reference with a targetField specified as %v but has no kind specified", rc.Kind, tc.TargetField)
+				continue
+			}
+			if rc.Name == "google_dns_record_set" && tc.GVK.Kind == "ComputeForwardingRule" && tc.TargetField == "location" {
+				// https://github.com/GoogleCloudPlatform/k8s-config-connector/pull/1399#issuecomment-2014218170
 				continue
 			}
 			for _, referencedTFResourceName := range kindToTFResources[tc.GVK.Kind] {
@@ -423,11 +442,6 @@ func validateTypeConfigGVK(t *testing.T, rc v1alpha1.ResourceConfig, ref v1alpha
 			Kind:    "NetworkSecurityClientTLSPolicy",
 		},
 		{
-			Group:   "certificatemanager.cnrm.cloud.google.com",
-			Version: "v1beta1",
-			Kind:    "CertificateManagerCertificateMap",
-		},
-		{
 			Group:   "cloudbuild.cnrm.cloud.google.com",
 			Version: "v1beta1",
 			Kind:    "CloudBuildGithubEnterpriseConfig",
@@ -436,6 +450,16 @@ func validateTypeConfigGVK(t *testing.T, rc v1alpha1.ResourceConfig, ref v1alpha
 			Group:   "cloudbuild.cnrm.cloud.google.com",
 			Version: "v1beta1",
 			Kind:    "CloudBuildBitbucketServerConfig",
+		},
+		{
+			Group:   "cloudbuild.cnrm.cloud.google.com",
+			Version: "v1beta1",
+			Kind:    "CloudBuildV2Repository",
+		},
+		{
+			Group:   "certificatemanager.cnrm.cloud.google.com",
+			Version: "v1beta1",
+			Kind:    "CertificateManagerCertificateIssuanceConfig",
 		},
 	}
 	for _, g := range ignoredGVKList {
@@ -578,14 +602,14 @@ func TestMustHaveIDTemplateOrServerGeneratedId(t *testing.T) {
 			rc := rc
 			t.Run(rc.Kind, func(t *testing.T) {
 				t.Parallel()
-				assertIDTemplateOrServerGeneratedId(t, rc)
+				assertIDTemplateOrServerGeneratedID(t, rc)
 			})
 		}
 	}
 }
 
-func assertIDTemplateOrServerGeneratedId(t *testing.T, rc v1alpha1.ResourceConfig) {
-	if rc.IDTemplate == "" && rc.ServerGeneratedIDField == "" {
+func assertIDTemplateOrServerGeneratedID(t *testing.T, rc v1alpha1.ResourceConfig) {
+	if !rc.Direct && rc.IDTemplate == "" && rc.ServerGeneratedIDField == "" {
 		t.Fatalf("resource kind '%v' with name '%v' has neither id template or server generated ID defined: at least one must be present", rc.Kind, rc.Name)
 	}
 }
@@ -613,10 +637,10 @@ func TestIDTemplate(t *testing.T) {
 
 					// The idTemplate should contain either the user-specified
 					// ID or the server-generated ID.
-					if (IDTemplateContainsMetadataName(t, rc) &&
-						!IDTemplateContainsServerGeneratedIDField(t, rc)) ||
-						(!IDTemplateContainsMetadataName(t, rc) &&
-							IDTemplateContainsServerGeneratedIDField(t, rc)) {
+					if (IDTemplateContainsMetadataName(rc) &&
+						!IDTemplateContainsServerGeneratedIDField(rc)) ||
+						(!IDTemplateContainsMetadataName(rc) &&
+							IDTemplateContainsServerGeneratedIDField(rc)) {
 						return
 					}
 
@@ -630,12 +654,12 @@ func TestIDTemplate(t *testing.T) {
 	}
 }
 
-func IDTemplateContainsMetadataName(t *testing.T, rc v1alpha1.ResourceConfig) bool {
+func IDTemplateContainsMetadataName(rc v1alpha1.ResourceConfig) bool {
 	return strings.Contains(rc.IDTemplate,
 		fmt.Sprintf("{{%v}}", rc.MetadataMapping.Name))
 }
 
-func IDTemplateContainsServerGeneratedIDField(t *testing.T, rc v1alpha1.ResourceConfig) bool {
+func IDTemplateContainsServerGeneratedIDField(rc v1alpha1.ResourceConfig) bool {
 	return strings.Contains(rc.IDTemplate,
 		fmt.Sprintf("{{%v}}", rc.ServerGeneratedIDField))
 }
@@ -643,7 +667,7 @@ func IDTemplateContainsServerGeneratedIDField(t *testing.T, rc v1alpha1.Resource
 func TestMutableButUnreadableFields(t *testing.T) {
 	t.Parallel()
 	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
-	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
+	provider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
 	for _, sm := range serviceMappings {
 		sm := sm
 		t.Run(sm.Name, func(t *testing.T) {
@@ -794,7 +818,7 @@ func assertAllOrNoneSupportAuditConfigs(t *testing.T, kind string, rcs []v1alpha
 }
 
 func getAssociatedTerraformIAMPolicyResource(rc v1alpha1.ResourceConfig) (string, *schema.Resource) {
-	schemaProvider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
+	schemaProvider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
 	tfIamPolicyResourceName := formatAssociatedTerraformIAMPolicyResourceName(rc)
 	return tfIamPolicyResourceName, schemaProvider.ResourcesMap[tfIamPolicyResourceName]
 }
@@ -810,7 +834,7 @@ func formatAssociatedTerraformIAMPolicyResourceName(rc v1alpha1.ResourceConfig) 
 }
 
 func getAssociatedTerraformIAMPolicyMemberResource(rc v1alpha1.ResourceConfig) (string, *schema.Resource) {
-	schemaProvider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
+	schemaProvider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
 	tfIamPolicyResourceName := formatAssociatedTerraformIAMPolicyMemberResourceName(rc)
 	return tfIamPolicyResourceName, schemaProvider.ResourcesMap[tfIamPolicyResourceName]
 }
@@ -825,7 +849,7 @@ func formatAssociatedTerraformIAMPolicyMemberResourceName(rc v1alpha1.ResourceCo
 }
 
 func getAssociatedTerraformIAMAuditConfigResource(rc v1alpha1.ResourceConfig) (string, *schema.Resource) {
-	schemaProvider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
+	schemaProvider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
 	tfIamAuditConfigResourceName := formatAssociatedTerraformIAMAuditConfigResourceName(rc)
 	return tfIamAuditConfigResourceName, schemaProvider.ResourcesMap[tfIamAuditConfigResourceName]
 }
@@ -854,7 +878,7 @@ func createKindToTFResourcesMap(sms []v1alpha1.ServiceMapping) map[string][]stri
 func TestIAMMemberReferenceConfig(t *testing.T) {
 	t.Parallel()
 	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
-	provider := tfprovider.NewOrLogFatal(tfprovider.DefaultConfig)
+	provider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
 	for _, sm := range serviceMappings {
 		sm := sm
 		t.Run(sm.Name, func(t *testing.T) {
@@ -1145,6 +1169,9 @@ func TestDCLBasedResourceIsTrueIFFIsDCLBasedResource(t *testing.T) {
 	referencedTFResources := make([]k8sschema.GroupVersionKind, 0)
 	for _, sm := range serviceMappings {
 		for _, r := range sm.Spec.Resources {
+			if r.AutoGenerated {
+				continue
+			}
 			for _, rr := range r.ResourceReferences {
 				if rr.DCLBasedResource {
 					referencedDCLResources = append(referencedDCLResources, rr.GVK)
@@ -1168,5 +1195,286 @@ func TestDCLBasedResourceIsTrueIFFIsDCLBasedResource(t *testing.T) {
 			t.Errorf("%v is listed in servicemappings as a resource reference with "+
 				"`DCLBasedResource: false`, but it is a DCL-based resource", gvk)
 		}
+	}
+}
+
+// TestV1alpha1ToV1beta1IsSetForManuallyConfiguredAndAllowlistedResources
+// verifies that IFF when a resource is allowlisted and auto-generated, but is
+// also manually configured under config/servicemappings, it's a resource under
+// v1alpha1 -> v1beta1 conversion, and `v1alpha1ToV1beta1: true` must be set.
+func TestV1alpha1ToV1beta1IsSetForManuallyConfiguredAndAllowlistedResources(t *testing.T) {
+	t.Parallel()
+	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
+	autoGenSMMap, err := autogenloader.GetServiceMappingMap()
+	if err != nil {
+		t.Fatalf("error getting auto-generated service mappings: %v", err)
+	}
+
+	for _, sm := range serviceMappings {
+		autoGenSM, ok := autoGenSMMap[sm.Name]
+		if !ok {
+			continue
+		}
+		autoGenRCMap := make(map[string]bool)
+		for _, rc := range autoGenSM.Spec.Resources {
+			autoGenRCMap[rc.Name] = true
+		}
+		for _, r := range sm.Spec.Resources {
+			isV1alpha1ToV1beta1 := r.V1alpha1ToV1beta1 != nil && *r.V1alpha1ToV1beta1 == true
+			if r.AutoGenerated && isV1alpha1ToV1beta1 {
+				t.Errorf("resource config %v is auto-generated "+
+					"and allowlisted, but has `v1alpha1ToV1beta1: true`: "+
+					"`v1alpha1ToV1beta1` should be usnet", r.Name)
+				continue
+			}
+			if !r.AutoGenerated {
+				if _, ok := autoGenRCMap[r.Name]; !ok {
+					continue
+				}
+				if !isV1alpha1ToV1beta1 {
+					t.Errorf("resource config %v is manually configured "+
+						"and allowlisted, but doesn't have `v1alpha1ToV1beta1: "+
+						"true`", r.Name)
+				}
+			}
+		}
+	}
+}
+
+// TestStorageVersionIsSetAndValidIFFV1alpha1ToV1beta1IsSet verifies that a
+// valid `storageVersion` is set and only set when `v1alpha1ToV1beta1: true`.
+// Currently, storage version is required and only required when the resource is
+// under v1alpha1 -> v1beta1 conversion.
+func TestStorageVersionIsSetAndValidIFFV1alpha1ToV1beta1IsSet(t *testing.T) {
+	t.Parallel()
+	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
+	for _, sm := range serviceMappings {
+		for _, r := range sm.Spec.Resources {
+			isV1alpha1ToV1beta1 := false
+			if r.V1alpha1ToV1beta1 != nil && *r.V1alpha1ToV1beta1 {
+				isV1alpha1ToV1beta1 = true
+			}
+			hasStorageVersion := false
+			hasValidStorageVersion := false
+			if r.StorageVersion != nil {
+				hasStorageVersion = true
+				if crdgeneration.IsValidStorageVersion(*r.StorageVersion) {
+					hasValidStorageVersion = true
+				}
+			}
+			if isV1alpha1ToV1beta1 && hasValidStorageVersion ||
+				!isV1alpha1ToV1beta1 && !hasStorageVersion {
+				continue
+			}
+			if isV1alpha1ToV1beta1 {
+				if hasStorageVersion {
+					t.Errorf("Resource config %v has `v1alpha1ToV1beta1: "+
+						"true` but doesn't have a valid `storageVersion`: "+
+						"must be %v or %v", r.Name, k8s.KCCAPIVersionV1Alpha1,
+						k8s.KCCAPIVersionV1Beta1)
+					continue
+				}
+
+				t.Errorf("Resource config %v has `v1alpha1ToV1beta1: "+
+					"true` but doesn't have a `storageVersion`", r.Name)
+				continue
+			}
+			if hasStorageVersion {
+				t.Errorf("Resource config %v has `storageVersion` set "+
+					"but doesn't have a `v1alpha1ToV1beta1: true`", r.Name)
+			}
+		}
+	}
+}
+
+func TestObservedFields(t *testing.T) {
+	t.Parallel()
+	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
+	provider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
+	for _, sm := range serviceMappings {
+		sm := sm
+		t.Run(sm.Name, func(t *testing.T) {
+			t.Parallel()
+			for _, rc := range sm.Spec.Resources {
+				tfResource := provider.ResourcesMap[rc.Name]
+				rc := rc
+				t.Run(rc.Kind, func(t *testing.T) {
+					t.Parallel()
+					if rc.ObservedFields == nil {
+						return
+					}
+					if len(*rc.ObservedFields) == 0 {
+						t.Errorf("kind %v has an empty observed fields slice", rc.Kind)
+						return
+					}
+					for _, f := range *rc.ObservedFields {
+						if f == "" {
+							t.Errorf("kind %v has an empty observed field", rc.Kind)
+							return
+						}
+						// Nested fields (configurable or output-only) will be
+						// under 'spec' if their top-level parent fields are
+						// configurable.
+						topLevelField := strings.Split(f, ".")[0]
+						fieldSchema, err := tfresource.GetTFSchemaForField(tfResource, topLevelField)
+						if err != nil {
+							t.Errorf("error getting TF schema for observed field %v in kind %v", f, rc.Kind)
+						}
+						if !tfresource.IsConfigurableField(fieldSchema) {
+							t.Errorf("observed field %v in kind %v is not configurable", f, rc.Kind)
+						}
+					}
+					assertNoDuplicatesInObservedFieldsSlice(t, rc)
+					// TODO(b/314840974): Remove after reference fields are supported as observed fields.
+					assertObservedFieldsNotReferences(t, rc)
+					// TODO(b/314841141): Remove after label fields are supported as observed fields.
+					assertObservedFieldsNotLabels(t, rc)
+					// TODO(b/314842047): Remove after name fields are supported as observed fields.
+					assertObservedFieldsNotName(t, rc)
+					// TODO(b/314841744): Remove after sensitive fields are supported as observed fields.
+					assertObservedFieldsNotSensitive(t, rc, tfResource)
+				})
+			}
+		})
+	}
+}
+
+func assertNoDuplicatesInObservedFieldsSlice(t *testing.T, rc v1alpha1.ResourceConfig) {
+	t.Helper()
+	if len(*rc.ObservedFields) == 0 {
+		t.Errorf("kind %v has no observed field", rc.Kind)
+		return
+	}
+	observedFieldMap := make(map[string]bool)
+	for _, field := range *rc.ObservedFields {
+		if _, ok := observedFieldMap[field]; ok {
+			t.Errorf("kind %v contains duplicated observed field %v", rc.Kind, field)
+			continue
+		}
+		observedFieldMap[field] = true
+	}
+	return
+}
+
+func assertObservedFieldsNotReferences(t *testing.T, rc v1alpha1.ResourceConfig) {
+	t.Helper()
+	referenceFields := make(map[string]bool)
+	for _, refConfig := range rc.ResourceReferences {
+		referenceFields[refConfig.TFField] = true
+	}
+	for _, field := range *rc.ObservedFields {
+		if _, ok := referenceFields[field]; ok {
+			t.Errorf("kind %v contains observed field %v: reference "+
+				"fields are not supported as observed fields", rc.Kind, field)
+		}
+	}
+}
+
+func assertObservedFieldsNotLabels(t *testing.T, rc v1alpha1.ResourceConfig) {
+	t.Helper()
+	for _, field := range *rc.ObservedFields {
+		if field != "" && field == rc.MetadataMapping.Labels {
+			t.Errorf("kind %v contains observed field %v: labels "+
+				"field is not supported as ab observed field", rc.Kind, field)
+		}
+	}
+}
+
+func assertObservedFieldsNotName(t *testing.T, rc v1alpha1.ResourceConfig) {
+	t.Helper()
+	for _, field := range *rc.ObservedFields {
+		if field != "" && (field == rc.MetadataMapping.Name ||
+			field == rc.ServerGeneratedIDField) {
+			t.Errorf("kind %v contains observed field %v: name "+
+				"field is not supported as an observed field", rc.Kind, field)
+		}
+	}
+}
+
+func assertObservedFieldsNotSensitive(t *testing.T, rc v1alpha1.ResourceConfig, tfResource *schema.Resource) {
+	t.Helper()
+	for _, field := range *rc.ObservedFields {
+		tfSchema, err := tfresource.GetTFSchemaForField(tfResource, field)
+		if err != nil {
+			t.Errorf("error getting Terraform schema for observed "+
+				"field %v in kind %v: %v", field, rc.Kind, err)
+		}
+		if tfresource.IsSensitiveField(tfSchema) {
+			t.Errorf("kind %v contains observed field %v: sensitive "+
+				"fields are not supported as observed fields", rc.Kind, field)
+		}
+	}
+
+}
+
+func TestAlphaResourceAreNotReferencedByStableResource(t *testing.T) {
+	t.Parallel()
+	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
+	for _, sm := range serviceMappings {
+		for _, rc := range sm.Spec.Resources {
+			rc := rc
+			t.Run(rc.Kind, func(t *testing.T) {
+				t.Parallel()
+				if sm.GetVersionFor(&rc) == k8s.KCCAPIVersionV1Alpha1 {
+					return
+				}
+				assertReferencedResourcesNotAlpha(t, &rc)
+			})
+		}
+	}
+}
+
+func assertReferencedResourcesNotAlpha(t *testing.T, rc *v1alpha1.ResourceConfig) {
+	for _, refConfig := range rc.ResourceReferences {
+		if len(refConfig.Types) == 0 {
+			if refConfig.TypeConfig.GVK.Version == k8s.KCCAPIVersionV1Alpha1 {
+				t.Errorf("cannot reference %s resource %s in stable resource %s", k8s.KCCAPIVersionV1Alpha1, refConfig.TypeConfig.GVK.Kind, rc.Kind)
+			}
+		} else {
+			for _, typeConfig := range refConfig.Types {
+				if typeConfig.GVK.Version == k8s.KCCAPIVersionV1Alpha1 {
+					t.Errorf("cannot reference %s resource %s in stable resource %s", k8s.KCCAPIVersionV1Alpha1, typeConfig.GVK.Kind, rc.Kind)
+				}
+			}
+		}
+	}
+}
+
+func TestIgnoredOutputOnlySpecFields(t *testing.T) {
+	t.Parallel()
+	serviceMappings := testservicemappingloader.New(t).GetServiceMappings()
+	provider := tfprovider.NewOrLogFatal(tfprovider.UnitTestConfig())
+	for _, sm := range serviceMappings {
+		sm := sm
+		t.Run(sm.Name, func(t *testing.T) {
+			t.Parallel()
+			for _, rc := range sm.Spec.Resources {
+				tfResource := provider.ResourcesMap[rc.Name]
+				rc := rc
+				t.Run(rc.Kind, func(t *testing.T) {
+					t.Parallel()
+					if rc.IgnoredOutputOnlySpecFields == nil {
+						return
+					}
+					if len(*rc.IgnoredOutputOnlySpecFields) == 0 {
+						t.Errorf("kind %v has an empty IgnoredOutputOnlySpecFields slice", rc.Kind)
+						return
+					}
+					for _, f := range *rc.IgnoredOutputOnlySpecFields {
+						if f == "" {
+							t.Errorf("kind %v has an empty value in IgnoredOutputOnlySpecFields slice", rc.Kind)
+							return
+						}
+						fieldSchema, err := tfresource.GetTFSchemaForField(tfResource, f)
+						if err != nil {
+							t.Errorf("error getting TF schema for output-only spec field %v in kind %v", f, rc.Kind)
+						}
+						if tfresource.IsConfigurableField(fieldSchema) {
+							t.Errorf("output-only spec field %v in kind %v is configurable", f, rc.Kind)
+						}
+					}
+				})
+			}
+		})
 	}
 }

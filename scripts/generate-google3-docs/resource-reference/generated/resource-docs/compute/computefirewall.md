@@ -70,9 +70,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -287,9 +284,7 @@ must be expressed in CIDR format. IPv4 or IPv6 ranges are supported.{% endverbat
         <td>
             <p><code class="apitype">string</code></p>
             <p>{% verbatim %}Immutable. Direction of traffic to which this firewall applies; default is
-INGRESS. Note: For INGRESS traffic, it is NOT supported to specify
-destinationRanges; For EGRESS traffic, it is NOT supported to specify
-'source_ranges' OR 'source_tags'. For INGRESS traffic, one of 'source_ranges',
+INGRESS. Note: For INGRESS traffic, one of 'source_ranges',
 'source_tags' or 'source_service_accounts' is required. Possible values: ["INGRESS", "EGRESS"].{% endverbatim %}</p>
         </td>
     </tr>
@@ -601,7 +596,7 @@ instances on the specified network.{% endverbatim %}</p>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -781,5 +776,7 @@ spec:
   autoCreateSubnetworks: false
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

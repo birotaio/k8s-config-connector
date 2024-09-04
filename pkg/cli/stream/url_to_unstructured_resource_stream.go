@@ -18,8 +18,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/gcpclient"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/resourceskeleton"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
 
@@ -33,14 +36,16 @@ type URLToUnstructuredResourceStream struct {
 	gcpClient  gcpclient.Client
 	smLoader   *servicemappingloader.ServiceMappingLoader
 	tfProvider *schema.Provider
+	httpClient *http.Client
 }
 
-func NewUnstructuredResourceStreamFromURL(url string, provider *schema.Provider, smLoader *servicemappingloader.ServiceMappingLoader, gcpClient gcpclient.Client) *URLToUnstructuredResourceStream {
+func NewUnstructuredResourceStreamFromURL(url string, provider *schema.Provider, smLoader *servicemappingloader.ServiceMappingLoader, gcpClient gcpclient.Client, httpClient *http.Client) *URLToUnstructuredResourceStream {
 	stream := URLToUnstructuredResourceStream{
 		url:        url,
 		smLoader:   smLoader,
 		tfProvider: provider,
 		gcpClient:  gcpClient,
+		httpClient: httpClient,
 	}
 	return &stream
 }
@@ -49,13 +54,26 @@ func (s *URLToUnstructuredResourceStream) Next(ctx context.Context) (*unstructur
 	if s.done {
 		return nil, io.EOF
 	}
+
+	// First check if this resource uses our direct-reconciliation model
+	exported, err := direct.Export(ctx, s.url, &config.ControllerConfig{
+		HTTPClient: s.httpClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if exported != nil {
+		s.done = true
+		return exported, nil
+	}
+
 	skel, err := resourceskeleton.NewFromURI(s.url, s.smLoader, s.tfProvider)
 	if err != nil {
-		return nil, fmt.Errorf("error converting url '%v' to skeleton: %v", s.url, err)
+		return nil, fmt.Errorf("error converting url '%v' to skeleton: %w", s.url, err)
 	}
 	u, err := s.gcpClient.Get(ctx, skel)
 	if err != nil {
-		return nil, fmt.Errorf("error getting '%v': %v", s.url, err)
+		return nil, fmt.Errorf("error getting '%v': %w", s.url, err)
 	}
 	s.done = true
 	return u, nil

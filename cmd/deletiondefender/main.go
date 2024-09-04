@@ -22,6 +22,7 @@ import (
 	_ "net/http/pprof" // Needed to allow pprof server to accept requests
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/kccmanager/nocache"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/registration"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gcp/profiler"
@@ -76,13 +77,14 @@ func main() {
 		log.Fatal(err)
 	}
 
+	opts := manager.Options{}
+	// WARNING: It is CRITICAL that we do not use a cache for the client for the deletion defender.
+	// Doing so could give us stale reads when checking the deletion timestamp of CRDs, negating
+	// the Kubernetes API Server's strong consistency guarantees.
+	nocache.TurnOffAllCaching(&opts)
+
 	// Create a new Manager to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		// WARNING: It is CRITICAL that we do not use a cache for the client for the deletion defender.
-		// Doing so could give us stale reads when checking the deletion timestamp of CRDs, negating
-		// the Kubernetes API Server's strong consistency guarantees.
-		NewClient: nocache.NoCacheClientFunc,
-	})
+	mgr, err := manager.New(cfg, opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -95,7 +97,7 @@ func main() {
 
 	// Register the registration controller, which will dynamically create controllers for
 	// all our resources.
-	if err := registration.Add(mgr, nil, nil, nil, nil, registration.RegisterDeletionDefenderController); err != nil {
+	if err := registration.Add(mgr, &controller.Deps{}, registration.RegisterDeletionDefenderController); err != nil {
 		log.Fatal(err, "error adding registration controller")
 	}
 

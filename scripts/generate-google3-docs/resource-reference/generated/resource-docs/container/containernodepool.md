@@ -70,9 +70,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -98,6 +95,22 @@ management:
 maxPodsPerNode: integer
 namePrefix: string
 networkConfig:
+  additionalNodeNetworkConfigs:
+  - networkRef:
+      external: string
+      name: string
+      namespace: string
+    subnetworkRef:
+      external: string
+      name: string
+      namespace: string
+  additionalPodNetworkConfigs:
+  - maxPodsPerNode: integer
+    secondaryPodRange: string
+    subnetworkRef:
+      external: string
+      name: string
+      namespace: string
   createPodRange: boolean
   enablePrivateNodes: boolean
   podCidrOverprovisionConfig:
@@ -111,16 +124,22 @@ nodeConfig:
     external: string
     name: string
     namespace: string
+  confidentialNodes:
+    enabled: boolean
   diskSizeGb: integer
   diskType: string
   ephemeralStorageConfig:
     localSsdCount: integer
   ephemeralStorageLocalSsdConfig:
     localSsdCount: integer
+  fastSocket:
+    enabled: boolean
   gcfsConfig:
     enabled: boolean
   guestAccelerator:
   - count: integer
+    gpuDriverInstallationConfig:
+      gpuDriverVersion: string
     gpuPartitionSize: string
     gpuSharingConfig:
       gpuSharingStrategy: string
@@ -128,6 +147,8 @@ nodeConfig:
     type: string
   gvnic:
     enabled: boolean
+  hostMaintenancePolicy:
+    maintenanceInterval: string
   imageType: string
   kubeletConfig:
     cpuCfsQuota: boolean
@@ -137,6 +158,7 @@ nodeConfig:
   labels:
     string: string
   linuxNodeConfig:
+    cgroupMode: string
     sysctls:
       string: string
   localNvmeSsdBlockConfig:
@@ -170,6 +192,12 @@ nodeConfig:
   shieldedInstanceConfig:
     enableIntegrityMonitoring: boolean
     enableSecureBoot: boolean
+  soleTenantConfig:
+    nodeAffinity:
+    - key: string
+      operator: string
+      values:
+      - string
   spot: boolean
   tags:
   - string
@@ -184,6 +212,11 @@ nodeCount: integer
 nodeLocations:
 - string
 placementPolicy:
+  policyNameRef:
+    external: string
+    name: string
+    namespace: string
+  tpuTopology: string
   type: string
 resourceID: string
 upgradeSettings:
@@ -388,6 +421,186 @@ version: string
     </tr>
     <tr>
         <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}Immutable. We specify the additional node networks for this node pool using this list. Each node network corresponds to an additional interface.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs[].networkRef</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Name of the VPC where the additional interface belongs.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs[].networkRef.external</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Allowed value: The `selfLink` field of a `ComputeNetwork` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs[].networkRef.name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs[].networkRef.namespace</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs[].subnetworkRef</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Name of the subnetwork where the additional interface belongs.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs[].subnetworkRef.external</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Allowed value: The `selfLink` field of a `ComputeSubnetwork` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs[].subnetworkRef.name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalNodeNetworkConfigs[].subnetworkRef.namespace</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalPodNetworkConfigs</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}Immutable. We specify the additional pod networks for this node pool using this list. Each pod network corresponds to an additional alias IP range for the node.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalPodNetworkConfigs[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalPodNetworkConfigs[].maxPodsPerNode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">integer</code></p>
+            <p>{% verbatim %}Immutable. The maximum number of pods per node which use this pod network.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalPodNetworkConfigs[].secondaryPodRange</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. The name of the secondary range on the subnet which provides IP address for this pod range.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalPodNetworkConfigs[].subnetworkRef</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Name of the subnetwork where the additional pod network belongs.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalPodNetworkConfigs[].subnetworkRef.external</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Allowed value: The `selfLink` field of a `ComputeSubnetwork` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalPodNetworkConfigs[].subnetworkRef.name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>networkConfig.additionalPodNetworkConfigs[].subnetworkRef.namespace</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>networkConfig.createPodRange</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -518,6 +731,26 @@ version: string
     </tr>
     <tr>
         <td>
+            <p><code>nodeConfig.confidentialNodes</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Configuration for the confidential nodes feature, which makes nodes run on confidential VMs. Warning: This configuration can't be changed (or added/removed) after pool creation without deleting and recreating the entire pool.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.confidentialNodes.enabled</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Immutable. Whether Confidential Nodes feature is enabled for all nodes in this pool.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>nodeConfig.diskSizeGb</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -578,6 +811,26 @@ version: string
     </tr>
     <tr>
         <td>
+            <p><code>nodeConfig.fastSocket</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Enable or disable NCCL Fast Socket in the node pool.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.fastSocket.enabled</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Whether or not NCCL Fast Socket is enabled.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>nodeConfig.gcfsConfig</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -624,6 +877,26 @@ version: string
         <td>
             <p><code class="apitype">integer</code></p>
             <p>{% verbatim %}Immutable. The number of the accelerator cards exposed to an instance.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.guestAccelerator[].gpuDriverInstallationConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Configuration for auto installation of GPU driver.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.guestAccelerator[].gpuDriverInstallationConfig.gpuDriverVersion</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. Mode for how the GPU driver is installed.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -694,6 +967,26 @@ version: string
         <td>
             <p><code class="apitype">boolean</code></p>
             <p>{% verbatim %}Immutable. Whether or not gvnic is enabled.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.hostMaintenancePolicy</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. The maintenance policy for the hosts on which the GKE VMs run on.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.hostMaintenancePolicy.maintenanceInterval</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -778,8 +1071,18 @@ version: string
     </tr>
     <tr>
         <td>
+            <p><code>nodeConfig.linuxNodeConfig.cgroupMode</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}cgroupMode specifies the cgroup mode to be used on the node.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>nodeConfig.linuxNodeConfig.sysctls</code></p>
-            <p><i>Required*</i></p>
+            <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">map (key: string, value: string)</code></p>
@@ -1080,6 +1383,76 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
+            <p><code>nodeConfig.soleTenantConfig</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. Node affinity options for sole tenant node pools.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[]</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[].key</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[].operator</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[].values</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">list (string)</code></p>
+            <p>{% verbatim %}Immutable. .{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>nodeConfig.soleTenantConfig.nodeAffinity[].values[]</code></p>
+            <p><i>Required*</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>nodeConfig.spot</code></p>
             <p><i>Optional</i></p>
         </td>
@@ -1115,7 +1488,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">list (object)</code></p>
-            <p>{% verbatim %}Immutable. List of Kubernetes taints to be applied to each node.{% endverbatim %}</p>
+            <p>{% verbatim %}List of Kubernetes taints to be applied to each node.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1135,7 +1508,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. Effect for taint.{% endverbatim %}</p>
+            <p>{% verbatim %}Effect for taint.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1145,7 +1518,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. Key for taint.{% endverbatim %}</p>
+            <p>{% verbatim %}Key for taint.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1155,7 +1528,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Immutable. Value for taint.{% endverbatim %}</p>
+            <p>{% verbatim %}Value for taint.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1226,6 +1599,56 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
         <td>
             <p><code class="apitype">object</code></p>
             <p>{% verbatim %}Immutable. Specifies the node placement policy.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>placementPolicy.policyNameRef</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}Immutable. If set, refers to the name of a custom resource policy supplied by the user. The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>placementPolicy.policyNameRef.external</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Allowed value: The `selfLink` field of a `ComputeResourcePolicy` resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>placementPolicy.policyNameRef.name</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>placementPolicy.policyNameRef.namespace</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>placementPolicy.tpuTopology</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}TPU placement topology for pod slice node pool. https://cloud.google.com/tpu/docs/types-topologies#tpu_topologies.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1362,7 +1785,7 @@ for running workloads on sole tenant nodes.{% endverbatim %}</p>
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -1379,6 +1802,8 @@ instanceGroupUrls:
 managedInstanceGroupUrls:
 - string
 observedGeneration: integer
+observedState:
+  version: string
 operation: string
 ```
 
@@ -1474,6 +1899,20 @@ operation: string
         </td>
     </tr>
     <tr>
+        <td><code>observedState</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The observed state of the underlying GCP resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState.version</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
         <td><code>operation</code></td>
         <td>
             <p><code class="apitype">string</code></p>
@@ -1525,7 +1964,7 @@ spec:
       - "https://www.googleapis.com/auth/logging.write"
       - "https://www.googleapis.com/auth/monitoring"
     guestAccelerator:
-      - type: "nvidia-tesla-k80"
+      - type: "nvidia-tesla-t4"
         count: 1
     metadata:
       disable-legacy-endpoints: "true"
@@ -1609,5 +2048,7 @@ spec:
   initialNodeCount: 1
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

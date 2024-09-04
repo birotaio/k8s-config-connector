@@ -16,6 +16,7 @@ package export
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/cmd/export/outputstream"
@@ -23,24 +24,32 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/outputsink"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/stream"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/tf"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
 )
 
 func Execute(ctx context.Context, params *parameters.Parameters) error {
-	byteStream, err := outputstream.NewResourceByteStream(params)
+	tfProvider, err := tf.NewProvider(ctx, params.GCPAccessToken)
+	if err != nil {
+		return err
+	}
+
+	// Initialize direct controllers/exporters
+	if err := registry.Init(ctx, params.ControllerConfig()); err != nil {
+		return err
+	}
+
+	byteStream, err := outputstream.NewResourceByteStream(tfProvider, params)
 	if err != nil {
 		return err
 	}
 	recoverableStream := stream.NewRecoverableByteStream(byteStream)
-	tfProvider, err := tf.NewProvider(params.OAuth2Token)
-	if err != nil {
-		return err
-	}
+
 	outputSink, err := outputsink.New(tfProvider, params.Output, outputsink.ResourceFormat(params.ResourceFormat))
 	if err != nil {
 		return err
 	}
 	defer outputSink.Close()
-	for bytes, unstructured, err := recoverableStream.Next(ctx); err != io.EOF; bytes, unstructured, err = recoverableStream.Next(ctx) {
+	for bytes, unstructured, err := recoverableStream.Next(ctx); !errors.Is(err, io.EOF); bytes, unstructured, err = recoverableStream.Next(ctx) {
 		if err != nil {
 			return err
 		}

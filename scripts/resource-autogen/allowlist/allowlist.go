@@ -58,8 +58,9 @@ var (
 		"bigquery_analytics_hub/google_bigquery_analytics_hub_data_exchange",
 		"bigquery_analytics_hub/google_bigquery_analytics_hub_listing",
 		"bigquery_connection/google_bigquery_connection",
-		"bigquery_datapolicy/google_bigquery_datapolicy_data_policy",
 		"bigquery_data_transfer/google_bigquery_data_transfer_config",
+		"bigquery_datapolicy/google_bigquery_datapolicy_data_policy",
+		"bigquery_reservation/google_bigquery_capacity_commitment",
 		"bigquery_reservation/google_bigquery_reservation",
 		"certificate_manager/google_certificate_manager_certificate",
 		"certificate_manager/google_certificate_manager_certificate_map",
@@ -68,10 +69,11 @@ var (
 		"cloud_asset/google_cloud_asset_folder_feed",
 		"cloud_asset/google_cloud_asset_organization_feed",
 		"cloud_asset/google_cloud_asset_project_feed",
-		"cloudfunctions2/google_cloudfunctions2_function",
 		"cloud_ids/google_cloud_ids_endpoint",
-		"cloudiot/google_cloudiot_device",
 		"cloud_tasks/google_cloud_tasks_queue",
+		"cloudfunctions2/google_cloudfunctions2_function",
+		"cloudiot/google_cloudiot_device",
+		"cloudiot/google_cloudiot_registry",
 		"compute/google_compute_autoscaler",
 		"compute/google_compute_backend_bucket_signed_url_key",
 		"compute/google_compute_backend_service_signed_url_key",
@@ -82,6 +84,7 @@ var (
 		"compute/google_compute_machine_image",
 		"compute/google_compute_managed_ssl_certificate",
 		"compute/google_compute_network_endpoint",
+		"compute/google_compute_network_firewall_policy_rule",
 		"compute/google_compute_network_peering_routes_config",
 		"compute/google_compute_organization_security_policy",
 		"compute/google_compute_organization_security_policy_association",
@@ -90,6 +93,7 @@ var (
 		"compute/google_compute_region_autoscaler",
 		"compute/google_compute_region_disk_resource_policy_attachment",
 		"compute/google_compute_region_per_instance_config",
+		"compute/google_compute_region_ssl_policy",
 		"container_analysis/google_container_analysis_occurrence",
 		"data_catalog/google_data_catalog_entry",
 		"data_catalog/google_data_catalog_entry_group",
@@ -154,6 +158,7 @@ var (
 		"service_usage/google_service_usage_consumer_quota_override",
 		"storage/google_storage_hmac_key",
 		"storage_transfer/google_storage_transfer_agent_pool",
+		"tags/google_tags_location_tag_binding",
 		"tpu/google_tpu_node",
 		"vertex_ai/google_vertex_ai_dataset",
 		"vertex_ai/google_vertex_ai_endpoint",
@@ -161,6 +166,7 @@ var (
 		"vertex_ai/google_vertex_ai_featurestore_entitytype",
 		"vertex_ai/google_vertex_ai_featurestore_entitytype_feature",
 		"vertex_ai/google_vertex_ai_index",
+		"vertex_ai/google_vertex_ai_index_endpoint",
 		"vertex_ai/google_vertex_ai_metadata_store",
 		"vertex_ai/google_vertex_ai_tensorboard",
 		"workflows/google_workflows_workflow",
@@ -305,7 +311,7 @@ func LoadAutoGenAllowList(generatedSMMap map[string]v1alpha1.ServiceMapping) (*A
 		}
 	}
 	for _, typeInString := range betaAllowlist {
-		autoGenType, err := newAutoGenType(typeInString, k8s.KCCAPIVersion)
+		autoGenType, err := newAutoGenType(typeInString, k8s.KCCAPIVersionV1Beta1)
 		if err != nil {
 			return nil, fmt.Errorf("error converting allowlisted type %v from string to AutoGenType: %w", typeInString, err)
 		}

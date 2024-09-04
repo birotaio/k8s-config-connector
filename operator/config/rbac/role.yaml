@@ -125,6 +125,34 @@ rules:
   verbs:
   - update
 - apiGroups:
+    - customize.core.cnrm.cloud.google.com
+  resources:
+    - controllerresources
+    - namespacedcontrollerresources
+    - validatingwebhookconfigurationcustomizations
+    - mutatingwebhookconfigurationcustomizations
+    - namespacedcontrollerreconcilers
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - customize.core.cnrm.cloud.google.com
+  resources:
+    - controllerresources/status
+    - namespacedcontrollerresources/status
+    - validatingwebhookconfigurationcustomizations/status
+    - mutatingwebhookconfigurationcustomizations/status
+    - namespacedcontrollerreconcilers/status
+  verbs:
+    - get
+    - patch
+    - update
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings

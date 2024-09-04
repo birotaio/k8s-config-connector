@@ -59,20 +59,6 @@
 ## Custom Resource Definition Properties
 
 
-### Annotations
-<table class="properties responsive">
-<thead>
-    <tr>
-        <th colspan="2">Fields</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
-</tbody>
-</table>
-
 
 ### Spec
 #### Schema
@@ -220,10 +206,11 @@ observedGeneration: integer
 apiVersion: monitoring.cnrm.cloud.google.com/v1beta1
 kind: MonitoringMonitoredProject
 metadata:
+  # name needs to be the project ID of a monitored project
   name: mmp-sample-dep
 spec:
   # Replace ${PROJECT_ID?} with your project ID
-  metricsScope: "${PROJECT_ID?}"
+  metricsScope: "location/global/metricsScopes/${PROJECT_ID?}"
 ---
 apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
 kind: Project
@@ -236,5 +223,7 @@ spec:
   name: "Config Connector Sample"
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

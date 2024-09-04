@@ -152,7 +152,7 @@ func (c *Converter) DCLObjectToKRMObject(resource *dclunstruct.Resource) (*unstr
 	// hierarchical references.
 	if !resourceMetadata.SupportsHierarchicalReferences {
 		if err := liftDCLContainerField(obj, dclSchema); err != nil {
-			return nil, fmt.Errorf("error lifting contianer field to annotation: %w", err)
+			return nil, fmt.Errorf("error lifting container field to annotation: %w", err)
 		}
 	}
 	if err := convertToKRMResourceIDField(obj, dclSchema); err != nil {
@@ -245,7 +245,7 @@ func convertToKRMSpec(val interface{}, path []string, schema *openapi.Schema, sm
 		for _, item := range items {
 			processedItem, err := convertToKRMSpec(item, path, schema.Items, smLoader, resourceMetadata, true)
 			if err != nil {
-				return nil, fmt.Errorf("error converting list item: %v", err)
+				return nil, fmt.Errorf("error converting list item: %w", err)
 			}
 			res = append(res, processedItem)
 		}
@@ -397,7 +397,7 @@ func convertToDCL(val interface{}, path []string, schema *openapi.Schema,
 		for _, item := range items {
 			processedItem, err := convertToDCL(item, path, schema.Items, smLoader, true)
 			if err != nil {
-				return nil, fmt.Errorf("error converting the item: %v", err)
+				return nil, fmt.Errorf("error converting the item: %w", err)
 			}
 			res = append(res, processedItem)
 		}
@@ -638,7 +638,7 @@ func resolveReferenceValue(obj map[string]interface{}, schema *openapi.Schema) (
 func convertToDCLContainerField(obj *unstructured.Unstructured, r *dclunstruct.Resource, schema *openapi.Schema) error {
 	container, found, err := getContainerFieldName(schema)
 	if err != nil {
-		return fmt.Errorf("error getting the contianer field name %w", err)
+		return fmt.Errorf("error getting the container field name %w", err)
 	}
 	if !found {
 		return nil
@@ -656,7 +656,7 @@ func convertToDCLContainerField(obj *unstructured.Unstructured, r *dclunstruct.R
 func liftDCLContainerField(obj *unstructured.Unstructured, schema *openapi.Schema) error {
 	container, found, err := getContainerFieldName(schema)
 	if err != nil {
-		return fmt.Errorf("error getting the contianer field name %w", err)
+		return fmt.Errorf("error getting the container field name %w", err)
 	}
 	if !found {
 		return nil
@@ -692,7 +692,7 @@ func getContainerFieldName(schema *openapi.Schema) (string, bool, error) {
 func liftDCLLabelsField(obj *unstructured.Unstructured, dclSchema *openapi.Schema) error {
 	labelsField, _, found, err := extension.GetLabelsFieldSchema(dclSchema)
 	if err != nil {
-		return fmt.Errorf("error getting DCL labels field : '%v'", err)
+		return fmt.Errorf("error getting DCL labels field : '%w'", err)
 	}
 	if !found {
 		return nil
@@ -787,7 +787,7 @@ func convertToDCLNameField(obj *unstructured.Unstructured, r *dclunstruct.Resour
 func convertToDCLLabelsField(obj *unstructured.Unstructured, r *dclunstruct.Resource, schema *openapi.Schema) error {
 	labelsField, _, _, err := extension.GetLabelsFieldSchema(schema)
 	if err != nil {
-		return fmt.Errorf("error getting DCL labels field: '%v'", err)
+		return fmt.Errorf("error getting DCL labels field: '%w'", err)
 	}
 	//TODO(b/164208968): handle edge cases where 'labels' field is not at the top level
 	if _, ok := schema.Properties[labelsField]; !ok {

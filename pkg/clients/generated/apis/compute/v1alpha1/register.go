@@ -45,7 +45,7 @@ import (
 
 var (
 	// SchemeGroupVersion is the group version used to register these objects.
-	SchemeGroupVersion = schema.GroupVersion{Group: "compute.cnrm.cloud.google.com", Version: "v1beta1"}
+	SchemeGroupVersion = schema.GroupVersion{Group: "compute.cnrm.cloud.google.com", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
@@ -101,16 +101,16 @@ var (
 		Kind:    reflect.TypeOf(ComputeMachineImage{}).Name(),
 	}
 
-	ComputeManagedSSLCertificateGVK = schema.GroupVersionKind{
-		Group:   SchemeGroupVersion.Group,
-		Version: SchemeGroupVersion.Version,
-		Kind:    reflect.TypeOf(ComputeManagedSSLCertificate{}).Name(),
-	}
-
 	ComputeNetworkEndpointGVK = schema.GroupVersionKind{
 		Group:   SchemeGroupVersion.Group,
 		Version: SchemeGroupVersion.Version,
 		Kind:    reflect.TypeOf(ComputeNetworkEndpoint{}).Name(),
+	}
+
+	ComputeNetworkFirewallPolicyRuleGVK = schema.GroupVersionKind{
+		Group:   SchemeGroupVersion.Group,
+		Version: SchemeGroupVersion.Version,
+		Kind:    reflect.TypeOf(ComputeNetworkFirewallPolicyRule{}).Name(),
 	}
 
 	ComputeNetworkPeeringRoutesConfigGVK = schema.GroupVersionKind{
@@ -159,6 +159,12 @@ var (
 		Group:   SchemeGroupVersion.Group,
 		Version: SchemeGroupVersion.Version,
 		Kind:    reflect.TypeOf(ComputeRegionPerInstanceConfig{}).Name(),
+	}
+
+	ComputeRegionSSLPolicyGVK = schema.GroupVersionKind{
+		Group:   SchemeGroupVersion.Group,
+		Version: SchemeGroupVersion.Version,
+		Kind:    reflect.TypeOf(ComputeRegionSSLPolicy{}).Name(),
 	}
 
 	computeAPIVersion = SchemeGroupVersion.String()

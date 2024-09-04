@@ -70,9 +70,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -107,7 +104,7 @@ maintenancePolicy:
       nanos: integer
       seconds: integer
 maintenanceSchedule:
-  endTime: string
+- endTime: string
   scheduleDeadlineTime: string
   startTime: string
 memorySizeGb: integer
@@ -446,13 +443,23 @@ An API may allow the value 60 if it allows leap-seconds.{% endverbatim %}</p>
             <p><i>Optional</i></p>
         </td>
         <td>
-            <p><code class="apitype">object</code></p>
+            <p><code class="apitype">list (object)</code></p>
             <p>{% verbatim %}Upcoming maintenance schedule.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
         <td>
-            <p><code>maintenanceSchedule.endTime</code></p>
+            <p><code>maintenanceSchedule[]</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>maintenanceSchedule[].endTime</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
@@ -464,7 +471,7 @@ resolution and up to nine fractional digits.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
-            <p><code>maintenanceSchedule.scheduleDeadlineTime</code></p>
+            <p><code>maintenanceSchedule[].scheduleDeadlineTime</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
@@ -477,7 +484,7 @@ resolution and up to nine fractional digits.{% endverbatim %}</p>
     </tr>
     <tr>
         <td>
-            <p><code>maintenanceSchedule.startTime</code></p>
+            <p><code>maintenanceSchedule[].startTime</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
@@ -691,7 +698,7 @@ range associated with the private service access connection, or "auto".{% endver
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -706,10 +713,16 @@ conditions:
 createTime: string
 currentLocationId: string
 host: string
+maintenanceSchedule:
+- endTime: string
+  scheduleDeadlineTime: string
+  startTime: string
 nodes:
 - id: string
   zone: string
 observedGeneration: integer
+observedState:
+  authString: string
 persistenceIamIdentity: string
 port: integer
 readEndpoint: string
@@ -806,6 +819,48 @@ to connect to the service.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
+        <td><code>maintenanceSchedule</code></td>
+        <td>
+            <p><code class="apitype">list (object)</code></p>
+            <p>{% verbatim %}Upcoming maintenance schedule.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>maintenanceSchedule[]</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>maintenanceSchedule[].endTime</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Output only. The end time of any upcoming scheduled maintenance for this instance.
+A timestamp in RFC3339 UTC "Zulu" format, with nanosecond
+resolution and up to nine fractional digits.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>maintenanceSchedule[].scheduleDeadlineTime</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Output only. The deadline that the maintenance schedule start time
+can not go beyond, including reschedule.
+A timestamp in RFC3339 UTC "Zulu" format, with nanosecond
+resolution and up to nine fractional digits.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>maintenanceSchedule[].startTime</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Output only. The start time of any upcoming scheduled maintenance for this instance.
+A timestamp in RFC3339 UTC "Zulu" format, with nanosecond
+resolution and up to nine fractional digits.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
         <td><code>nodes</code></td>
         <td>
             <p><code class="apitype">list (object)</code></p>
@@ -838,6 +893,20 @@ to connect to the service.{% endverbatim %}</p>
         <td>
             <p><code class="apitype">integer</code></p>
             <p>{% verbatim %}ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState</code></td>
+        <td>
+            <p><code class="apitype">object</code></p>
+            <p>{% verbatim %}The observed state of the underlying GCP resource.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td><code>observedState.authString</code></td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Output only. AUTH String set on the instance. This field will only be populated if auth_enabled is true.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -957,5 +1026,7 @@ spec:
   memorySizeGb: 16
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

@@ -230,7 +230,7 @@ spec:
                 type: object
               serviceAccountName:
                 description: |-
-                  Immutable. Service account email. If this field is set, transfer config will
+                  Service account email. If this field is set, transfer config will
                   be created with this service account credentials. It requires that
                   requesting user calling this API has permissions to act as this service account.
                 type: string
@@ -271,8 +271,9 @@ spec:
               name:
                 description: |-
                   The resource name of the transfer config. Transfer config names have the
-                  form projects/{projectId}/locations/{location}/transferConfigs/{configId}.
-                  Where configId is usually a uuid, but this is not required.
+                  form projects/{projectId}/locations/{location}/transferConfigs/{configId}
+                  or projects/{projectId}/transferConfigs/{configId},
+                  where configId is usually a uuid, but this is not required.
                   The name is ignored when creating a transfer config.
                 type: string
               observedGeneration:

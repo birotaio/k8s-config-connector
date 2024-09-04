@@ -7,10 +7,6 @@
 
 
 
-Note: Ask your {{gcp_name_short}} account team to request access to workforce identity
-federation for your billing/quota project. The account team notifies you when the project is
-granted access.
-
 <table>
 <thead>
 <tr>
@@ -85,20 +81,6 @@ granted access.
 
 ## Custom Resource Definition Properties
 
-
-### Annotations
-<table class="properties responsive">
-<thead>
-    <tr>
-        <th colspan="2">Fields</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
-</tbody>
-</table>
 
 
 ### Spec
@@ -357,5 +339,7 @@ spec:
   sessionDuration: "7200s"
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

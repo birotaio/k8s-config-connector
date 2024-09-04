@@ -39,7 +39,7 @@ type UrlmapAbort struct {
 	/* The HTTP status code used to abort the request. The value must be between 200
 	and 599 inclusive. */
 	// +optional
-	HttpStatus *int `json:"httpStatus,omitempty"`
+	HttpStatus *int64 `json:"httpStatus,omitempty"`
 
 	/* The percentage of traffic (connections/operations/requests) which will be
 	aborted as part of fault injection. The value must be between 0.0 and 100.0
@@ -86,7 +86,7 @@ type UrlmapCorsPolicy struct {
 	/* Specifies how long the results of a preflight request can be cached. This
 	translates to the content for the Access-Control-Max-Age header. */
 	// +optional
-	MaxAge *int `json:"maxAge,omitempty"`
+	MaxAge *int64 `json:"maxAge,omitempty"`
 }
 
 type UrlmapDefaultRouteAction struct {
@@ -236,7 +236,7 @@ type UrlmapFixedDelay struct {
 	less than one second are represented with a 0 'seconds' field and a positive
 	'nanos' field. Must be from 0 to 999,999,999 inclusive. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Span of time at a resolution of a second. Must be from 0 to 315,576,000,000
 	inclusive. */
@@ -373,6 +373,18 @@ type UrlmapMatchRules struct {
 	loadBalancingScheme set to INTERNAL_SELF_MANAGED. */
 	// +optional
 	MetadataFilters []UrlmapMetadataFilters `json:"metadataFilters,omitempty"`
+
+	/* For satisfying the matchRule condition, the path of the request
+	must match the wildcard pattern specified in pathTemplateMatch
+	after removing any query parameters and anchor that may be part
+	of the original URL.
+
+	pathTemplateMatch must be between 1 and 255 characters
+	(inclusive).  The pattern specified by pathTemplateMatch may
+	have at most 5 wildcard operators and at most 5 variable
+	captures in total. */
+	// +optional
+	PathTemplateMatch *string `json:"pathTemplateMatch,omitempty"`
 
 	/* For satisfying the matchRule condition, the request's path must begin with the
 	specified prefixMatch. prefixMatch must begin with a /. The value must be
@@ -512,7 +524,7 @@ type UrlmapPerTryTimeout struct {
 	less than one second are represented with a 0 'seconds' field and a positive
 	'nanos' field. Must be from 0 to 999,999,999 inclusive. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Span of time at a resolution of a second. Must be from 0 to 315,576,000,000
 	inclusive. */
@@ -546,10 +558,10 @@ type UrlmapQueryParameterMatches struct {
 
 type UrlmapRangeMatch struct {
 	/* The end of the range (exclusive). */
-	RangeEnd int `json:"rangeEnd"`
+	RangeEnd int64 `json:"rangeEnd"`
 
 	/* The start of the range (inclusive). */
-	RangeStart int `json:"rangeStart"`
+	RangeStart int64 `json:"rangeStart"`
 }
 
 type UrlmapRequestHeadersToAdd struct {
@@ -585,7 +597,7 @@ type UrlmapResponseHeadersToAdd struct {
 
 type UrlmapRetryPolicy struct {
 	/* Specifies the allowed number retries. This number must be > 0. */
-	NumRetries int `json:"numRetries"`
+	NumRetries int64 `json:"numRetries"`
 
 	/* Specifies a non-zero timeout per retry attempt. */
 	// +optional
@@ -695,7 +707,7 @@ type UrlmapRouteRules struct {
 	1, 2, 3, 4, 5, 9, 12, 16 is a valid series of priority numbers to which
 	you could add rules numbered from 6 to 8, 10 to 11, and 13 to 15 in the
 	future without any impact on existing rules. */
-	Priority int `json:"priority"`
+	Priority int64 `json:"priority"`
 
 	/* In response to a matching matchRule, the load balancer performs advanced routing
 	actions like URL rewrites, header transformations, etc. prior to forwarding the
@@ -755,7 +767,7 @@ type UrlmapTimeout struct {
 	less than one second are represented with a 0 'seconds' field and a positive
 	'nanos' field. Must be from 0 to 999,999,999 inclusive. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Span of time at a resolution of a second. Must be from 0 to 315,576,000,000
 	inclusive. */
@@ -829,6 +841,23 @@ type UrlmapUrlRewrite struct {
 	be between 1 and 1024 characters. */
 	// +optional
 	PathPrefixRewrite *string `json:"pathPrefixRewrite,omitempty"`
+
+	/* Prior to forwarding the request to the selected origin, if the
+	request matched a pathTemplateMatch, the matching portion of the
+	request's path is replaced re-written using the pattern specified
+	by pathTemplateRewrite.
+
+	pathTemplateRewrite must be between 1 and 255 characters
+	(inclusive), must start with a '/', and must only use variables
+	captured by the route's pathTemplate matchers.
+
+	pathTemplateRewrite may only be used when all of a route's
+	MatchRules specify pathTemplate.
+
+	Only one of pathPrefixRewrite and pathTemplateRewrite may be
+	specified. */
+	// +optional
+	PathTemplateRewrite *string `json:"pathTemplateRewrite,omitempty"`
 }
 
 type UrlmapWeightedBackendServices struct {
@@ -849,7 +878,7 @@ type UrlmapWeightedBackendServices struct {
 	been directed to a backendService, subsequent requests will be sent to the same
 	backendService as determined by the BackendService's session affinity policy.
 	The value must be between 0 and 1000. */
-	Weight int `json:"weight"`
+	Weight int64 `json:"weight"`
 }
 
 type ComputeURLMapSpec struct {
@@ -930,11 +959,11 @@ type ComputeURLMapStatus struct {
 
 	/* The unique identifier for the resource. */
 	// +optional
-	MapId *int `json:"mapId,omitempty"`
+	MapId *int64 `json:"mapId,omitempty"`
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	// +optional
 	SelfLink *string `json:"selfLink,omitempty"`
@@ -942,6 +971,13 @@ type ComputeURLMapStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcomputeurlmap;gcpcomputeurlmaps
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ComputeURLMap is the Schema for the compute API
 // +k8s:openapi-gen=true

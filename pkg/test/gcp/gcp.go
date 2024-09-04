@@ -33,49 +33,76 @@ import (
 	"google.golang.org/api/storage/v1"
 )
 
+// EnvVar is a wrapper around a value that can be set by an environment variable.
+// This approach allows the value to be changed in tests more easily.
+type EnvVar struct {
+	Key   string
+	value string
+}
+
+func (v *EnvVar) Get() string {
+	if v.value == "" {
+		v.value = os.Getenv(v.Key)
+	}
+	return v.value
+}
+
+func (v *EnvVar) Set(s string) {
+	v.value = s
+}
+
+var (
+	TestFolderID                            = EnvVar{Key: "TEST_FOLDER_ID"}
+	TestFolder2ID                           = EnvVar{Key: "TEST_FOLDER_2_ID"}
+	TestOrgID                               = EnvVar{Key: "TEST_ORG_ID"}
+	TestDependentOrgProjectID               = EnvVar{Key: "TEST_DEPENDENT_ORG_PROJECT_ID"}
+	TestDependentFolderProjectID            = EnvVar{Key: "TEST_DEPENDENT_FOLDER_PROJECT_ID"}
+	TestDependentNoNetworkProjectID         = EnvVar{Key: "TEST_DEPENDENT_NO_NETWORK_PROJECT_ID"} // A dependent project with default network disabled
+	TestBillingAccountID                    = EnvVar{Key: "TEST_BILLING_ACCOUNT_ID"}
+	IAMIntegrationTestsOrganizationID       = EnvVar{Key: "IAM_INTEGRATION_TESTS_ORGANIZATION_ID"}
+	IAMIntegrationTestsBillingAccountID     = EnvVar{Key: "IAM_INTEGRATION_TESTS_BILLING_ACCOUNT_ID"}
+	TestBillingAccountIDForBillingResources = EnvVar{Key: "BILLING_ACCOUNT_ID_FOR_BILLING_RESOURCES"}
+	TestAttachedClusterName                 = EnvVar{Key: "TEST_ATTACHED_CLUSTER_NAME"}
+	TestKCCAttachedClusterProject           = EnvVar{Key: "KCC_ATTACHED_CLUSTER_TEST_PROJECT"}
+	FirestoreTestProject                    = EnvVar{Key: "FIRESTORE_TEST_PROJECT"}
+	IdentityPlatformTestProject             = EnvVar{Key: "IDENTITY_PLATFORM_TEST_PROJECT"}
+	RecaptchaEnterpriseTestProject          = EnvVar{Key: "RECAPTCHA_ENTERPRISE_TEST_PROJECT"}
+	TestKCCVertexAIIndexBucket              = EnvVar{Key: "KCC_VERTEX_AI_INDEX_TEST_BUCKET"}
+	TestKCCVertexAIIndexDataURI             = EnvVar{Key: "KCC_VERTEX_AI_INDEX_TEST_DATA_URI"}
+)
+
 const (
-	TestFolderId                            = "TEST_FOLDER_ID"
-	TestFolder2Id                           = "TEST_FOLDER_2_ID"
-	TestOrgId                               = "TEST_ORG_ID"
-	IAMIntegrationTestsOrganizationId       = "IAM_INTEGRATION_TESTS_ORGANIZATION_ID"
-	IsolatedTestOrgName                     = "ISOLATED_TEST_ORG_NAME"
-	TestBillingAccountId                    = "TEST_BILLING_ACCOUNT_ID"
-	TestBillingAccountIDForBillingResources = "BILLING_ACCOUNT_ID_FOR_BILLING_RESOURCES"
-	IAMIntegrationTestsBillingAccountId     = "IAM_INTEGRATION_TESTS_BILLING_ACCOUNT_ID"
-	FirestoreTestProject                    = "FIRESTORE_TEST_PROJECT"
-	CloudFunctionsTestProject               = "CLOUD_FUNCTIONS_TEST_PROJECT"
-	IdentityPlatformTestProject             = "IDENTITY_PLATFORM_TEST_PROJECT"
-	InterconnectTestProject                 = "INTERCONNECT_TEST_PROJECT"
-	HighCPUQuotaTestProject                 = "HIGH_CPU_QUOTA_TEST_PROJECT"
-	RecaptchaEnterpriseTestProject          = "RECAPTCHA_ENTERPRISE_TEST_PROJECT"
-	DLPTestBucket                           = "DLP_TEST_BUCKET"
+	TestDependentFolder2ProjectID             = "TEST_DEPENDENT_FOLDER_2_PROJECT_ID"
+	IsolatedTestOrgName                       = "ISOLATED_TEST_ORG_NAME"
+	CloudFunctionsTestProject                 = "CLOUD_FUNCTIONS_TEST_PROJECT"
+	InterconnectTestProject                   = "INTERCONNECT_TEST_PROJECT"
+	HighCPUQuotaTestProject                   = "HIGH_CPU_QUOTA_TEST_PROJECT"
+	DLPTestBucket                             = "DLP_TEST_BUCKET"
+	TestDependentOrgProjectIDWithoutQuotation = "TEST_DEPENDENT_ORG_PROJECT_ID_WITHOUT_QUOTATION"
 )
 
 var (
-	testFolderID                            = os.Getenv(TestFolderId)
-	testFolder2Id                           = os.Getenv(TestFolder2Id)
-	testOrgID                               = os.Getenv(TestOrgId)
-	isolatedTestOrgName                     = os.Getenv(IsolatedTestOrgName)
-	iamIntegrationTestsOrganizationId       = os.Getenv(IAMIntegrationTestsOrganizationId)
-	testBillingAccountID                    = os.Getenv(TestBillingAccountId)
-	testBillingAccountIDForBillingResources = os.Getenv(TestBillingAccountIDForBillingResources)
-	iamIntegrationTestsBillingAccountId     = os.Getenv(IAMIntegrationTestsBillingAccountId)
-	firestoreTestProject                    = os.Getenv(FirestoreTestProject)
-	cloudFunctionsTestProject               = os.Getenv(CloudFunctionsTestProject)
-	identityPlatformTestProject             = os.Getenv(IdentityPlatformTestProject)
-	interconnectTestProject                 = os.Getenv(InterconnectTestProject)
-	highCpuQuotaTestProject                 = os.Getenv(HighCPUQuotaTestProject)
-	recaptchaEnterpriseTestProject          = os.Getenv(RecaptchaEnterpriseTestProject)
-	dlpTestBucket                           = os.Getenv(DLPTestBucket)
+	testDependentFolder2ProjectID = os.Getenv(TestDependentFolder2ProjectID)
+	isolatedTestOrgName           = os.Getenv(IsolatedTestOrgName)
+	cloudFunctionsTestProject     = os.Getenv(CloudFunctionsTestProject)
+	interconnectTestProject       = os.Getenv(InterconnectTestProject)
+	highCPUQuotaTestProject       = os.Getenv(HighCPUQuotaTestProject)
+	dlpTestBucket                 = os.Getenv(DLPTestBucket)
 )
 
 // GetDefaultProjectID returns the ID of user's configured default GCP project.
 func GetDefaultProjectID(t *testing.T) string {
 	t.Helper()
-	projectID, err := gcp.GetDefaultProjectID()
-	if err != nil {
-		t.Fatalf("error retrieving gcloud sdk credentials: %v", err)
+
+	projectID := os.Getenv("GCP_PROJECT_ID")
+	if projectID == "" {
+		s, err := gcp.GetDefaultProjectID()
+		if err != nil {
+			t.Fatalf("error getting default project: %v", err)
+		}
+		projectID = s
 	}
+
 	return projectID
 }
 
@@ -89,10 +116,8 @@ func GetDefaultProject(t *testing.T) GCPProject {
 	t.Helper()
 	ctx := context.TODO()
 
-	projectID, err := gcp.GetDefaultProjectID()
-	if err != nil {
-		t.Fatalf("error getting default project: %v", err)
-	}
+	projectID := GetDefaultProjectID(t)
+
 	projectNumber, err := GetProjectNumber(ctx, projectID)
 	if err != nil {
 		t.Fatalf("error getting project number for %q: %v", projectID, err)
@@ -136,63 +161,27 @@ func FindDefaultServiceAccount() (string, error) {
 	return rawCreds["client_email"], nil
 }
 
-func GetFolderID(t *testing.T) string {
-	return testFolderID
+func GetDependentFolder2ProjectID(_ *testing.T) string {
+	return testDependentFolder2ProjectID
 }
 
-func GetFolder2ID(t *testing.T) string {
-	return testFolder2Id
-}
-
-func GetBillingAccountID(t *testing.T) string {
-	return testBillingAccountID
-}
-
-func GetTestBillingAccountIDForBillingResources(t *testing.T) string {
-	return testBillingAccountIDForBillingResources
-}
-
-func GetOrgID(t *testing.T) string {
-	return testOrgID
-}
-
-func GetIsolatedTestOrgName(t *testing.T) string {
+func GetIsolatedTestOrgName(_ *testing.T) string {
 	return isolatedTestOrgName
 }
 
-func GetIAMIntegrationTestsBillingAccountId(t *testing.T) string {
-	return iamIntegrationTestsBillingAccountId
-}
-
-func GetIAMIntegrationTestsOrganizationId(t *testing.T) string {
-	return iamIntegrationTestsOrganizationId
-}
-
-func GetFirestoreTestProject(t *testing.T) string {
-	return firestoreTestProject
-}
-
-func GetCloudFunctionsTestProject(t *testing.T) string {
+func GetCloudFunctionsTestProject(_ *testing.T) string {
 	return cloudFunctionsTestProject
 }
 
-func GetIdentityPlatformTestProject(t *testing.T) string {
-	return identityPlatformTestProject
-}
-
-func GetInterconnectTestProject(t *testing.T) string {
+func GetInterconnectTestProject(_ *testing.T) string {
 	return interconnectTestProject
 }
 
-func GetHighCpuQuotaTestProject(t *testing.T) string {
-	return highCpuQuotaTestProject
+func GetHighCPUQuotaTestProject(_ *testing.T) string {
+	return highCPUQuotaTestProject
 }
 
-func GetRecaptchaEnterpriseTestProject(t *testing.T) string {
-	return recaptchaEnterpriseTestProject
-}
-
-func GetDLPTestBucket(t *testing.T) string {
+func GetDLPTestBucket(_ *testing.T) string {
 	return dlpTestBucket
 }
 
@@ -260,6 +249,10 @@ func NewIAMClient(t *testing.T) *iam.Service {
 
 func ResourceSupportsDeletion(resourceKind string) bool {
 	switch resourceKind {
+	case "APIKeysKey":
+		// APIKeysKey has a delete method, but the key is only marked for deletion.
+		return false
+
 	case "BigQueryJob",
 		"BinaryAuthorizationPolicy",
 		"ComputeProjectMetadata",

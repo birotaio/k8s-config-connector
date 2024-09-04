@@ -33,6 +33,8 @@ spec:
       idTemplateCanBeUsedToMatchResourceName: true
       resourceAvailableInAssetInventory: true
       locationality: regional
+      observedFields:
+        - address
       resourceReferences:
         - key: networkRef
           tfField: network
@@ -314,6 +316,7 @@ spec:
         - tfField: resource_policies
           description: |-
             Resource policies applied to this disk for automatic snapshot creations.
+            This field only applies for zonal compute disk resources.
           gvk:
             kind: ComputeResourcePolicy
             version: v1beta1
@@ -323,6 +326,15 @@ spec:
           key: sourceDiskRef
           description: |-
             The source disk used to create this disk.
+          gvk:
+            kind: ComputeDisk
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
+        - key: diskRef
+          tfField: async_primary_disk.disk
+          description: |-
+            Immutable. Primary disk for asynchronous disk replication.
           gvk:
             kind: ComputeDisk
             version: v1beta1
@@ -457,6 +469,13 @@ spec:
                 version: v1beta1
                 group: compute.cnrm.cloud.google.com
               targetField: self_link
+            - key: serviceAttachmentRef
+              gvk:
+                kind: ComputeServiceAttachment
+                version: v1beta1
+                group: compute.cnrm.cloud.google.com
+              targetField: self_link
+              dclBasedResource: true
         - tfField: ip_address
           description: |-
             The IP address that this forwarding rule is serving on behalf of.
@@ -501,7 +520,7 @@ spec:
           targetField: self_link
         - key: subnetworkRef
           description: |-
-            The subnetwork that the load balanced IP should belong to for this
+            Immutable. The subnetwork that the load balanced IP should belong to for this
             forwarding rule. This field is only used for internal load
             balancing.
 
@@ -513,6 +532,7 @@ spec:
             kind: ComputeSubnetwork
             version: v1beta1
             group: compute.cnrm.cloud.google.com
+          targetField: self_link
         - key: backendServiceRef
           tfField: backend_service
           description: |-
@@ -537,6 +557,8 @@ spec:
       idTemplateCanBeUsedToMatchResourceName: true
       resourceAvailableInAssetInventory: true
       locationality: global
+      observedFields:
+        - address
       resourceReferences:
         - key: networkRef
           tfField: network
@@ -642,6 +664,21 @@ spec:
             field is not specified, the default network will be used.
           gvk:
             kind: ComputeNetwork
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
+        - key: subnetworkRef
+          description: |-
+            Immutable. The subnetwork that the load balanced IP should belong to for this
+            forwarding rule. This field is only used for internal load
+            balancing.
+
+            If the network specified is in auto subnet mode, this field is
+            optional. However, if the network is in custom subnet mode, a
+            subnetwork must be specified.
+          tfField: subnetwork
+          gvk:
+            kind: ComputeSubnetwork
             version: v1beta1
             group: compute.cnrm.cloud.google.com
           targetField: self_link
@@ -821,6 +858,8 @@ spec:
           targetField: self_link
         - key: sourceDiskRef
           tfField: boot_disk.source
+          description: |-
+            Immutable. The source disk used to create this disk.
           gvk:
             kind: ComputeDisk
             version: v1beta1
@@ -828,6 +867,8 @@ spec:
           targetField: self_link
         - key: sourceImageRef # prefix with "source" as that's how it is in the underlying API
           tfField: boot_disk.initialize_params.image
+          description: |-
+            Immutable. The image from which to initialize this disk.
           gvk:
             kind: ComputeImage
             version: v1beta1
@@ -924,6 +965,8 @@ spec:
           targetField: self_link
         - key: sourceDiskRef
           tfField: boot_disk.source
+          description: |-
+            Immutable. The source disk used to create this disk.
           gvk:
             kind: ComputeDisk
             version: v1beta1
@@ -931,6 +974,8 @@ spec:
           targetField: self_link
         - key: sourceImageRef # prefix with "source" as that's how it is in the underlying API
           tfField: boot_disk.initialize_params.image
+          description: |-
+            Immutable. The image from which to initialize this disk.
           gvk:
             kind: ComputeImage
             version: v1beta1
@@ -1201,6 +1246,29 @@ spec:
       containers:
         - type: project
           tfField: project
+    - name: google_compute_managed_ssl_certificate
+      kind: ComputeManagedSSLCertificate
+      idTemplate: "projects/{{project}}/global/sslCertificates/{{name}}"
+      idTemplateCanBeUsedToMatchResourceName: false
+      resourceAvailableInAssetInventory: false
+      v1alpha1ToV1beta1: true
+      storageVersion: v1alpha1
+      metadataMapping:
+        name: name
+      resourceID:
+        targetField: name
+      hierarchicalReferences:
+        - type: project
+          key: projectRef
+      resourceReferences:
+        - tfField: project
+          key: projectRef
+          description: |-
+            The project that this resource belongs to.
+          gvk:
+            kind: Project
+            version: v1beta1
+            group: resourcemanager.cnrm.cloud.google.com
     - name: google_compute_network
       kind: ComputeNetwork
       metadataMapping:
@@ -1246,6 +1314,66 @@ spec:
       containers:
         - type: project
           tfField: project
+    - name: google_compute_network_firewall_policy
+      kind: ComputeNetworkFirewallPolicy
+      metadataMapping:
+        name: name
+      resourceID:
+        targetField: name
+      idTemplate: "projects/{{project}}/global/firewallPolicies/{{name}}"
+      idTemplateCanBeUsedToMatchResourceName: true
+      resourceAvailableInAssetInventory: false
+      hierarchicalReferences:
+        - type: project
+          key: projectRef
+      resourceReferences:
+        - tfField: project
+          key: projectRef
+          description: |-
+            The project that this resource belongs to.
+          gvk:
+            kind: Project
+            version: v1beta1
+            group: resourcemanager.cnrm.cloud.google.com
+    - name: google_compute_network_firewall_policy_association
+      kind: ComputeNetworkFirewallPolicyAssociation
+      metadataMapping:
+        name: name
+      resourceID:
+        targetField: name
+      idTemplate: "projects/{{project}}/global/firewallPolicies/{{firewall_policy}}/associations/{{name}}"
+      idTemplateCanBeUsedToMatchResourceName: false
+      resourceAvailableInAssetInventory: false
+      hierarchicalReferences:
+        - type: project
+          key: projectRef
+      resourceReferences:
+        - tfField: project
+          key: projectRef
+          description: |-
+            The project that this resource belongs to.
+          gvk:
+            kind: Project
+            version: v1beta1
+            group: resourcemanager.cnrm.cloud.google.com
+        - tfField: attachment_target
+          key: attachmentTargetRef
+          description: |-
+            The target that the firewall policy is attached to.
+          gvk:
+            kind: ComputeNetwork
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
+        - tfField: firewall_policy
+          key: firewallPolicyRef
+          description: |-
+            The firewall policy ID of the association.
+          gvk:
+            kind: ComputeNetworkFirewallPolicy
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: network_firewall_policy_id
     - name: google_compute_network_peering
       kind: ComputeNetworkPeering
       metadataMapping:
@@ -1472,6 +1600,15 @@ spec:
             version: v1beta1
             group: compute.cnrm.cloud.google.com
           targetField: self_link
+        - key: diskRef
+          tfField: async_primary_disk.disk
+          description: |-
+            Immutable. Primary disk for asynchronous disk replication.
+          gvk:
+            kind: ComputeDisk
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
       containers:
         - type: project
           tfField: project
@@ -1512,7 +1649,6 @@ spec:
           kind: RunService
           version: v1beta1
           group: run.cnrm.cloud.google.com
-        dclBasedResource: true
       - key: functionRef
         tfField: cloud_function.function
         description: |-
@@ -2331,6 +2467,16 @@ spec:
             version: v1beta1
             group: compute.cnrm.cloud.google.com
           targetField: self_link
+        - tfField: certificate_manager_certificates 
+          description: |-
+            URLs to certificate manager certificate resources that are used to authenticate connections between users and the load balancer.
+            Currently, you may specify up to 15 certificates. Certificate manager certificates do not apply when the load balancing scheme is set to INTERNAL_SELF_MANAGED.
+            sslCertificates and certificateManagerCertificates fields can not be defined together.
+          gvk:
+            kind: CertificateManagerCertificate
+            version: v1beta1
+            group: certificatemanager.cnrm.cloud.google.com
+          valueTemplate: projects/{{project}}/locations/global/certificates/{{value}}
         - tfField: ssl_certificates
           description: |-
             A list of ComputeSSLCertificate resources that are used to
@@ -2355,18 +2501,36 @@ spec:
           targetField: self_link
         - key: certificateMapRef
           tfField: certificate_map
-          # TODO (b/203667132): Fix the reference config after CertificateManagerCertificateMap is supported.
           description: |-
-            Only the `external` field is supported to configure the reference.
-
             A reference to the CertificateMap resource uri that identifies a
             certificate map associated with the given target proxy. This field
-            can only be set for global target proxies.
+            can only be set for global target proxies. This field is only supported
+            for EXTERNAL and EXTERNAL_MANAGED load balancing schemes.
+            For INTERNAL_MANAGED, use certificateManagerCertificates instead.
+            sslCertificates and certificateMap fields can not be defined together.
           gvk:
             kind: CertificateManagerCertificateMap
             version: v1beta1
             group: certificatemanager.cnrm.cloud.google.com
-          valueTemplate: "//certificatemanager.googleapis.com/projects/{{project}}/locations/{{location}}/certificateMaps/{{value}}"
+          valueTemplate: "//certificatemanager.googleapis.com/projects/{{project}}/locations/global/certificateMaps/{{value}}"
+        - key: serverTlsPolicyRef
+          tfField: server_tls_policy
+          description: |-
+            Immutable. A URL referring to a networksecurity.ServerTlsPolicy
+            resource that describes how the proxy should authenticate inbound
+            traffic. serverTlsPolicy only applies to a global TargetHttpsProxy
+            attached to globalForwardingRules with the loadBalancingScheme
+            set to INTERNAL_SELF_MANAGED or EXTERNAL or EXTERNAL_MANAGED.
+            For details which ServerTlsPolicy resources are accepted with
+            INTERNAL_SELF_MANAGED and which with EXTERNAL, EXTERNAL_MANAGED
+            loadBalancingScheme consult ServerTlsPolicy documentation.
+            If left blank, communications are not encrypted.
+          gvk:
+            kind: NetworkSecurityServerTLSPolicy
+            version: v1beta1
+            group: networksecurity.cnrm.cloud.google.com
+          valueTemplate: "projects/{{project}}/locations/{{location}}/serverTlsPolicies/{{value}}"
+          dclBasedResource: true
       containers:
         - type: project
           tfField: project
@@ -2397,6 +2561,15 @@ spec:
             that the default network interface belongs to.
           gvk:
             kind: ComputeNetwork
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
+        - tfField: security_policy
+          description: |-
+            The resource URL for the security policy associated with this target instance.
+          key: securityPolicyRef
+          gvk:
+            kind: ComputeSecurityPolicy
             version: v1beta1
             group: compute.cnrm.cloud.google.com
           targetField: self_link
@@ -2434,6 +2607,15 @@ spec:
                 version: v1beta1
                 group: compute.cnrm.cloud.google.com
               targetField: self_link
+        - tfField: security_policy
+          description: |-
+            The resource URL for the security policy associated with this target pool.
+          key: securityPolicyRef
+          gvk:
+            kind: ComputeSecurityPolicy
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
       containers:
         - type: project
           tfField: project
@@ -2479,8 +2661,6 @@ spec:
           targetField: self_link
         - tfField: certificate_map
           description: |-
-            Only `external` field is supported to configure the reference.
-
             A reference to the CertificateMap resource uri that identifies a
             certificate map associated with the given target proxy. This
             field can only be set for global target proxies. Accepted format is

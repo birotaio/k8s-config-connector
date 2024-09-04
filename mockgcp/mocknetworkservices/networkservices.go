@@ -17,12 +17,12 @@ package mocknetworkservices
 import (
 	"context"
 
-	pb "google.golang.org/genproto/googleapis/cloud/networkservices/v1"
 	"google.golang.org/genproto/googleapis/longrunning"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	pb "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/generated/mockgcp/cloud/networkservices/v1"
 )
 
 type NetworkServicesServer struct {
@@ -44,11 +44,7 @@ func (s *NetworkServicesServer) GetMesh(ctx context.Context, req *pb.GetMeshRequ
 
 	obj := &pb.Mesh{}
 	if err := s.storage.Get(ctx, fqn, obj); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, status.Errorf(codes.NotFound, "mesh %q not found", name)
-		} else {
-			return nil, status.Errorf(codes.Internal, "error reading mesh: %v", err)
-		}
+		return nil, err
 	}
 
 	return obj, nil
@@ -66,14 +62,50 @@ func (s *NetworkServicesServer) CreateMesh(ctx context.Context, req *pb.CreateMe
 	obj.Name = fqn
 
 	if err := s.storage.Create(ctx, fqn, obj); err != nil {
-		return nil, status.Errorf(codes.Internal, "error creating mesh: %v", err)
+		return nil, err
 	}
 
 	return s.operations.NewLRO(ctx)
 }
 
 func (s *NetworkServicesServer) UpdateMesh(ctx context.Context, req *pb.UpdateMeshRequest) (*longrunning.Operation, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateMesh not implemented")
+	reqName := req.GetMesh().GetName()
+
+	name, err := s.parseMeshName(reqName)
+	if err != nil {
+		return nil, err
+	}
+
+	fqn := name.String()
+	obj := &pb.Mesh{}
+	if err := s.storage.Get(ctx, fqn, obj); err != nil {
+		return nil, err
+	}
+
+	// Field mask is used to specify the fields to be overwritten in the
+	// Mesh resource by the update.
+	// The fields specified in the update_mask are relative to the resource, not
+	// the full request. A field will be overwritten if it is in the mask. If the
+	// user does not provide a mask then all fields will be overwritten.
+	paths := req.GetUpdateMask().GetPaths()
+	// TODO: Some sort of helper for fieldmask?
+	for _, path := range paths {
+		switch path {
+		case "description":
+			obj.Description = req.GetMesh().GetDescription()
+		case "interceptionPort":
+			obj.InterceptionPort = req.GetMesh().GetInterceptionPort()
+		case "labels":
+			obj.Labels = req.GetMesh().GetLabels()
+		default:
+			return nil, status.Errorf(codes.InvalidArgument, "update_mask path %q not valid", path)
+		}
+	}
+
+	if err := s.storage.Update(ctx, fqn, obj); err != nil {
+		return nil, err
+	}
+	return s.operations.NewLRO(ctx)
 }
 
 func (s *NetworkServicesServer) DeleteMesh(ctx context.Context, req *pb.DeleteMeshRequest) (*longrunning.Operation, error) {
@@ -84,13 +116,9 @@ func (s *NetworkServicesServer) DeleteMesh(ctx context.Context, req *pb.DeleteMe
 
 	fqn := name.String()
 
-	meshKind := (&pb.Mesh{}).ProtoReflect().Descriptor()
-	if err := s.storage.Delete(ctx, meshKind, fqn); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, status.Errorf(codes.NotFound, "mesh %q not found", name)
-		} else {
-			return nil, status.Errorf(codes.Internal, "error deleting mesh: %v", err)
-		}
+	deletedObj := &pb.Mesh{}
+	if err := s.storage.Delete(ctx, fqn, deletedObj); err != nil {
+		return nil, err
 	}
 
 	return s.operations.NewLRO(ctx)

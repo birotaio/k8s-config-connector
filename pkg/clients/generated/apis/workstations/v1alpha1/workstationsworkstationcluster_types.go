@@ -36,6 +36,11 @@ import (
 )
 
 type WorkstationclusterPrivateClusterConfig struct {
+	/* Additional project IDs that are allowed to attach to the workstation cluster's service attachment.
+	By default, the workstation cluster's project and the VPC host project (if different) are allowed. */
+	// +optional
+	AllowedProjects []string `json:"allowedProjects,omitempty"`
+
 	/* Hostname for the workstation cluster.
 	This field will be populated only when private endpoint is enabled.
 	To access workstations in the cluster, create a new DNS zone mapping this domain name to an internal IP address and a forwarding rule mapping that address to the service attachment. */
@@ -46,7 +51,7 @@ type WorkstationclusterPrivateClusterConfig struct {
 	EnablePrivateEndpoint bool `json:"enablePrivateEndpoint"`
 
 	/* Service attachment URI for the workstation cluster.
-	The service attachemnt is created when private endpoint is enabled.
+	The service attachment is created when private endpoint is enabled.
 	To access workstations in the cluster, configure access to the managed service using (Private Service Connect)[https://cloud.google.com/vpc/docs/configure-private-service-connect-services]. */
 	// +optional
 	ServiceAttachmentUri *string `json:"serviceAttachmentUri,omitempty"`
@@ -87,11 +92,25 @@ type WorkstationsWorkstationClusterSpec struct {
 type WorkstationclusterDetailsStatus struct {
 }
 
+type WorkstationclusterResourceConditionsStatus struct {
+	/* The status code, which should be an enum value of google.rpc.Code. */
+	// +optional
+	Code *int64 `json:"code,omitempty"`
+
+	/* A list of messages that carry the error details. */
+	// +optional
+	Details []WorkstationclusterDetailsStatus `json:"details,omitempty"`
+
+	/* Human readable message indicating details about the current status. */
+	// +optional
+	Message *string `json:"message,omitempty"`
+}
+
 type WorkstationsWorkstationClusterStatus struct {
 	/* Conditions represent the latest available observations of the
 	   WorkstationsWorkstationCluster's current state. */
 	Conditions []v1alpha1.Condition `json:"conditions,omitempty"`
-	/* Time the Instance was created in UTC. */
+	/* Time when this resource was created. */
 	// +optional
 	CreateTime *string `json:"createTime,omitempty"`
 
@@ -111,7 +130,11 @@ type WorkstationsWorkstationClusterStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+	/* Status conditions describing the current resource state. */
+	// +optional
+	ResourceConditions []WorkstationclusterResourceConditionsStatus `json:"resourceConditions,omitempty"`
 
 	/* The system-generated UID of the resource. */
 	// +optional
@@ -120,6 +143,13 @@ type WorkstationsWorkstationClusterStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpworkstationsworkstationcluster;gcpworkstationsworkstationclusters
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=alpha";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // WorkstationsWorkstationCluster is the Schema for the workstations API
 // +k8s:openapi-gen=true

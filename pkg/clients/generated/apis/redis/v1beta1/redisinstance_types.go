@@ -120,20 +120,20 @@ type InstanceStartTime struct {
 	/* Hours of day in 24 hour format. Should be from 0 to 23.
 	An API may choose to allow the value "24:00:00" for scenarios like business closing time. */
 	// +optional
-	Hours *int `json:"hours,omitempty"`
+	Hours *int64 `json:"hours,omitempty"`
 
 	/* Minutes of hour of day. Must be from 0 to 59. */
 	// +optional
-	Minutes *int `json:"minutes,omitempty"`
+	Minutes *int64 `json:"minutes,omitempty"`
 
 	/* Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. */
 	// +optional
-	Nanos *int `json:"nanos,omitempty"`
+	Nanos *int64 `json:"nanos,omitempty"`
 
 	/* Seconds of minutes of the time. Must normally be from 0 to 59.
 	An API may allow the value 60 if it allows leap-seconds. */
 	// +optional
-	Seconds *int `json:"seconds,omitempty"`
+	Seconds *int64 `json:"seconds,omitempty"`
 }
 
 type InstanceWeeklyMaintenanceWindow struct {
@@ -211,10 +211,10 @@ type RedisInstanceSpec struct {
 
 	/* Upcoming maintenance schedule. */
 	// +optional
-	MaintenanceSchedule *InstanceMaintenanceSchedule `json:"maintenanceSchedule,omitempty"`
+	MaintenanceSchedule []InstanceMaintenanceSchedule `json:"maintenanceSchedule,omitempty"`
 
 	/* Redis memory size in GiB. */
-	MemorySizeGb int `json:"memorySizeGb"`
+	MemorySizeGb int64 `json:"memorySizeGb"`
 
 	/* Persistence configuration for an instance. */
 	// +optional
@@ -249,7 +249,7 @@ type RedisInstanceSpec struct {
 	for a Standard Tier instance, the only valid value is 1 and the default is 1.
 	The valid value for basic tier is 0 and the default is also 0. */
 	// +optional
-	ReplicaCount *int `json:"replicaCount,omitempty"`
+	ReplicaCount *int64 `json:"replicaCount,omitempty"`
 
 	/* Immutable. The CIDR range of internal addresses that are reserved for this
 	instance. If not provided, the service will choose an unused /29
@@ -284,6 +284,27 @@ type RedisInstanceSpec struct {
 	TransitEncryptionMode *string `json:"transitEncryptionMode,omitempty"`
 }
 
+type InstanceMaintenanceScheduleStatus struct {
+	/* Output only. The end time of any upcoming scheduled maintenance for this instance.
+	A timestamp in RFC3339 UTC "Zulu" format, with nanosecond
+	resolution and up to nine fractional digits. */
+	// +optional
+	EndTime *string `json:"endTime,omitempty"`
+
+	/* Output only. The deadline that the maintenance schedule start time
+	can not go beyond, including reschedule.
+	A timestamp in RFC3339 UTC "Zulu" format, with nanosecond
+	resolution and up to nine fractional digits. */
+	// +optional
+	ScheduleDeadlineTime *string `json:"scheduleDeadlineTime,omitempty"`
+
+	/* Output only. The start time of any upcoming scheduled maintenance for this instance.
+	A timestamp in RFC3339 UTC "Zulu" format, with nanosecond
+	resolution and up to nine fractional digits. */
+	// +optional
+	StartTime *string `json:"startTime,omitempty"`
+}
+
 type InstanceNodesStatus struct {
 	/* Node identifying string. e.g. 'node-0', 'node-1'. */
 	// +optional
@@ -292,6 +313,12 @@ type InstanceNodesStatus struct {
 	/* Location of the node. */
 	// +optional
 	Zone *string `json:"zone,omitempty"`
+}
+
+type InstanceObservedStateStatus struct {
+	/* Output only. AUTH String set on the instance. This field will only be populated if auth_enabled is true. */
+	// +optional
+	AuthString *string `json:"authString,omitempty"`
 }
 
 type InstanceServerCaCertsStatus struct {
@@ -338,13 +365,21 @@ type RedisInstanceStatus struct {
 	// +optional
 	Host *string `json:"host,omitempty"`
 
+	/* Upcoming maintenance schedule. */
+	// +optional
+	MaintenanceSchedule []InstanceMaintenanceScheduleStatus `json:"maintenanceSchedule,omitempty"`
+
 	/* Output only. Info per node. */
 	// +optional
 	Nodes []InstanceNodesStatus `json:"nodes,omitempty"`
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+	/* The observed state of the underlying GCP resource. */
+	// +optional
+	ObservedState *InstanceObservedStateStatus `json:"observedState,omitempty"`
 
 	/* Output only. Cloud IAM identity used by import / export operations
 	to transfer data to/from Cloud Storage. Format is "serviceAccount:".
@@ -355,7 +390,7 @@ type RedisInstanceStatus struct {
 
 	/* The port number of the exposed Redis endpoint. */
 	// +optional
-	Port *int `json:"port,omitempty"`
+	Port *int64 `json:"port,omitempty"`
 
 	/* Output only. Hostname or IP address of the exposed readonly Redis endpoint. Standard tier only.
 	Targets all healthy replica nodes in instance. Replication is asynchronous and replica nodes
@@ -366,7 +401,7 @@ type RedisInstanceStatus struct {
 	/* Output only. The port number of the exposed readonly redis endpoint. Standard tier only.
 	Write requests should target 'port'. */
 	// +optional
-	ReadEndpointPort *int `json:"readEndpointPort,omitempty"`
+	ReadEndpointPort *int64 `json:"readEndpointPort,omitempty"`
 
 	/* List of server CA certificates for the instance. */
 	// +optional
@@ -375,6 +410,13 @@ type RedisInstanceStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpredisinstance;gcpredisinstances
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // RedisInstance is the Schema for the redis API
 // +k8s:openapi-gen=true

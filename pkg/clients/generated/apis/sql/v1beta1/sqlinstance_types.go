@@ -40,6 +40,12 @@ type InstanceActiveDirectoryConfig struct {
 	Domain string `json:"domain"`
 }
 
+type InstanceAdvancedMachineFeatures struct {
+	/* The number of threads per physical core. Can be 1 or 2. */
+	// +optional
+	ThreadsPerCore *int64 `json:"threadsPerCore,omitempty"`
+}
+
 type InstanceAuthorizedNetworks struct {
 	// +optional
 	ExpirationTime *string `json:"expirationTime,omitempty"`
@@ -74,18 +80,52 @@ type InstanceBackupConfiguration struct {
 	// +optional
 	StartTime *string `json:"startTime,omitempty"`
 
-	/* The number of days of transaction logs we retain for point in time restore, from 1-7. */
+	/* The number of days of transaction logs we retain for point in time restore, from 1-7. (For PostgreSQL Enterprise Plus instances, from 1 to 35.). */
 	// +optional
-	TransactionLogRetentionDays *int `json:"transactionLogRetentionDays,omitempty"`
+	TransactionLogRetentionDays *int64 `json:"transactionLogRetentionDays,omitempty"`
 }
 
 type InstanceBackupRetentionSettings struct {
 	/* Number of backups to retain. */
-	RetainedBackups int `json:"retainedBackups"`
+	RetainedBackups int64 `json:"retainedBackups"`
 
 	/* The unit that 'retainedBackups' represents. Defaults to COUNT. */
 	// +optional
 	RetentionUnit *string `json:"retentionUnit,omitempty"`
+}
+
+type InstanceBinLogCoordinates struct {
+	/* Name of the binary log file for a Cloud SQL instance. */
+	// +optional
+	BinLogFileName *string `json:"binLogFileName,omitempty"`
+
+	/* Position (offset) within the binary log file. */
+	// +optional
+	BinLogPosition *int64 `json:"binLogPosition,omitempty"`
+}
+
+type InstanceCloneSource struct {
+	/* Binary log coordinates, if specified, identify the position up to which the source instance is cloned. If not specified, the source instance is cloned up to the most recent binary log coordinates. */
+	// +optional
+	BinLogCoordinates *InstanceBinLogCoordinates `json:"binLogCoordinates,omitempty"`
+
+	/* (SQL Server only) Clone only the specified databases from the source instance. Clone all databases if empty. */
+	// +optional
+	DatabaseNames []string `json:"databaseNames,omitempty"`
+
+	/* Timestamp, if specified, identifies the time to which the source instance is cloned. */
+	// +optional
+	PointInTime *string `json:"pointInTime,omitempty"`
+
+	/* The source SQLInstance to clone */
+	// +optional
+	SqlInstanceRef *v1alpha1.ResourceRef `json:"sqlInstanceRef,omitempty"`
+}
+
+type InstanceDataCacheConfig struct {
+	/* Whether data cache is enabled for the instance. */
+	// +optional
+	DataCacheEnabled *bool `json:"dataCacheEnabled,omitempty"`
 }
 
 type InstanceDatabaseFlags struct {
@@ -114,11 +154,11 @@ type InstanceInsightsConfig struct {
 
 	/* Number of query execution plans captured by Insights per minute for all queries combined. Between 0 and 20. Default to 5. */
 	// +optional
-	QueryPlansPerMinute *int `json:"queryPlansPerMinute,omitempty"`
+	QueryPlansPerMinute *int64 `json:"queryPlansPerMinute,omitempty"`
 
 	/* Maximum query length stored in bytes. Between 256 and 4500. Default to 1024. */
 	// +optional
-	QueryStringLength *int `json:"queryStringLength,omitempty"`
+	QueryStringLength *int64 `json:"queryStringLength,omitempty"`
 
 	/* True if Query Insights will record application tags from query when enabled. */
 	// +optional
@@ -148,8 +188,16 @@ type InstanceIpConfiguration struct {
 	// +optional
 	PrivateNetworkRef *v1alpha1.ResourceRef `json:"privateNetworkRef,omitempty"`
 
+	/* PSC settings for a Cloud SQL instance. */
+	// +optional
+	PscConfig []InstancePscConfig `json:"pscConfig,omitempty"`
+
 	// +optional
 	RequireSsl *bool `json:"requireSsl,omitempty"`
+
+	/* Specify how SSL connection should be enforced in DB connections. This field provides more SSL enforcment options compared to requireSsl. To change this field, also set the correspoding value in requireSsl if it has been set. */
+	// +optional
+	SslMode *string `json:"sslMode,omitempty"`
 }
 
 type InstanceLocationPreference struct {
@@ -169,11 +217,11 @@ type InstanceLocationPreference struct {
 type InstanceMaintenanceWindow struct {
 	/* Day of week (1-7), starting on Monday. */
 	// +optional
-	Day *int `json:"day,omitempty"`
+	Day *int64 `json:"day,omitempty"`
 
 	/* Hour of day (0-23), ignored if day not set. */
 	// +optional
-	Hour *int `json:"hour,omitempty"`
+	Hour *int64 `json:"hour,omitempty"`
 
 	/* Receive updates earlier (canary) or later (stable). */
 	// +optional
@@ -204,7 +252,7 @@ type InstancePasswordValidationPolicy struct {
 
 	/* Minimum number of characters allowed. */
 	// +optional
-	MinLength *int `json:"minLength,omitempty"`
+	MinLength *int64 `json:"minLength,omitempty"`
 
 	/* Minimum interval after which the password can be changed. This flag is only supported for PostgresSQL. */
 	// +optional
@@ -212,7 +260,17 @@ type InstancePasswordValidationPolicy struct {
 
 	/* Number of previous passwords that cannot be reused. */
 	// +optional
-	ReuseInterval *int `json:"reuseInterval,omitempty"`
+	ReuseInterval *int64 `json:"reuseInterval,omitempty"`
+}
+
+type InstancePscConfig struct {
+	/* List of consumer projects that are allow-listed for PSC connections to this instance. This instance can be connected to with PSC from any network in these projects. Each consumer project in this list may be represented by a project number (numeric) or by a project id (alphanumeric). */
+	// +optional
+	AllowedConsumerProjects []string `json:"allowedConsumerProjects,omitempty"`
+
+	/* Whether PSC connectivity is enabled for this instance. */
+	// +optional
+	PscEnabled *bool `json:"pscEnabled,omitempty"`
 }
 
 type InstanceReplicaConfiguration struct {
@@ -230,19 +288,19 @@ type InstanceReplicaConfiguration struct {
 
 	/* Immutable. The number of seconds between connect retries. MySQL's default is 60 seconds. */
 	// +optional
-	ConnectRetryInterval *int `json:"connectRetryInterval,omitempty"`
+	ConnectRetryInterval *int64 `json:"connectRetryInterval,omitempty"`
 
 	/* Immutable. Path to a SQL file in Google Cloud Storage from which replica instances are created. Format is gs://bucket/filename. */
 	// +optional
 	DumpFilePath *string `json:"dumpFilePath,omitempty"`
 
-	/* Immutable. Specifies if the replica is the failover target. If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance. */
+	/* Immutable. Specifies if the replica is the failover target. If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance. Not supported for Postgres. */
 	// +optional
 	FailoverTarget *bool `json:"failoverTarget,omitempty"`
 
 	/* Immutable. Time in ms between replication heartbeats. */
 	// +optional
-	MasterHeartbeatPeriod *int `json:"masterHeartbeatPeriod,omitempty"`
+	MasterHeartbeatPeriod *int64 `json:"masterHeartbeatPeriod,omitempty"`
 
 	/* Immutable. Password for the replication connection. */
 	// +optional
@@ -279,17 +337,14 @@ type InstanceSettings struct {
 	// +optional
 	ActiveDirectoryConfig *InstanceActiveDirectoryConfig `json:"activeDirectoryConfig,omitempty"`
 
-	/* DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances.
-	Specifying this field has no-ops; it's recommended to remove this field from your configuration. */
+	// +optional
+	AdvancedMachineFeatures *InstanceAdvancedMachineFeatures `json:"advancedMachineFeatures,omitempty"`
+
+	/* DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances. Specifying this field has no-ops; it's recommended to remove this field from your configuration. */
 	// +optional
 	AuthorizedGaeApplications []string `json:"authorizedGaeApplications,omitempty"`
 
-	/* The availability type of the Cloud SQL instance, high availability
-	(REGIONAL) or single zone (ZONAL). For all instances, ensure that
-	settings.backup_configuration.enabled is set to true.
-	For MySQL instances, ensure that settings.backup_configuration.binary_log_enabled is set to true.
-	For Postgres instances, ensure that settings.backup_configuration.point_in_time_recovery_enabled
-	is set to true. Defaults to ZONAL. */
+	/* The availability type of the Cloud SQL instance, high availability (REGIONAL) or single zone (ZONAL). For all instances, ensure that settings.backup_configuration.enabled is set to true. For MySQL instances, ensure that settings.backup_configuration.binary_log_enabled is set to true. For Postgres instances, ensure that settings.backup_configuration.point_in_time_recovery_enabled is set to true. Defaults to ZONAL. */
 	// +optional
 	AvailabilityType *string `json:"availabilityType,omitempty"`
 
@@ -304,10 +359,13 @@ type InstanceSettings struct {
 	// +optional
 	ConnectorEnforcement *string `json:"connectorEnforcement,omitempty"`
 
-	/* DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances.
-	Specifying this field has no-ops; it's recommended to remove this field from your configuration. */
+	/* DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances. Specifying this field has no-ops; it's recommended to remove this field from your configuration. */
 	// +optional
 	CrashSafeReplication *bool `json:"crashSafeReplication,omitempty"`
+
+	/* Data cache configurations. */
+	// +optional
+	DataCacheConfig *InstanceDataCacheConfig `json:"dataCacheConfig,omitempty"`
 
 	// +optional
 	DatabaseFlags []InstanceDatabaseFlags `json:"databaseFlags,omitempty"`
@@ -325,15 +383,19 @@ type InstanceSettings struct {
 
 	/* The maximum size, in GB, to which storage capacity can be automatically increased. The default value is 0, which specifies that there is no limit. */
 	// +optional
-	DiskAutoresizeLimit *int `json:"diskAutoresizeLimit,omitempty"`
+	DiskAutoresizeLimit *int64 `json:"diskAutoresizeLimit,omitempty"`
 
 	/* The size of data disk, in GB. Size of a running instance cannot be reduced but can be increased. The minimum value is 10GB. */
 	// +optional
-	DiskSize *int `json:"diskSize,omitempty"`
+	DiskSize *int64 `json:"diskSize,omitempty"`
 
 	/* Immutable. The type of data disk: PD_SSD or PD_HDD. Defaults to PD_SSD. */
 	// +optional
 	DiskType *string `json:"diskType,omitempty"`
+
+	/* The edition of the instance, can be ENTERPRISE or ENTERPRISE_PLUS. */
+	// +optional
+	Edition *string `json:"edition,omitempty"`
 
 	/* Configuration of Query Insights. */
 	// +optional
@@ -356,8 +418,7 @@ type InstanceSettings struct {
 	// +optional
 	PricingPlan *string `json:"pricingPlan,omitempty"`
 
-	/* DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances.
-	Specifying this field has no-ops; it's recommended to remove this field from your configuration. */
+	/* DEPRECATED. This property is only applicable to First Generation instances, and First Generation instances are now deprecated. see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances. Specifying this field has no-ops; it's recommended to remove this field from your configuration. */
 	// +optional
 	ReplicationType *string `json:"replicationType,omitempty"`
 
@@ -389,11 +450,15 @@ type InstanceSqlServerAuditConfig struct {
 type InstanceValueFrom struct {
 	/* Reference to a value with the given key in the given Secret in the resource's namespace. */
 	// +optional
-	SecretKeyRef *v1alpha1.ResourceRef `json:"secretKeyRef,omitempty"`
+	SecretKeyRef *v1alpha1.SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
 type SQLInstanceSpec struct {
-	/* The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions. */
+	/* Create this database as a clone of a source instance. Immutable. */
+	// +optional
+	CloneSource *InstanceCloneSource `json:"cloneSource,omitempty"`
+
+	/* The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions. */
 	// +optional
 	DatabaseVersion *string `json:"databaseVersion,omitempty"`
 
@@ -476,6 +541,10 @@ type SQLInstanceStatus struct {
 	// +optional
 	ConnectionName *string `json:"connectionName,omitempty"`
 
+	/* The dns name of the instance. */
+	// +optional
+	DnsName *string `json:"dnsName,omitempty"`
+
 	// +optional
 	FirstIpAddress *string `json:"firstIpAddress,omitempty"`
 
@@ -488,10 +557,14 @@ type SQLInstanceStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	// +optional
 	PrivateIpAddress *string `json:"privateIpAddress,omitempty"`
+
+	/* The link to service attachment of PSC instance. */
+	// +optional
+	PscServiceAttachmentLink *string `json:"pscServiceAttachmentLink,omitempty"`
 
 	// +optional
 	PublicIpAddress *string `json:"publicIpAddress,omitempty"`
@@ -510,6 +583,13 @@ type SQLInstanceStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpsqlinstance;gcpsqlinstances
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // SQLInstance is the Schema for the sql API
 // +k8s:openapi-gen=true

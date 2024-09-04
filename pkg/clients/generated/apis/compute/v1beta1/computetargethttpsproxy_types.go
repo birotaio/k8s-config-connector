@@ -36,17 +36,30 @@ import (
 )
 
 type ComputeTargetHTTPSProxySpec struct {
-	/* Only the `external` field is supported to configure the reference.
+	// +optional
+	CertificateManagerCertificates []v1alpha1.ResourceRef `json:"certificateManagerCertificates,omitempty"`
 
-	A reference to the CertificateMap resource uri that identifies a
+	/* A reference to the CertificateMap resource uri that identifies a
 	certificate map associated with the given target proxy. This field
-	can only be set for global target proxies. */
+	can only be set for global target proxies. This field is only supported
+	for EXTERNAL and EXTERNAL_MANAGED load balancing schemes.
+	For INTERNAL_MANAGED, use certificateManagerCertificates instead.
+	sslCertificates and certificateMap fields can not be defined together. */
 	// +optional
 	CertificateMapRef *v1alpha1.ResourceRef `json:"certificateMapRef,omitempty"`
 
 	/* Immutable. An optional description of this resource. */
 	// +optional
 	Description *string `json:"description,omitempty"`
+
+	/* Immutable. Specifies how long to keep a connection open, after completing a response,
+	while there is no matching traffic (in seconds). If an HTTP keepalive is
+	not specified, a default value (610 seconds) will be used. For Global
+	external HTTP(S) load balancer, the minimum allowed value is 5 seconds and
+	the maximum allowed value is 1200 seconds. For Global external HTTP(S)
+	load balancer (classic), this option is not available publicly. */
+	// +optional
+	HttpKeepAliveTimeoutSec *int64 `json:"httpKeepAliveTimeoutSec,omitempty"`
 
 	/* Location represents the geographical location of the ComputeTargetHTTPSProxy. Specify a region name or "global" for global resources. Reference: GCP definition of regions/zones (https://cloud.google.com/compute/docs/regions-zones/) */
 	Location string `json:"location"`
@@ -59,14 +72,25 @@ type ComputeTargetHTTPSProxySpec struct {
 	/* Specifies the QUIC override policy for this resource. This determines
 	whether the load balancer will attempt to negotiate QUIC with clients
 	or not. Can specify one of NONE, ENABLE, or DISABLE. If NONE is
-	specified, uses the QUIC policy with no user overrides, which is
-	equivalent to DISABLE. Default value: "NONE" Possible values: ["NONE", "ENABLE", "DISABLE"]. */
+	specified, Google manages whether QUIC is used. Default value: "NONE" Possible values: ["NONE", "ENABLE", "DISABLE"]. */
 	// +optional
 	QuicOverride *string `json:"quicOverride,omitempty"`
 
 	/* Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default. */
 	// +optional
 	ResourceID *string `json:"resourceID,omitempty"`
+
+	/* Immutable. A URL referring to a networksecurity.ServerTlsPolicy
+	resource that describes how the proxy should authenticate inbound
+	traffic. serverTlsPolicy only applies to a global TargetHttpsProxy
+	attached to globalForwardingRules with the loadBalancingScheme
+	set to INTERNAL_SELF_MANAGED or EXTERNAL or EXTERNAL_MANAGED.
+	For details which ServerTlsPolicy resources are accepted with
+	INTERNAL_SELF_MANAGED and which with EXTERNAL, EXTERNAL_MANAGED
+	loadBalancingScheme consult ServerTlsPolicy documentation.
+	If left blank, communications are not encrypted. */
+	// +optional
+	ServerTlsPolicyRef *v1alpha1.ResourceRef `json:"serverTlsPolicyRef,omitempty"`
 
 	// +optional
 	SslCertificates []v1alpha1.ResourceRef `json:"sslCertificates,omitempty"`
@@ -93,11 +117,11 @@ type ComputeTargetHTTPSProxyStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	/* The unique identifier for the resource. */
 	// +optional
-	ProxyId *int `json:"proxyId,omitempty"`
+	ProxyId *int64 `json:"proxyId,omitempty"`
 
 	// +optional
 	SelfLink *string `json:"selfLink,omitempty"`
@@ -105,6 +129,13 @@ type ComputeTargetHTTPSProxyStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpcomputetargethttpsproxy;gcpcomputetargethttpsproxies
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // ComputeTargetHTTPSProxy is the Schema for the compute API
 // +k8s:openapi-gen=true

@@ -187,7 +187,7 @@ func ResolveReferenceObject(resourceRefValRaw map[string]interface{},
 			}
 			return nil, err
 		}
-		return nil, fmt.Errorf("error getting referenced resource from API server: %v", err)
+		return nil, fmt.Errorf("error getting referenced resource from API server: %w", err)
 	}
 
 	if !deleting && !k8s.IsResourceReady(&refResource.Resource) {
@@ -217,7 +217,11 @@ func resolveTargetFieldValue(r *Resource, tc corekccv1alpha1.TypeConfig) (interf
 		if val, exists, _ := unstructured.NestedString(r.Spec, strings.Split(key, ".")...); exists {
 			return val, nil
 		}
-		if val, exists, _ := unstructured.NestedString(r.Status, strings.Split(key, ".")...); exists {
+		if val, exists, _ := unstructured.NestedString(r.GetStatusOrObservedState(), strings.Split(key, ".")...); exists {
+			return val, nil
+		}
+		// Check 'status.observedState' for the observed, optional 'spec' fields.
+		if val, exists, _ := unstructured.NestedString(getObservedStateFromStatus(r.Status), strings.Split(key, ".")...); exists {
 			return val, nil
 		}
 		// For now, we do not support recursive target field resolution (i.e. targeting a field in

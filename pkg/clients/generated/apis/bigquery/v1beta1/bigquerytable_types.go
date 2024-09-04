@@ -40,6 +40,14 @@ type TableAvroOptions struct {
 	UseAvroLogicalTypes bool `json:"useAvroLogicalTypes"`
 }
 
+type TableColumnReferences struct {
+	/* The column in the primary key that are referenced by the referencingColumn. */
+	ReferencedColumn string `json:"referencedColumn"`
+
+	/* The column that composes the foreign key. */
+	ReferencingColumn string `json:"referencingColumn"`
+}
+
 type TableCsvOptions struct {
 	/* Indicates if BigQuery should accept rows that are missing trailing optional columns. */
 	// +optional
@@ -61,7 +69,7 @@ type TableCsvOptions struct {
 
 	/* The number of rows at the top of a CSV file that BigQuery will skip when reading the data. */
 	// +optional
-	SkipLeadingRows *int `json:"skipLeadingRows,omitempty"`
+	SkipLeadingRows *int64 `json:"skipLeadingRows,omitempty"`
 }
 
 type TableEncryptionConfiguration struct {
@@ -92,6 +100,10 @@ type TableExternalDataConfiguration struct {
 	// +optional
 	CsvOptions *TableCsvOptions `json:"csvOptions,omitempty"`
 
+	/* Specifies how source URIs are interpreted for constructing the file set to load.  By default source URIs are expanded against the underlying storage.  Other options include specifying manifest files. Only applicable to object storage systems. */
+	// +optional
+	FileSetSpecType *string `json:"fileSetSpecType,omitempty"`
+
 	/* Additional options if source_format is set to "GOOGLE_SHEETS". */
 	// +optional
 	GoogleSheetsOptions *TableGoogleSheetsOptions `json:"googleSheetsOptions,omitempty"`
@@ -104,9 +116,25 @@ type TableExternalDataConfiguration struct {
 	// +optional
 	IgnoreUnknownValues *bool `json:"ignoreUnknownValues,omitempty"`
 
+	/* Additional properties to set if sourceFormat is set to JSON.". */
+	// +optional
+	JsonOptions *TableJsonOptions `json:"jsonOptions,omitempty"`
+
 	/* The maximum number of bad records that BigQuery can ignore when reading data. */
 	// +optional
-	MaxBadRecords *int `json:"maxBadRecords,omitempty"`
+	MaxBadRecords *int64 `json:"maxBadRecords,omitempty"`
+
+	/* Metadata Cache Mode for the table. Set this to enable caching of metadata from external data source. */
+	// +optional
+	MetadataCacheMode *string `json:"metadataCacheMode,omitempty"`
+
+	/* Object Metadata is used to create Object Tables. Object Tables contain a listing of objects (with their metadata) found at the sourceUris. If ObjectMetadata is set, sourceFormat should be omitted. */
+	// +optional
+	ObjectMetadata *string `json:"objectMetadata,omitempty"`
+
+	/* Additional properties to set if sourceFormat is set to PARQUET.". */
+	// +optional
+	ParquetOptions *TableParquetOptions `json:"parquetOptions,omitempty"`
 
 	/* When creating an external table, the user can provide a reference file with the table schema. This is enabled for the following formats: AVRO, PARQUET, ORC. */
 	// +optional
@@ -116,11 +144,24 @@ type TableExternalDataConfiguration struct {
 	// +optional
 	Schema *string `json:"schema,omitempty"`
 
-	/* The data format. Supported values are: "CSV", "GOOGLE_SHEETS", "NEWLINE_DELIMITED_JSON", "AVRO", "PARQUET", "ORC" and "DATASTORE_BACKUP". To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly". */
-	SourceFormat string `json:"sourceFormat"`
+	/* Please see sourceFormat under ExternalDataConfiguration in Bigquery's public API documentation (https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#externaldataconfiguration) for supported formats. To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly". */
+	// +optional
+	SourceFormat *string `json:"sourceFormat,omitempty"`
 
 	/* A list of the fully-qualified URIs that point to your data in Google Cloud. */
 	SourceUris []string `json:"sourceUris"`
+}
+
+type TableForeignKeys struct {
+	/* The pair of the foreign key column and primary key column. */
+	ColumnReferences TableColumnReferences `json:"columnReferences"`
+
+	/* Set only if the foreign key constraint is named. */
+	// +optional
+	Name *string `json:"name,omitempty"`
+
+	/* The table that holds the primary key and is referenced by this foreign key. */
+	ReferencedTable TableReferencedTable `json:"referencedTable"`
 }
 
 type TableGoogleSheetsOptions struct {
@@ -130,7 +171,7 @@ type TableGoogleSheetsOptions struct {
 
 	/* The number of rows at the top of the sheet that BigQuery will skip when reading the data. At least one of range or skip_leading_rows must be set. */
 	// +optional
-	SkipLeadingRows *int `json:"skipLeadingRows,omitempty"`
+	SkipLeadingRows *int64 `json:"skipLeadingRows,omitempty"`
 }
 
 type TableHivePartitioningOptions struct {
@@ -147,7 +188,17 @@ type TableHivePartitioningOptions struct {
 	SourceUriPrefix *string `json:"sourceUriPrefix,omitempty"`
 }
 
+type TableJsonOptions struct {
+	/* The character encoding of the data. The supported values are UTF-8, UTF-16BE, UTF-16LE, UTF-32BE, and UTF-32LE. The default value is UTF-8. */
+	// +optional
+	Encoding *string `json:"encoding,omitempty"`
+}
+
 type TableMaterializedView struct {
+	/* Immutable. Allow non incremental materialized view definition. The default value is false. */
+	// +optional
+	AllowNonIncrementalDefinition *bool `json:"allowNonIncrementalDefinition,omitempty"`
+
 	/* Specifies if BigQuery should automatically refresh materialized view when the base table is updated. The default is true. */
 	// +optional
 	EnableRefresh *bool `json:"enableRefresh,omitempty"`
@@ -157,18 +208,33 @@ type TableMaterializedView struct {
 
 	/* Specifies maximum frequency at which this materialized view will be refreshed. The default is 1800000. */
 	// +optional
-	RefreshIntervalMs *int `json:"refreshIntervalMs,omitempty"`
+	RefreshIntervalMs *int64 `json:"refreshIntervalMs,omitempty"`
+}
+
+type TableParquetOptions struct {
+	/* Indicates whether to use schema inference specifically for Parquet LIST logical type. */
+	// +optional
+	EnableListInference *bool `json:"enableListInference,omitempty"`
+
+	/* Indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default. */
+	// +optional
+	EnumAsString *bool `json:"enumAsString,omitempty"`
+}
+
+type TablePrimaryKey struct {
+	/* The columns that are composed of the primary key constraint. */
+	Columns []string `json:"columns"`
 }
 
 type TableRange struct {
 	/* End of the range partitioning, exclusive. */
-	End int `json:"end"`
+	End int64 `json:"end"`
 
 	/* The width of each range within the partition. */
-	Interval int `json:"interval"`
+	Interval int64 `json:"interval"`
 
 	/* Start of the range partitioning, inclusive. */
-	Start int `json:"start"`
+	Start int64 `json:"start"`
 }
 
 type TableRangePartitioning struct {
@@ -179,16 +245,37 @@ type TableRangePartitioning struct {
 	Range TableRange `json:"range"`
 }
 
+type TableReferencedTable struct {
+	/* The ID of the dataset containing this table. */
+	DatasetId string `json:"datasetId"`
+
+	/* The ID of the project containing this table. */
+	ProjectId string `json:"projectId"`
+
+	/* The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Certain operations allow suffixing of the table ID with a partition decorator, such as sample_table$20190123. */
+	TableId string `json:"tableId"`
+}
+
+type TableTableConstraints struct {
+	/* Present only if the table has a foreign key. The foreign key is not enforced. */
+	// +optional
+	ForeignKeys []TableForeignKeys `json:"foreignKeys,omitempty"`
+
+	/* Represents a primary key constraint on a table's columns. Present only if the table has a primary key. The primary key is not enforced. */
+	// +optional
+	PrimaryKey *TablePrimaryKey `json:"primaryKey,omitempty"`
+}
+
 type TableTimePartitioning struct {
 	/* Number of milliseconds for which to keep the storage for a partition. */
 	// +optional
-	ExpirationMs *int `json:"expirationMs,omitempty"`
+	ExpirationMs *int64 `json:"expirationMs,omitempty"`
 
 	/* Immutable. The field used to determine how to create a time-based partition. If time-based partitioning is enabled without this value, the table is partitioned based on the load time. */
 	// +optional
 	Field *string `json:"field,omitempty"`
 
-	/* If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. */
+	/* DEPRECATED. This field is deprecated; please use the top level field with the same name instead. If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. */
 	// +optional
 	RequirePartitionFilter *bool `json:"requirePartitionFilter,omitempty"`
 
@@ -222,7 +309,7 @@ type BigQueryTableSpec struct {
 
 	/* The time when this table expires, in milliseconds since the epoch. If not present, the table will persist indefinitely. Expired tables will be deleted and their storage reclaimed. */
 	// +optional
-	ExpirationTime *int `json:"expirationTime,omitempty"`
+	ExpirationTime *int64 `json:"expirationTime,omitempty"`
 
 	/* Describes the data format, location, and other properties of a table stored outside of BigQuery. By defining these properties, the data source can then be queried as if it were a standard BigQuery table. */
 	// +optional
@@ -236,9 +323,17 @@ type BigQueryTableSpec struct {
 	// +optional
 	MaterializedView *TableMaterializedView `json:"materializedView,omitempty"`
 
+	/* The maximum staleness of data that could be returned when the table (or stale MV) is queried. Staleness encoded as a string encoding of sql IntervalValue type. */
+	// +optional
+	MaxStaleness *string `json:"maxStaleness,omitempty"`
+
 	/* If specified, configures range-based partitioning for this table. */
 	// +optional
 	RangePartitioning *TableRangePartitioning `json:"rangePartitioning,omitempty"`
+
+	/* If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. */
+	// +optional
+	RequirePartitionFilter *bool `json:"requirePartitionFilter,omitempty"`
 
 	/* Immutable. Optional. The tableId of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default. */
 	// +optional
@@ -247,6 +342,10 @@ type BigQueryTableSpec struct {
 	/* A JSON schema for the table. */
 	// +optional
 	Schema *string `json:"schema,omitempty"`
+
+	/* Defines the primary key and foreign keys. */
+	// +optional
+	TableConstraints *TableTableConstraints `json:"tableConstraints,omitempty"`
 
 	/* If specified, configures time-based partitioning for this table. */
 	// +optional
@@ -263,7 +362,7 @@ type BigQueryTableStatus struct {
 	Conditions []v1alpha1.Condition `json:"conditions,omitempty"`
 	/* The time when this table was created, in milliseconds since the epoch. */
 	// +optional
-	CreationTime *int `json:"creationTime,omitempty"`
+	CreationTime *int64 `json:"creationTime,omitempty"`
 
 	/* A hash of the resource. */
 	// +optional
@@ -271,7 +370,7 @@ type BigQueryTableStatus struct {
 
 	/* The time when this table was last modified, in milliseconds since the epoch. */
 	// +optional
-	LastModifiedTime *int `json:"lastModifiedTime,omitempty"`
+	LastModifiedTime *int64 `json:"lastModifiedTime,omitempty"`
 
 	/* The geographic location where the table resides. This value is inherited from the dataset. */
 	// +optional
@@ -279,19 +378,19 @@ type BigQueryTableStatus struct {
 
 	/* The geographic location where the table resides. This value is inherited from the dataset. */
 	// +optional
-	NumBytes *int `json:"numBytes,omitempty"`
+	NumBytes *int64 `json:"numBytes,omitempty"`
 
 	/* The number of bytes in the table that are considered "long-term storage". */
 	// +optional
-	NumLongTermBytes *int `json:"numLongTermBytes,omitempty"`
+	NumLongTermBytes *int64 `json:"numLongTermBytes,omitempty"`
 
 	/* The number of rows of data in this table, excluding any data in the streaming buffer. */
 	// +optional
-	NumRows *int `json:"numRows,omitempty"`
+	NumRows *int64 `json:"numRows,omitempty"`
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	/* The URI of the created resource. */
 	// +optional
@@ -304,6 +403,13 @@ type BigQueryTableStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpbigquerytable;gcpbigquerytables
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // BigQueryTable is the Schema for the bigquery API
 // +k8s:openapi-gen=true

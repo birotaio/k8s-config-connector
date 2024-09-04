@@ -88,9 +88,6 @@
     <tr>
         <td><code>cnrm.cloud.google.com/project-id</code></td>
     </tr>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
 </tbody>
 </table>
 
@@ -98,6 +95,7 @@
 ### Spec
 #### Schema
 ```yaml
+changeStreamRetention: string
 columnFamily:
 - family: string
 deletionProtection: string
@@ -117,6 +115,16 @@ splitKeys:
     </tr>
 </thead>
 <tbody>
+    <tr>
+        <td>
+            <p><code>changeStreamRetention</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days.{% endverbatim %}</p>
+        </td>
+    </tr>
     <tr>
         <td>
             <p><code>columnFamily</code></p>
@@ -231,7 +239,7 @@ splitKeys:
 </table>
 
 
-<p>{% verbatim %}* Field is required when parent field is specified{% endverbatim %}</p>
+<p>* Field is required when parent field is specified</p>
 
 
 ### Status
@@ -358,5 +366,7 @@ spec:
     numNodes: 3
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}

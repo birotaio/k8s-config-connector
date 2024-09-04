@@ -20,14 +20,17 @@ import (
 	"encoding/base64"
 	"net/http"
 	"testing"
+	"time"
 
-	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp"
-	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/pkg/storage"
+	cloudresourcemanagerv1 "google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/option"
 	secretmanager "google.golang.org/api/secretmanager/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/pkg/storage"
 )
 
 func TestSecretManagerSecretVersion(t *testing.T) {
@@ -45,11 +48,37 @@ func TestSecretManagerSecretVersion(t *testing.T) {
 		Transport: mockCloud,
 	}
 
+	t.Logf("creating project")
+	crm, err := cloudresourcemanagerv1.NewService(ctx, option.WithHTTPClient(httpClient), option.WithAPIKey("fake"))
+	if err != nil {
+		t.Fatalf("error building cloudresourcemanagerv1 client: %v", err)
+	}
+	op, err := crm.Projects.Create(&cloudresourcemanagerv1.Project{ProjectId: "mock-project"}).Context(ctx).Do()
+	if err != nil {
+		t.Fatalf("error creating project: %v", err)
+	}
+
+	for i := 0; i < 10; i++ {
+		if op.Done {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+		latest, err := crm.Operations.Get(op.Name).Context(ctx).Do()
+		if err != nil {
+			t.Fatalf("error getting operation %q: %v", op.Name, err)
+		}
+		op = latest
+	}
+	if !op.Done {
+		t.Fatalf("expected mock create project operation to be done")
+	}
+
+	t.Logf("creating secret")
 	client, err := secretmanager.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		t.Fatalf("secretmanager.NewService failed: %v", err)
 	}
-	parent := "projects/test-project"
+	parent := "projects/mock-project"
 	create := &secretmanager.Secret{}
 	secretID := "testsecret"
 	created, err := client.Projects.Secrets.Create(parent, create).SecretId(secretID).Context(ctx).Do()

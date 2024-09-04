@@ -45,13 +45,19 @@ import (
 
 var (
 	// SchemeGroupVersion is the group version used to register these objects.
-	SchemeGroupVersion = schema.GroupVersion{Group: "bigqueryreservation.cnrm.cloud.google.com", Version: "v1beta1"}
+	SchemeGroupVersion = schema.GroupVersion{Group: "bigqueryreservation.cnrm.cloud.google.com", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
 
 	// AddToScheme is a global function that registers this API group & version to a scheme
 	AddToScheme = SchemeBuilder.AddToScheme
+
+	BigQueryReservationCapacityCommitmentGVK = schema.GroupVersionKind{
+		Group:   SchemeGroupVersion.Group,
+		Version: SchemeGroupVersion.Version,
+		Kind:    reflect.TypeOf(BigQueryReservationCapacityCommitment{}).Name(),
+	}
 
 	BigQueryReservationReservationGVK = schema.GroupVersionKind{
 		Group:   SchemeGroupVersion.Group,

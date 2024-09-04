@@ -16,6 +16,7 @@ package resourcefixture
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/core/v1alpha1"
@@ -29,6 +30,7 @@ import (
 	testyaml "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/yaml"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // GetFilteredSetCover is an implementation of https://en.wikipedia.org/wiki/Set_cover_problem#Greedy_algorithm:
@@ -56,7 +58,7 @@ func GetBasicTypeSetCover(t *testing.T) []ResourceFixture {
 	heavyFilter := func(fixture ResourceFixture) bool {
 		// Skip v1alpha1 CRDs when testing set cover as they may not yet be
 		// correctly supported.
-		return fixture.GVK.Version == k8s.KCCAPIVersion
+		return fixture.GVK.Version == k8s.KCCAPIVersionV1Beta1
 	}
 	return GetFilteredSetCover(t, lightFilter, heavyFilter)
 }
@@ -80,23 +82,33 @@ func addResourceConfig(t *testing.T, smLoader *servicemappingloader.ServiceMappi
 		return
 	}
 	rc := testservicemapping.GetResourceConfig(t, smLoader, u)
-	resourceConfigIds[GetUniqueResourceConfigId(*rc)] = true
+	resourceConfigIds[GetUniqueResourceConfigID(*rc)] = true
+}
+
+// TODO(yuwenma): This is a temp fix. We should use a more generic approach.
+func IsPureDirectResource(gk schema.GroupKind) bool {
+	pureDirectResources := []string{
+		"CloudBuildWorkerPool",
+	}
+	return slices.Contains(pureDirectResources, gk.Kind)
 }
 
 func ShouldHaveResourceConfig(u *unstructured.Unstructured, serviceMetadataLoader dclmetadata.ServiceMetadataLoader) bool {
 	return k8s.IsManagedByKCC(u.GroupVersionKind()) &&
 		!iamapi.IsHandwrittenIAM(u.GroupVersionKind()) &&
-		!dclmetadata.IsDCLBasedResourceKind(u.GroupVersionKind(), serviceMetadataLoader)
+		!dclmetadata.IsDCLBasedResourceKind(u.GroupVersionKind(), serviceMetadataLoader) &&
+		!IsPureDirectResource(u.GroupVersionKind().GroupKind())
 }
 
 // returns an id that is unique for each resource config
-func GetUniqueResourceConfigId(rc v1alpha1.ResourceConfig) string {
+func GetUniqueResourceConfigID(rc v1alpha1.ResourceConfig) string {
 	if rc.Locationality != "" {
 		return fmt.Sprintf("%v:%v", rc.Kind, rc.Locationality)
 	}
 	if rc.Name == "google_compute_instance" || rc.Name == "google_compute_instance_from_template" {
 		return fmt.Sprintf("%v:%v", rc.Kind, rc.Name)
 	}
+
 	return rc.Kind
 }
 
@@ -124,26 +136,26 @@ func buildResourceFixtureRCIdGraph(t *testing.T, smLoader *servicemappingloader.
 
 func findSetCover(fixtureRCIds []fixtureRCId) []fixtureRCId {
 	minFixtureSet := make([]fixtureRCId, 0)
-	rcIdToCovered := make(map[string]bool)
+	rcIDToCovered := make(map[string]bool)
 	for _, f := range fixtureRCIds {
-		for rcId := range f.RCIds {
-			rcIdToCovered[rcId] = false
+		for rcID := range f.RCIds {
+			rcIDToCovered[rcID] = false
 		}
 	}
 	coverCount := 0
-	for coverCount < len(rcIdToCovered) {
+	for coverCount < len(rcIDToCovered) {
 		// find set with maximum number uncovered
 		var maxUncoverFixture fixtureRCId
 		maxUncoverFixtureNewCoverCount := 0
 		for _, fk := range fixtureRCIds {
-			uncoverCount := getUncoveredCount(fk, rcIdToCovered)
+			uncoverCount := getUncoveredCount(fk, rcIDToCovered)
 			if uncoverCount > maxUncoverFixtureNewCoverCount {
 				maxUncoverFixtureNewCoverCount = uncoverCount
 				maxUncoverFixture = fk
 			}
 		}
-		for rcId := range maxUncoverFixture.RCIds {
-			rcIdToCovered[rcId] = true
+		for rcID := range maxUncoverFixture.RCIds {
+			rcIDToCovered[rcID] = true
 		}
 		coverCount += maxUncoverFixtureNewCoverCount
 		minFixtureSet = append(minFixtureSet, maxUncoverFixture)
@@ -151,15 +163,15 @@ func findSetCover(fixtureRCIds []fixtureRCId) []fixtureRCId {
 	return minFixtureSet
 }
 
-func getUncoveredCount(f fixtureRCId, rcIdToCovered map[string]bool) int {
+func getUncoveredCount(f fixtureRCId, rcIDToCovered map[string]bool) int {
 	count := 0
 	for r := range f.RCIds {
-		covered, ok := rcIdToCovered[r]
+		covered, ok := rcIDToCovered[r]
 		if !ok {
 			panic(fmt.Sprintf("expected resource config id '%v' to be in the map", r))
 		}
 		if !covered {
-			count += 1
+			count++
 		}
 	}
 	return count

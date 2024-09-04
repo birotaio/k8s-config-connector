@@ -26,7 +26,8 @@ type ManagementConflictPreventionPolicy string
 // TODO: clean up old conditions used in handcrafted controllers
 const (
 	CNRMGroup                            = "cnrm.cloud.google.com"
-	ApiDomainSuffix                      = ".cnrm.cloud.google.com"
+	CNRMTestGroup                        = "test.cnrm.cloud.google.com"
+	APIDomainSuffix                      = ".cnrm.cloud.google.com"
 	SystemNamespace                      = "cnrm-system"
 	ControllerManagerNamePrefix          = "cnrm-controller-manager"
 	ControllerMaxConcurrentReconciles    = 20
@@ -77,8 +78,9 @@ const (
 	ManagementConflictPreventionPolicyResource = "resource"
 
 	// State into spec annotation values
-	StateMergeIntoSpec = "merge"
-	StateAbsentInSpec  = "absent"
+	StateMergeIntoSpec               = "merge"
+	StateAbsentInSpec                = "absent"
+	StateIntoSpecDefaultValueV1Beta1 = StateMergeIntoSpec
 
 	// Core kubernetes constants
 	LastAppliedConfigurationAnnotation = "kubectl.kubernetes.io/last-applied-configuration"
@@ -87,10 +89,14 @@ const (
 	ResourceIDFieldName = "resourceID"
 	ResourceIDFieldPath = "spec." + ResourceIDFieldName
 
+	// selfLink may not present in every KRM resource status.
+	SelfLinkFieldName      = "selfLink"
+	ObservedStateFieldName = "observedState"
+
 	StabilityLevelStable = "stable"
 	StabilityLevelAlpha  = "alpha"
 
-	KCCAPIVersion         = "v1beta1"
+	KCCAPIVersionV1Beta1  = "v1beta1"
 	KCCAPIVersionV1Alpha1 = "v1alpha1"
 )
 
@@ -107,6 +113,9 @@ var (
 		FolderIDAnnotation,
 		OrgIDAnnotation,
 	}
+
+	// Internal Annotation to force reconciliation
+	InternalForceReconcileAnnotation = CNRMTestGroup + "/reconcile-cookie"
 
 	ManagementConflictPreventionPolicyAnnotation               = "management-conflict-prevention-policy"
 	ManagementConflictPreventionPolicyFullyQualifiedAnnotation = FormatAnnotation(ManagementConflictPreventionPolicyAnnotation)

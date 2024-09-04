@@ -77,20 +77,6 @@
 ## Custom Resource Definition Properties
 
 
-### Annotations
-<table class="properties responsive">
-<thead>
-    <tr>
-        <th colspan="2">Fields</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>cnrm.cloud.google.com/state-into-spec</code></td>
-    </tr>
-</tbody>
-</table>
-
 
 ### Spec
 #### Schema
@@ -117,7 +103,7 @@ resourceID: string
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}The location for the Namespace.
+            <p>{% verbatim %}Immutable. The location for the Namespace.
 A full list of valid locations can be found by running
 'gcloud beta service-directory locations list'.{% endverbatim %}</p>
         </td>
@@ -293,6 +279,8 @@ spec:
     external: ${PROJECT_ID?}
 ```
 
+
+Note: If you have any trouble with instantiating the resource, refer to <a href="/config-connector/docs/troubleshooting">Troubleshoot Config Connector</a>.
 
 {% endblock %}
 

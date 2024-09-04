@@ -35,6 +35,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type SubscriptionAvroConfig struct {
+	/* When true, write the subscription name, messageId, publishTime, attributes, and orderingKey as additional fields in the output. */
+	// +optional
+	WriteMetadata *bool `json:"writeMetadata,omitempty"`
+}
+
 type SubscriptionBigqueryConfig struct {
 	/* When true and useTopicSchema is true, any fields that are a part of the topic schema that are not part of the BigQuery table schema are dropped when writing to BigQuery.
 	Otherwise, the schemas must be kept in sync and any messages with extra fields are not written and remain in the subscription's backlog. */
@@ -54,6 +60,38 @@ type SubscriptionBigqueryConfig struct {
 	WriteMetadata *bool `json:"writeMetadata,omitempty"`
 }
 
+type SubscriptionCloudStorageConfig struct {
+	/* If set, message data will be written to Cloud Storage in Avro format. */
+	// +optional
+	AvroConfig *SubscriptionAvroConfig `json:"avroConfig,omitempty"`
+
+	/* User-provided name for the Cloud Storage bucket. The bucket must be created by the user. The bucket name must be without any prefix like "gs://". */
+	BucketRef v1alpha1.ResourceRef `json:"bucketRef"`
+
+	/* User-provided prefix for Cloud Storage filename. */
+	// +optional
+	FilenamePrefix *string `json:"filenamePrefix,omitempty"`
+
+	/* User-provided suffix for Cloud Storage filename. Must not end in "/". */
+	// +optional
+	FilenameSuffix *string `json:"filenameSuffix,omitempty"`
+
+	/* The maximum bytes that can be written to a Cloud Storage file before a new file is created. Min 1 KB, max 10 GiB.
+	The maxBytes limit may be exceeded in cases where messages are larger than the limit. */
+	// +optional
+	MaxBytes *int64 `json:"maxBytes,omitempty"`
+
+	/* The maximum duration that can elapse before a new Cloud Storage file is created. Min 1 minute, max 10 minutes, default 5 minutes.
+	May not exceed the subscription's acknowledgement deadline.
+	A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". */
+	// +optional
+	MaxDuration *string `json:"maxDuration,omitempty"`
+
+	/* An output-only field that indicates whether or not the subscription can receive messages. */
+	// +optional
+	State *string `json:"state,omitempty"`
+}
+
 type SubscriptionDeadLetterPolicy struct {
 	// +optional
 	DeadLetterTopicRef *v1alpha1.ResourceRef `json:"deadLetterTopicRef,omitempty"`
@@ -71,7 +109,7 @@ type SubscriptionDeadLetterPolicy struct {
 
 	If this parameter is 0, a default value of 5 is used. */
 	// +optional
-	MaxDeliveryAttempts *int `json:"maxDeliveryAttempts,omitempty"`
+	MaxDeliveryAttempts *int64 `json:"maxDeliveryAttempts,omitempty"`
 }
 
 type SubscriptionExpirationPolicy struct {
@@ -81,6 +119,13 @@ type SubscriptionExpirationPolicy struct {
 	A duration in seconds with up to nine fractional digits, terminated by 's'.
 	Example - "3.5s". */
 	Ttl string `json:"ttl"`
+}
+
+type SubscriptionNoWrapper struct {
+	/* When true, writes the Pub/Sub message metadata to
+	'x-goog-pubsub-<KEY>:<VAL>' headers of the HTTP request. Writes the
+	Pub/Sub message attributes to '<KEY>:<VAL>' headers of the HTTP request. */
+	WriteMetadata bool `json:"writeMetadata"`
 }
 
 type SubscriptionOidcToken struct {
@@ -127,6 +172,11 @@ type SubscriptionPushConfig struct {
 	// +optional
 	Attributes map[string]string `json:"attributes,omitempty"`
 
+	/* When set, the payload to the push endpoint is not wrapped.Sets the
+	'data' field as the HTTP body for delivery. */
+	// +optional
+	NoWrapper *SubscriptionNoWrapper `json:"noWrapper,omitempty"`
+
 	/* If specified, Pub/Sub will generate and attach an OIDC JWT token as
 	an Authorization header in the HTTP request for every pushed message. */
 	// +optional
@@ -170,13 +220,19 @@ type PubSubSubscriptionSpec struct {
 	If the subscriber never acknowledges the message, the Pub/Sub system
 	will eventually redeliver the message. */
 	// +optional
-	AckDeadlineSeconds *int `json:"ackDeadlineSeconds,omitempty"`
+	AckDeadlineSeconds *int64 `json:"ackDeadlineSeconds,omitempty"`
 
 	/* If delivery to BigQuery is used with this subscription, this field is used to configure it.
-	Either pushConfig or bigQueryConfig can be set, but not both.
-	If both are empty, then the subscriber will pull and ack messages using API methods. */
+	Either pushConfig, bigQueryConfig or cloudStorageConfig can be set, but not combined.
+	If all three are empty, then the subscriber will pull and ack messages using API methods. */
 	// +optional
 	BigqueryConfig *SubscriptionBigqueryConfig `json:"bigqueryConfig,omitempty"`
+
+	/* If delivery to Cloud Storage is used with this subscription, this field is used to configure it.
+	Either pushConfig, bigQueryConfig or cloudStorageConfig can be set, but not combined.
+	If all three are empty, then the subscriber will pull and ack messages using API methods. */
+	// +optional
+	CloudStorageConfig *SubscriptionCloudStorageConfig `json:"cloudStorageConfig,omitempty"`
 
 	/* A policy that specifies the conditions for dead lettering messages in
 	this subscription. If dead_letter_policy is not set, dead lettering
@@ -270,11 +326,18 @@ type PubSubSubscriptionStatus struct {
 	Conditions []v1alpha1.Condition `json:"conditions,omitempty"`
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcppubsubsubscription;gcppubsubsubscriptions
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // PubSubSubscription is the Schema for the pubsub API
 // +k8s:openapi-gen=true

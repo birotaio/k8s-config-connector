@@ -17,11 +17,26 @@ package contexts
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	mmdcl "github.com/GoogleCloudPlatform/declarative-resource-client-library/dcl"
+	dclunstruct "github.com/GoogleCloudPlatform/declarative-resource-client-library/unstructured"
+	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/nasa9084/go-openapi"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/core/v1alpha1"
 	dclcontroller "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/dcl"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/directbase"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/crd/crdgeneration"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/crd/crdloader"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl"
 	dclconversion "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/conversion"
 	dclextension "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/extension"
@@ -29,33 +44,33 @@ import (
 	dcllivestate "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/livestate"
 	dclmetadata "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/metadata"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/schema/dclschemaloader"
-	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/krmtotf"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/resourceoverrides"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/resourcefixture"
-	"github.com/nasa9084/go-openapi"
-
-	mmdcl "github.com/GoogleCloudPlatform/declarative-resource-client-library/dcl"
-	dclunstruct "github.com/GoogleCloudPlatform/declarative-resource-client-library/unstructured"
-	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ResourceContext struct {
-	ResourceGVK        schema.GroupVersionKind
-	ResourceKind       string
-	SkipNoChange       bool
-	SkipUpdate         bool
+	ResourceGVK  schema.GroupVersionKind
+	ResourceKind string
+
+	SkipNoChange bool
+	SkipUpdate   bool
+	SkipDelete   bool
+
+	IsTFResource     bool
+	IsDCLResource    bool
+	IsDirectResource bool
+
+	// Time to delay before recreating the resource as part of the drift detection test.
+	// The default wait time is 10 seconds. However, some resources appear to need to
+	// wait longer before recreating, so this value is customizable.
+	RecreateDelay time.Duration
+	// If true, skip drift detection test.
 	SkipDriftDetection bool
-	SkipDelete         bool
 
 	// fields related to DCL-based resources
 	DCLSchema *openapi.Schema
-	DCLBased  bool
 }
 
 var (
@@ -63,7 +78,7 @@ var (
 	emptyGVK           = schema.GroupVersionKind{}
 )
 
-func GetResourceContext(fixture resourcefixture.ResourceFixture, serviceMetadataLoader dclmetadata.ServiceMetadataLoader, dclSchemaLoader dclschemaloader.DCLSchemaLoader) ResourceContext {
+func GetResourceContext(fixture resourcefixture.ResourceFixture, serviceMetadataLoader dclmetadata.ServiceMetadataLoader, dclSchemaLoader dclschemaloader.DCLSchemaLoader) (ResourceContext, error) {
 	rc, ok := resourceContextMap[fixture.Name]
 	if !ok {
 		rc = ResourceContext{
@@ -71,31 +86,55 @@ func GetResourceContext(fixture resourcefixture.ResourceFixture, serviceMetadata
 			ResourceKind: fixture.GVK.Kind,
 		}
 	}
+
 	if rc.ResourceGVK == emptyGVK {
 		rc.ResourceGVK = fixture.GVK
 	}
-	if dclmetadata.IsDCLBasedResourceKind(rc.ResourceGVK, serviceMetadataLoader) {
+
+	// Determine the type of controller for the resource: TF, DCL, or Direct.
+	crd, err := crdloader.GetCRDForGVK(rc.ResourceGVK)
+	if err != nil {
+		return ResourceContext{}, err
+	}
+	if crd.GetLabels()[crdgeneration.TF2CRDLabel] == "true" {
+		rc.IsTFResource = true
+	} else if crd.GetLabels()[crdgeneration.Dcl2CRDLabel] == "true" {
+		rc.IsDCLResource = true
+	} else {
+		rc.IsDirectResource = true
+	}
+
+	if rc.RecreateDelay == 0 {
+		// By default, wait for 10 seconds before recreating resource as part of drift detection test.
+		// Some resources appear to need to wait longer than 10 seconds, so this value is customizable.
+		rc.RecreateDelay = time.Second * 10
+	}
+
+	if rc.IsDCLResource {
 		s, err := dclschemaloader.GetDCLSchemaForGVK(rc.ResourceGVK, serviceMetadataLoader, dclSchemaLoader)
 		if err != nil {
 			panic(fmt.Sprintf("error getting the DCL schema for GVK %v: %v", rc.ResourceGVK, err))
 		}
 		rc.DCLSchema = s
-		rc.DCLBased = true
 	}
-	return rc
+	return rc, nil
 }
 
 func (rc ResourceContext) SupportsLabels(smLoader *servicemappingloader.ServiceMappingLoader) bool {
-	if rc.DCLBased {
+	if rc.IsTFResource {
+		// For tf based resources, resolve the label info from ResourceConfig
+		resourceConfig := rc.getResourceConfig(smLoader)
+		return resourceConfig.MetadataMapping.Labels != ""
+	} else if rc.IsDCLResource {
 		_, _, found, err := dclextension.GetLabelsFieldSchema(rc.DCLSchema)
 		if err != nil {
-			panic(fmt.Sprintf("error getting the DCL schema for labels field: %v", err))
+			panic(fmt.Errorf("error getting the DCL schema for labels field: %w", err))
 		}
 		return found
+	} else {
+		// Labels are not supported for Direct resources yet.
+		return false
 	}
-	// For tf based resources, resolve the label info from ResourceConfig
-	resourceConfig := rc.getResourceConfig(smLoader)
-	return resourceConfig.MetadataMapping.Labels != ""
 }
 
 func (rc ResourceContext) getResourceConfig(smLoader *servicemappingloader.ServiceMappingLoader) v1alpha1.ResourceConfig {
@@ -110,47 +149,49 @@ func (rc ResourceContext) getResourceConfig(smLoader *servicemappingloader.Servi
 }
 
 func (rc ResourceContext) IsAutoGenerated(smLoader *servicemappingloader.ServiceMappingLoader) bool {
-	if rc.DCLBased {
+	if rc.IsTFResource {
+		resourceConfig := rc.getResourceConfig(smLoader)
+		return resourceConfig.AutoGenerated
+	} else {
 		return false
 	}
-	resourceConfig := rc.getResourceConfig(smLoader)
-	return resourceConfig.AutoGenerated
 }
 
-func (rc ResourceContext) Create(t *testing.T, u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader, config *mmdcl.Config, dclConverter *dclconversion.Converter) (*unstructured.Unstructured, error) {
-	if rc.DCLBased {
-		return dclCreate(u, config, c, dclConverter, smLoader)
+func (rc ResourceContext) Create(ctx context.Context, _ *testing.T, u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader, config *mmdcl.Config, dclConverter *dclconversion.Converter) (*unstructured.Unstructured, error) {
+	if rc.IsDirectResource {
+		return directCreate(ctx, u, c)
 	}
-	return terraformCreate(u, provider, c, smLoader)
+	if rc.IsDCLResource {
+		return dclCreate(ctx, u, config, c, dclConverter, smLoader)
+	}
+	return terraformCreate(ctx, u, provider, c, smLoader)
 }
 
-func (rc ResourceContext) Get(t *testing.T, u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader, config *mmdcl.Config, dclConverter *dclconversion.Converter) (*unstructured.Unstructured, error) {
-	if rc.DCLBased {
-		return dclGet(u, config, c, dclConverter, smLoader)
+func (rc ResourceContext) Get(ctx context.Context, _ *testing.T, u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader, cfg *mmdcl.Config, dclConverter *dclconversion.Converter, httpClient *http.Client) (*unstructured.Unstructured, error) {
+	if rc.IsDirectResource {
+		result, err := directExport(ctx, u, c)
+		if result == nil && err == nil {
+			return nil, fmt.Errorf("%v uses direct controller and Export() is not implemented yet", u.GetKind())
+		}
+		return result, err
 	}
-	return terraformGet(u, provider, c, smLoader)
+	if rc.IsDCLResource {
+		return dclGet(ctx, u, cfg, c, dclConverter, smLoader)
+	}
+	return terraformGet(ctx, u, provider, c, smLoader)
 }
 
-func (rc ResourceContext) Delete(t *testing.T, u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader, config *mmdcl.Config, dclConverter *dclconversion.Converter) error {
-	if rc.DCLBased {
-		return dclDelete(u, config, c, dclConverter, smLoader)
+func (rc ResourceContext) Delete(ctx context.Context, _ *testing.T, u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader, cfg *mmdcl.Config, dclConverter *dclconversion.Converter, httpClient *http.Client) error {
+	if rc.IsDirectResource {
+		return directDelete(ctx, u, c)
 	}
-	return terraformDelete(u, provider, c, smLoader)
+	if rc.IsDCLResource {
+		return dclDelete(ctx, u, cfg, c, dclConverter, smLoader)
+	}
+	return terraformDelete(ctx, u, provider, c, smLoader)
 }
 
-func (rc ResourceContext) DoPreActuationTransformFor(u *unstructured.Unstructured, provider *tfschema.Provider, smLoader *servicemappingloader.ServiceMappingLoader, dclConverter *dclconversion.Converter) (*unstructured.Unstructured, error) {
-	resource, err := unstructuredToKRMResource(rc.DCLBased, u, provider, smLoader, dclConverter)
-	if err != nil {
-		return nil, err
-	}
-	if err := resourceoverrides.Handler.PreActuationTransform(resource); err != nil {
-		return nil, fmt.Errorf("could not run pre-acutuation transform on resource %s: %v", u.GetName(), err)
-	}
-	return resource.MarshalAsUnstructured()
-}
-
-func terraformDelete(u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader) error {
-	ctx := context.Background()
+func terraformDelete(ctx context.Context, u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader) error {
 	resource, liveState, err := getTerraformResourceAndLiveState(ctx, u, provider, c, smLoader)
 	if err != nil {
 		return err
@@ -160,13 +201,12 @@ func terraformDelete(u *unstructured.Unstructured, provider *tfschema.Provider, 
 	}
 	_, diagnostics := resource.TFResource.Apply(ctx, liveState, &terraform.InstanceDiff{Destroy: true}, provider.Meta())
 	if err := krmtotf.NewErrorFromDiagnostics(diagnostics); err != nil {
-		return fmt.Errorf("error deleting resource: %v", err)
+		return fmt.Errorf("error deleting resource: %w", err)
 	}
 	return err
 }
 
-func terraformCreate(u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader) (*unstructured.Unstructured, error) {
-	ctx := context.Background()
+func terraformCreate(ctx context.Context, u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader) (*unstructured.Unstructured, error) {
 	resource, liveState, err := getTerraformResourceAndLiveState(ctx, u, provider, c, smLoader)
 	if err != nil {
 		return nil, err
@@ -176,21 +216,21 @@ func terraformCreate(u *unstructured.Unstructured, provider *tfschema.Provider, 
 	}
 	config, _, err := krmtotf.KRMResourceToTFResourceConfig(resource, c, smLoader)
 	if err != nil {
-		return nil, fmt.Errorf("error expanding resource configuration: %v", err)
+		return nil, fmt.Errorf("error expanding resource configuration: %w", err)
 	}
 	diff, err := resource.TFResource.Diff(ctx, liveState, config, provider.Meta())
 	if err != nil {
-		return nil, fmt.Errorf("error calculating diff: %v", err)
+		return nil, fmt.Errorf("error calculating diff: %w", err)
 	}
 	newState, diagnostics := resource.TFResource.Apply(ctx, liveState, diff, provider.Meta())
 	if err := krmtotf.NewErrorFromDiagnostics(diagnostics); err != nil {
-		return nil, fmt.Errorf("error applying resource change: %v", err)
+		return nil, fmt.Errorf("error applying resource change: %w", err)
 	}
 	return resourceToKRM(resource, newState)
 }
 
-func terraformGet(u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader) (*unstructured.Unstructured, error) {
-	resource, liveState, err := getTerraformResourceAndLiveState(context.Background(), u, provider, c, smLoader)
+func terraformGet(ctx context.Context, u *unstructured.Unstructured, provider *tfschema.Provider, c client.Client, smLoader *servicemappingloader.ServiceMappingLoader) (*unstructured.Unstructured, error) {
+	resource, liveState, err := getTerraformResourceAndLiveState(ctx, u, provider, c, smLoader)
 	if err != nil {
 		return nil, err
 	}
@@ -200,8 +240,7 @@ func terraformGet(u *unstructured.Unstructured, provider *tfschema.Provider, c c
 	return resourceToKRM(resource, liveState)
 }
 
-func dclCreate(u *unstructured.Unstructured, config *mmdcl.Config, kubeClient client.Client, converter *dclconversion.Converter, serviceMappingLoader *servicemappingloader.ServiceMappingLoader) (*unstructured.Unstructured, error) {
-	ctx := context.Background()
+func dclCreate(ctx context.Context, u *unstructured.Unstructured, config *mmdcl.Config, kubeClient client.Client, converter *dclconversion.Converter, serviceMappingLoader *servicemappingloader.ServiceMappingLoader) (*unstructured.Unstructured, error) {
 	resource, err := newDCLResource(u, converter)
 	if err != nil {
 		return nil, err
@@ -223,22 +262,22 @@ func dclCreate(u *unstructured.Unstructured, config *mmdcl.Config, kubeClient cl
 	}
 	createdDCLObj, err := dclunstruct.Apply(ctx, config, dclObj, dclcontroller.LifecycleParams...)
 	if err != nil {
-		return nil, fmt.Errorf("error applying the desired resource: %v", err)
+		return nil, fmt.Errorf("error applying the desired resource: %w", err)
 	}
 	// get the new state in KCC lite format
 	newStateLite, err := converter.DCLObjectToKRMObject(createdDCLObj)
 	if err != nil {
-		return nil, fmt.Errorf("error converting DCL resource to KCC lite: %v", err)
+		return nil, fmt.Errorf("error converting DCL resource to KCC lite: %w", err)
 	}
 	return dclStateToKRM(resource, newStateLite, converter.MetadataLoader)
 }
 
-func dclGet(u *unstructured.Unstructured, config *mmdcl.Config, kubeClient client.Client, converter *dclconversion.Converter, serviceMappingLoader *servicemappingloader.ServiceMappingLoader) (*unstructured.Unstructured, error) {
+func dclGet(ctx context.Context, u *unstructured.Unstructured, config *mmdcl.Config, kubeClient client.Client, converter *dclconversion.Converter, serviceMappingLoader *servicemappingloader.ServiceMappingLoader) (*unstructured.Unstructured, error) {
 	resource, err := newDCLResource(u, converter)
 	if err != nil {
 		return nil, err
 	}
-	liveLite, err := dcllivestate.FetchLiveState(context.Background(), resource, config, converter, serviceMappingLoader, kubeClient)
+	liveLite, err := dcllivestate.FetchLiveState(ctx, resource, config, converter, serviceMappingLoader, kubeClient)
 	if err != nil {
 		return nil, err
 	}
@@ -248,8 +287,7 @@ func dclGet(u *unstructured.Unstructured, config *mmdcl.Config, kubeClient clien
 	return dclStateToKRM(resource, liveLite, converter.MetadataLoader)
 }
 
-func dclDelete(u *unstructured.Unstructured, config *mmdcl.Config, kubeClient client.Client, converter *dclconversion.Converter, serviceMappingLoader *servicemappingloader.ServiceMappingLoader) error {
-	ctx := context.Background()
+func dclDelete(ctx context.Context, u *unstructured.Unstructured, config *mmdcl.Config, kubeClient client.Client, converter *dclconversion.Converter, serviceMappingLoader *servicemappingloader.ServiceMappingLoader) error {
 	resource, err := newDCLResource(u, converter)
 	if err != nil {
 		return err
@@ -294,6 +332,10 @@ func dclStateToKRM(resource *dcl.Resource, liveState *unstructured.Unstructured,
 func resourceToKRM(resource *krmtotf.Resource, state *terraform.InstanceState) (*unstructured.Unstructured, error) {
 	resource.Spec, resource.Status = krmtotf.ResolveSpecAndStatusWithResourceID(resource, state)
 	resource.Labels = krmtotf.GetLabelsFromState(resource, state)
+	// Apply post-actuation transformation.
+	if err := resourceoverrides.Handler.PostActuationTransform(resource.Original, &resource.Resource, state, nil); err != nil {
+		return nil, fmt.Errorf("error applying post-actuation transformation to resource '%v': %w", resource.GetNamespacedName(), err)
+	}
 	return resource.MarshalAsUnstructured()
 }
 
@@ -303,9 +345,13 @@ func getTerraformResourceAndLiveState(ctx context.Context, u *unstructured.Unstr
 	if err != nil {
 		return nil, nil, err
 	}
+	// Apply pre-actuation transformation.
+	if err := resourceoverrides.Handler.PreActuationTransform(&resource.Resource); err != nil {
+		return nil, nil, fmt.Errorf("error applying pre-actuation transformation to resource '%s': %w", u.GetName(), err)
+	}
 	liveState, err := krmtotf.FetchLiveState(ctx, resource, provider, c, smLoader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error fetching live state: %v", err)
+		return nil, nil, fmt.Errorf("error fetching live state: %w", err)
 	}
 	return resource, liveState, nil
 }
@@ -317,7 +363,7 @@ func newTerraformResource(u *unstructured.Unstructured, provider *tfschema.Provi
 	}
 	resource, err := krmtotf.NewResource(u, sm, provider)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse resource %s: %v", u.GetName(), err)
+		return nil, fmt.Errorf("could not parse resource %s: %w", u.GetName(), err)
 	}
 	return resource, nil
 }
@@ -329,25 +375,73 @@ func IsNotFoundError(err error) bool {
 	return strings.Contains(err.Error(), "is not found")
 }
 
-func unstructuredToKRMResource(isDCLBasedResource bool, u *unstructured.Unstructured, provider *tfschema.Provider, smLoader *servicemappingloader.ServiceMappingLoader, converter *dclconversion.Converter) (*k8s.Resource, error) {
-	if isDCLBasedResource {
-		return dclUnstructuredToKRMResource(u, converter)
-	}
-	return terraformUnstructuredToKRMResource(u, provider, smLoader)
-}
-
-func dclUnstructuredToKRMResource(u *unstructured.Unstructured, converter *dclconversion.Converter) (*k8s.Resource, error) {
-	resource, err := newDCLResource(u, converter)
+func getAdapter(ctx context.Context, u *unstructured.Unstructured, c client.Client) (directbase.Adapter, error) {
+	gvk := u.GroupVersionKind()
+	model, err := registry.GetModel(gvk.GroupKind())
 	if err != nil {
 		return nil, err
 	}
-	return &resource.Resource, nil
+	return model.AdapterForObject(ctx, c, u)
 }
 
-func terraformUnstructuredToKRMResource(u *unstructured.Unstructured, provider *tfschema.Provider, smLoader *servicemappingloader.ServiceMappingLoader) (*k8s.Resource, error) {
-	resource, err := newTerraformResource(u, provider, smLoader)
+func directExport(ctx context.Context, u *unstructured.Unstructured, c client.Client) (*unstructured.Unstructured, error) {
+	a, err := getAdapter(ctx, u, c)
 	if err != nil {
 		return nil, err
 	}
-	return &resource.Resource, nil
+
+	found, err := a.Find(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("GVK %s '%v' is not found", u.GroupVersionKind(), u.GetName())
+	}
+
+	unst, err := a.Export(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return unst, nil
+}
+
+func directCreate(ctx context.Context, u *unstructured.Unstructured, c client.Client) (*unstructured.Unstructured, error) {
+	a, err := getAdapter(ctx, u, c)
+	if err != nil {
+		return nil, err
+	}
+
+	found, err := a.Find(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		return nil, fmt.Errorf("GVK %s '%v' already exist", u.GroupVersionKind(), u.GetName())
+	}
+
+	op := directbase.NewCreateOperation(u)
+	err = a.Create(ctx, op)
+	if err != nil {
+		return nil, err
+	}
+	return directExport(ctx, u, c)
+}
+
+func directDelete(ctx context.Context, u *unstructured.Unstructured, c client.Client) error {
+	a, err := getAdapter(ctx, u, c)
+	if err != nil {
+		return err
+	}
+
+	found, err := a.Find(ctx)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("GVK %s '%v' is not found", u.GroupVersionKind(), u.GetName())
+	}
+
+	op := directbase.NewDeleteOperation(u)
+	_, err = a.Delete(ctx, op)
+	return err
 }

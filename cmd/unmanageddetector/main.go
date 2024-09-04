@@ -21,6 +21,7 @@ import (
 	_ "net/http/pprof" // Needed to allow pprof server to accept requests
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/kccmanager/nocache"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/registration"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gcp/profiler"
@@ -73,14 +74,16 @@ func main() {
 		logging.Fatal(err, "error getting config to talk to API server")
 	}
 
+	opts := manager.Options{}
+
+	// Disable cache to avoid stale reads (e.g. of pods, which we need do
+	// to determine if a controller pod exists for a namespace).
+	// TODO(jcanseco): Determine if disabling the cache for this controller
+	// is really necessary. Disable it for now to play it safe.
+	nocache.TurnOffAllCaching(&opts)
+
 	// Create a new Manager to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		// Disable cache to avoid stale reads (e.g. of pods, which we need do
-		// to determine if a controller pod exists for a namespace).
-		// TODO(jcanseco): Determine if disabling the cache for this controller
-		// is really necessary. Disable it for now to play it safe.
-		NewClient: nocache.NoCacheClientFunc,
-	})
+	mgr, err := manager.New(cfg, opts)
 	if err != nil {
 		logging.Fatal(err, "error creating the manager")
 	}
@@ -96,7 +99,7 @@ func main() {
 
 	// Register the registration controller, which will dynamically create
 	// controllers for all our resources.
-	if err := registration.Add(mgr, nil, nil, nil, nil, registration.RegisterUnmanagedDetectorController); err != nil {
+	if err := registration.Add(mgr, &controller.Deps{}, registration.RegisterUnmanagedDetectorController); err != nil {
 		logging.Fatal(err, "error adding registration controller")
 	}
 

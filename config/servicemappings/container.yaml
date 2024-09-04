@@ -40,6 +40,11 @@ spec:
         - remove_default_node_pool
       mutableButUnreadableFields:
         - min_master_version
+      observedFields:
+        - master_auth.client_certificate
+        - master_auth.cluster_ca_certificate
+        - private_cluster_config.private_endpoint
+        - private_cluster_config.public_endpoint
       containers:
         - type: project
           tfField: project
@@ -128,6 +133,8 @@ spec:
         name: name
       resourceID:
         targetField: name
+      observedFields:
+        - version
       resourceReferences:
         - key: clusterRef
           tfField: cluster
@@ -160,6 +167,44 @@ spec:
             kind: ComputeNodeGroup
             version: v1beta1
             group: compute.cnrm.cloud.google.com
+        - tfField: network_config.additional_node_network_configs.network
+          description: Immutable. Name of the VPC where the additional
+            interface belongs.
+          key: networkRef
+          gvk:
+            kind: ComputeNetwork
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
+        - tfField: network_config.additional_node_network_configs.subnetwork
+          description: Immutable. Name of the subnetwork where the
+            additional interface belongs.
+          key: subnetworkRef
+          gvk:
+            kind: ComputeSubnetwork
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
+        - tfField: network_config.additional_pod_network_configs.subnetwork
+          description: Immutable. Name of the subnetwork where the
+            additional pod network belongs.
+          key: subnetworkRef
+          gvk:
+            kind: ComputeSubnetwork
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
+        - tfField: placement_policy.policy_name
+          description: Immutable. If set, refers to the name of a custom
+            resource policy supplied by the user. The resource policy must
+            be in the same project and region as the node pool. If not found,
+            InvalidArgument error is returned.
+          key: policyNameRef
+          gvk:
+            Kind: ComputeResourcePolicy
+            version: v1beta1
+            group: compute.cnrm.cloud.google.com
+          targetField: self_link
       containers:
         - type: project
           tfField: project

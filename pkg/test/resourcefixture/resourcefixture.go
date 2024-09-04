@@ -16,17 +16,17 @@ package resourcefixture
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io/fs"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	testcontroller "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/controller"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/repo"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang-collections/go-datastructures/queue"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -51,6 +51,7 @@ const (
 type ResourceFixture struct {
 	GVK          schema.GroupVersionKind
 	Name         string
+	SourceDir    string
 	Create       []byte
 	Update       []byte
 	Dependencies []byte
@@ -77,23 +78,25 @@ type HeavyFilter func(fixture ResourceFixture) bool
 func LoadWithFilter(t *testing.T, lightFilterFunc LightFilter, heavyFilterFunc HeavyFilter) []ResourceFixture {
 	t.Helper()
 	allCases := make([]ResourceFixture, 0)
-	q := queue.New(1)
-	rootDir := getTestDataPath(t)
-	q.Put(rootDir)
-	for !q.Empty() {
-		items, err := q.Get(1)
+	baseDir := getTestDataPath(t)
+	if err := filepath.WalkDir(baseDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			t.Fatalf("error retreiving an item from queue: %v", err)
+			return err
 		}
-		dir := items[0].(string)
-		fileInfos, err := ioutil.ReadDir(dir)
+
+		if !d.IsDir() {
+			return nil
+		}
+
+		// This is a slightly inefficient, but we want to reuse the existing code
+		fileInfos, err := os.ReadDir(path)
 		if err != nil {
-			t.Fatalf("error reading directory '%v': %v", dir, err)
+			return fmt.Errorf("error reading directory '%v': %w", path, err)
 		}
+
 		testToFileName := make(map[string]string)
 		for _, fi := range fileInfos {
 			if fi.IsDir() {
-				q.Put(path.Join(dir, fi.Name()))
 				continue
 			}
 			if !strings.HasSuffix(fi.Name(), ".yaml") {
@@ -101,49 +104,56 @@ func LoadWithFilter(t *testing.T, lightFilterFunc LightFilter, heavyFilterFunc H
 			}
 			fileNameNoExt := strings.TrimSuffix(fi.Name(), ".yaml")
 			if value, ok := testToFileName[fileNameNoExt]; ok {
-				t.Fatalf("error, conflicting files for test '%v' in '%v': {%v, %v}", fileNameNoExt, dir, value, fi.Name())
+				return fmt.Errorf("error, conflicting files for test '%v' in '%v': {%v, %v}", fileNameNoExt, path, value, fi.Name())
 			}
 			testToFileName[fileNameNoExt] = fi.Name()
 		}
+
 		// TODO: something about tags here
 		if createFile, ok := testToFileName["create"]; ok {
 			updateFile := testToFileName["update"]
 			depFile := testToFileName["dependencies"]
-			name := path.Base(dir)
-			testType := parseTestTypeFromPath(t, dir)
+			name := filepath.Base(path)
+			testType := parseTestTypeFromPath(t, path)
 			if lightFilterFunc != nil && !lightFilterFunc(name, testType) {
-				continue
+				return nil
 			}
-			rf := loadResourceFixture(t, name, testType, dir, createFile, updateFile, depFile)
+			rf := loadResourceFixture(t, name, testType, path, createFile, updateFile, depFile)
 			if heavyFilterFunc != nil && !heavyFilterFunc(rf) {
-				continue
+				return nil
 			}
 			allCases = append(allCases, rf)
 		}
+
+		return nil
+	}); err != nil {
+		t.Fatalf("error walking directory %q: %v", baseDir, err)
 	}
+
 	return allCases
 }
 
 func loadResourceFixture(t *testing.T, testName string, testType TestType, dir, createFile, updateFile, depFile string) ResourceFixture {
 	t.Helper()
-	createConfig := testcontroller.ReadFileToBytes(t, path.Join(dir, createFile))
+	createConfig := test.MustReadFile(t, path.Join(dir, createFile))
 	gvk, err := readGroupVersionKind(t, createConfig)
 	if err != nil {
 		t.Fatalf("unable to determine GroupVersionKind for test case named %v: %v", testName, err)
 	}
 
 	rf := ResourceFixture{
-		Name:   testName,
-		GVK:    gvk,
-		Create: createConfig,
-		Type:   testType,
+		Name:      testName,
+		SourceDir: dir,
+		GVK:       gvk,
+		Create:    createConfig,
+		Type:      testType,
 	}
 
 	if updateFile != "" {
-		rf.Update = testcontroller.ReadFileToBytes(t, path.Join(dir, updateFile))
+		rf.Update = test.MustReadFile(t, path.Join(dir, updateFile))
 	}
 	if depFile != "" {
-		rf.Dependencies = testcontroller.ReadFileToBytes(t, path.Join(dir, depFile))
+		rf.Dependencies = test.MustReadFile(t, path.Join(dir, depFile))
 	}
 	return rf
 }
@@ -153,7 +163,7 @@ func readGroupVersionKind(t *testing.T, config []byte) (schema.GroupVersionKind,
 	u := &unstructured.Unstructured{}
 	err := yaml.Unmarshal(config, u)
 	if err != nil {
-		return schema.GroupVersionKind{}, fmt.Errorf("error unmarshalling bytes to CRD: %v", err)
+		return schema.GroupVersionKind{}, fmt.Errorf("error unmarshalling bytes to CRD: %w", err)
 	}
 	return u.GroupVersionKind(), nil
 }

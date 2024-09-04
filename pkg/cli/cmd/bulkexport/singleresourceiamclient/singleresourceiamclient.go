@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/iam/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
 	kcciamclient "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/iam/iamclient"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/deepcopy"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/krmtotf"
@@ -30,6 +31,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,7 +40,7 @@ type iamClient struct {
 	smLoader   *servicemappingloader.ServiceMappingLoader
 }
 
-func New(tfProvider *schema.Provider, smloader *servicemappingloader.ServiceMappingLoader) *iamClient {
+func New(tfProvider *schema.Provider, smloader *servicemappingloader.ServiceMappingLoader) *iamClient { //nolint:revive
 	return &iamClient{
 		smLoader:   smloader,
 		tfProvider: tfProvider,
@@ -46,9 +48,14 @@ func New(tfProvider *schema.Provider, smloader *servicemappingloader.ServiceMapp
 }
 
 func (i *iamClient) SupportsIAM(unstructured *unstructured.Unstructured) (bool, error) {
+	groundKind := unstructured.GroupVersionKind().GroupKind()
+	if registry.IsDirectByGK(groundKind) {
+		return registry.SupportsIAM(groundKind)
+	}
+
 	rc, err := i.smLoader.GetResourceConfig(unstructured)
 	if err != nil {
-		return false, fmt.Errorf("error getting resource config for %v with name '%v': %v",
+		return false, fmt.Errorf("error getting resource config for %v with name '%v': %w",
 			unstructured.GetKind(), unstructured.GetName(), err)
 	}
 	return krmtotf.SupportsIAM(rc), nil
@@ -62,7 +69,7 @@ func (i *iamClient) GetPolicy(ctx context.Context, resource *unstructured.Unstru
 	iamClient := kcciamclient.New(i.tfProvider, i.smLoader, kubeClient, nil, nil).TFIAMClient
 	iamPolicySkeleton, err := i.newIAMPolicySkeleton(resource, kubeClient)
 	if err != nil {
-		return nil, fmt.Errorf("error creating new iam policy skeleton: %v", err)
+		return nil, fmt.Errorf("error creating new iam policy skeleton: %w", err)
 	}
 	return iamClient.GetPolicy(ctx, iamPolicySkeleton)
 }
@@ -70,15 +77,15 @@ func (i *iamClient) GetPolicy(ctx context.Context, resource *unstructured.Unstru
 func (i *iamClient) newIAMPolicySkeleton(u *unstructured.Unstructured, kubeClient client.Client) (*v1beta1.IAMPolicy, error) {
 	sm, err := i.smLoader.GetServiceMapping(u.GroupVersionKind().Group)
 	if err != nil {
-		return nil, fmt.Errorf("error getting service mapping for '%v': %v", u.GroupVersionKind().Group, err)
+		return nil, fmt.Errorf("error getting service mapping for '%v': %w", u.GroupVersionKind().Group, err)
 	}
 	resource, err := krmtotf.NewResource(u, sm, i.tfProvider)
 	if err != nil {
-		return nil, fmt.Errorf("error converting '%v' with name '%v' to krmtotf resource: %v", u.GroupVersionKind(), u.GetName(), err)
+		return nil, fmt.Errorf("error converting '%v' with name '%v' to krmtotf resource: %w", u.GroupVersionKind(), u.GetName(), err)
 	}
-	importId, err := resource.GetImportID(kubeClient, i.smLoader)
+	importID, err := resource.GetImportID(kubeClient, i.smLoader)
 	if err != nil {
-		return nil, fmt.Errorf("error getting import id for '%v' with name '%v': %v",
+		return nil, fmt.Errorf("error getting import id for '%v' with name '%v': %w",
 			resource.GroupVersionKind(),
 			resource.GetName(),
 			err)
@@ -96,7 +103,7 @@ func (i *iamClient) newIAMPolicySkeleton(u *unstructured.Unstructured, kubeClien
 			ResourceReference: v1beta1.ResourceReference{
 				Kind:       u.GetKind(),
 				APIVersion: u.GetAPIVersion(),
-				External:   importId,
+				External:   importID,
 			},
 		},
 	}
@@ -113,7 +120,7 @@ type singleResourceClient struct {
 	Resource *unstructured.Unstructured
 }
 
-func (c *singleResourceClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+func (c *singleResourceClient) Get(_ context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
 	unstructObj, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		return fmt.Errorf("unexpected argument to single resource client, type is '%v' instead of '%v'",
@@ -159,8 +166,8 @@ func (c *singleResourceClient) Patch(_ context.Context, obj client.Object, _ cli
 	return fmt.Errorf("unexpected call to client.Patch(...) for object with kind %v", obj.GetObjectKind())
 }
 
-func (c *singleResourceClient) Status() client.StatusWriter {
-	return c
+func (c *singleResourceClient) Status() client.SubResourceWriter {
+	panic("unexpected call to client.Status(...)")
 }
 
 func (c *singleResourceClient) Scheme() *runtime.Scheme {
@@ -169,4 +176,20 @@ func (c *singleResourceClient) Scheme() *runtime.Scheme {
 
 func (c *singleResourceClient) RESTMapper() meta.RESTMapper {
 	panic("unexpected call to client.RESTMapper(...)")
+}
+
+func (c *singleResourceClient) GroupVersionKindFor(_ runtime.Object) (k8sschema.GroupVersionKind, error) {
+	panic("unexpected call to client.GroupVersionKindFor(...)")
+}
+
+func (c *singleResourceClient) IsObjectNamespaced(_ runtime.Object) (bool, error) {
+	panic("unexpected call to client.IsObjectNamespaced(...)")
+}
+
+func (c *singleResourceClient) SubResource(_ string) client.SubResourceClient {
+	panic("unexpected call to client.SubResource(...)")
+}
+
+func (c *singleResourceClient) SubResourceWriter(_ string) client.SubResourceClient {
+	panic("unexpected call to client.SubResource(...)")
 }

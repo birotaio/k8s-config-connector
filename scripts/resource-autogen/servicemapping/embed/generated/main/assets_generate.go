@@ -30,10 +30,10 @@ import (
 
 func main() {
 	var inputFS http.FileSystem = cnrmvfsgen.ConsistentModTimeFileSystem{
-		HttpFS: generatedembed.AssetsDir,
+		HTTPFS: generatedembed.AssetsDir,
 	}
 	err := vfsgen.Generate(inputFS, generatedembed.VfsgenOptions)
 	if err != nil {
-		log.Fatalln(fmt.Sprintf("error generating embedded service mappings: %v", err))
+		log.Fatalln(fmt.Sprintf("error generating embedded service mappings: %w", err))
 	}
 }

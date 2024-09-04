@@ -16,7 +16,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cnrm.cloud.google.com/version: 1.104.0
+    cnrm.cloud.google.com/version: 1.121.0
   creationTimestamp: null
   labels:
     cnrm.cloud.google.com/managed-by-kcc: "true"
@@ -103,9 +103,12 @@ spec:
                     - enabled
                     type: object
                   gcePersistentDiskCsiDriverConfig:
-                    description: Whether this cluster should enable the Google Compute
+                    description: 'Whether this cluster should enable the Google Compute
                       Engine Persistent Disk Container Storage Interface (CSI) Driver.
-                      Defaults to enabled; set disabled = true to disable.
+                      Set enabled = true to enable. The Compute Engine persistent
+                      disk CSI Driver is enabled by default on newly created clusters
+                      for the following versions: Linux clusters: GKE version 1.18.10-gke.2100
+                      or later, or 1.19.3-gke.2100 or later.'
                     properties:
                       enabled:
                         type: boolean
@@ -116,6 +119,16 @@ spec:
                     description: The status of the Filestore CSI driver addon, which
                       allows the usage of filestore instance as volumes. Defaults
                       to disabled; set enabled = true to enable.
+                    properties:
+                      enabled:
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
+                  gcsFuseCsiDriverConfig:
+                    description: The status of the GCS Fuse CSI driver addon, which
+                      allows the usage of gcs bucket as volumes. Defaults to disabled;
+                      set enabled = true to enable.
                     properties:
                       enabled:
                         type: boolean
@@ -194,6 +207,9 @@ spec:
                     - disabled
                     type: object
                 type: object
+              allowNetAdmin:
+                description: Enable NET_ADMIN for this cluster.
+                type: boolean
               authenticatorGroupsConfig:
                 description: Configuration for the Google Groups for GKE feature.
                 properties:
@@ -534,10 +550,24 @@ spec:
                   Enable Binary Authorization for this cluster. If enabled, all container
                   images will be validated by Google Binary Authorization.
                 type: boolean
+              enableFqdnNetworkPolicy:
+                description: Whether FQDN Network Policy is enabled on this cluster.
+                type: boolean
               enableIntranodeVisibility:
                 description: Whether Intra-node visibility is enabled for this cluster.
                   This makes same node pod to pod traffic visible for VPC network.
                 type: boolean
+              enableK8sBetaApis:
+                description: Configuration for Kubernetes Beta APIs.
+                properties:
+                  enabledApis:
+                    description: Enabled Kubernetes Beta APIs.
+                    items:
+                      type: string
+                    type: array
+                required:
+                - enabledApis
+                type: object
               enableKubernetesAlpha:
                 description: Immutable. Whether to enable Kubernetes Alpha features
                   for this cluster. Note that when this option is enabled, the cluster
@@ -552,6 +582,10 @@ spec:
                   nodes, and controllers, will have statically granted permissions
                   beyond those provided by the RBAC configuration or IAM. Defaults
                   to false.
+                type: boolean
+              enableMultiNetworking:
+                description: Immutable. Whether multi-networking is enabled for this
+                  cluster.
                 type: boolean
               enableShieldedNodes:
                 description: Enable Shielded Nodes features on all nodes in this cluster.
@@ -592,6 +626,20 @@ spec:
                   VPC-native clusters. Adding this block enables IP aliasing, making
                   the cluster VPC-native instead of routes-based.
                 properties:
+                  additionalPodRangesConfig:
+                    description: AdditionalPodRangesConfig is the configuration for
+                      additional pod secondary ranges supporting the ClusterUpdate
+                      message.
+                    properties:
+                      podRangeNames:
+                        description: Name for pod secondary ipv4 range which has the
+                          actual range defined ahead.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - podRangeNames
+                    type: object
                   clusterIpv4CidrBlock:
                     description: Immutable. The IP address range for the cluster pod
                       IPs. Set to blank to have a range chosen with the default size.
@@ -847,10 +895,26 @@ spec:
               monitoringConfig:
                 description: Monitoring configuration for the cluster.
                 properties:
+                  advancedDatapathObservabilityConfig:
+                    description: Configuration of Advanced Datapath Observability
+                      features.
+                    items:
+                      properties:
+                        enableMetrics:
+                          description: Whether or not the advanced datapath metrics
+                            are enabled.
+                          type: boolean
+                        relayMode:
+                          description: Mode used to make Relay available.
+                          type: string
+                      required:
+                      - enableMetrics
+                      type: object
+                    type: array
                   enableComponents:
                     description: GKE components exposing metrics. Valid values include
-                      SYSTEM_COMPONENTS, APISERVER, CONTROLLER_MANAGER, SCHEDULER,
-                      and WORKLOADS.
+                      SYSTEM_COMPONENTS, APISERVER, SCHEDULER, CONTROLLER_MANAGER,
+                      STORAGE, HPA, POD, DAEMONSET, DEPLOYMENT, STATEFULSET and WORKLOADS.
                     items:
                       type: string
                     type: array
@@ -960,6 +1024,19 @@ spec:
                         description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                         type: string
                     type: object
+                  confidentialNodes:
+                    description: 'Immutable. Configuration for the confidential nodes
+                      feature, which makes nodes run on confidential VMs. Warning:
+                      This configuration can''t be changed (or added/removed) after
+                      pool creation without deleting and recreating the entire pool.'
+                    properties:
+                      enabled:
+                        description: Immutable. Whether Confidential Nodes feature
+                          is enabled for all nodes in this pool.
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
                   diskSizeGb:
                     description: Immutable. Size of the disk attached to each node,
                       specified in GB. The smallest allowed disk size is 10GB.
@@ -994,6 +1071,15 @@ spec:
                     required:
                     - localSsdCount
                     type: object
+                  fastSocket:
+                    description: Enable or disable NCCL Fast Socket in the node pool.
+                    properties:
+                      enabled:
+                        description: Whether or not NCCL Fast Socket is enabled.
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
                   gcfsConfig:
                     description: Immutable. GCFS configuration for this node.
                     properties:
@@ -1012,6 +1098,17 @@ spec:
                           description: Immutable. The number of the accelerator cards
                             exposed to an instance.
                           type: integer
+                        gpuDriverInstallationConfig:
+                          description: Immutable. Configuration for auto installation
+                            of GPU driver.
+                          properties:
+                            gpuDriverVersion:
+                              description: Immutable. Mode for how the GPU driver
+                                is installed.
+                              type: string
+                          required:
+                          - gpuDriverVersion
+                          type: object
                         gpuPartitionSize:
                           description: Immutable. Size of partitions to create on
                             the GPU. Valid values are described in the NVIDIA mig
@@ -1050,6 +1147,16 @@ spec:
                     required:
                     - enabled
                     type: object
+                  hostMaintenancePolicy:
+                    description: Immutable. The maintenance policy for the hosts on
+                      which the GKE VMs run on.
+                    properties:
+                      maintenanceInterval:
+                        description: Immutable. .
+                        type: string
+                    required:
+                    - maintenanceInterval
+                    type: object
                   imageType:
                     description: The image type to use for this node. Note that for
                       a given image type, the latest version of it will be used.
@@ -1084,14 +1191,16 @@ spec:
                   linuxNodeConfig:
                     description: Parameters that can be configured on Linux nodes.
                     properties:
+                      cgroupMode:
+                        description: cgroupMode specifies the cgroup mode to be used
+                          on the node.
+                        type: string
                       sysctls:
                         additionalProperties:
                           type: string
                         description: The Linux kernel parameters to be applied to
                           the nodes and all pods running on the nodes.
                         type: object
-                    required:
-                    - sysctls
                     type: object
                   localNvmeSsdBlockConfig:
                     description: Immutable. Parameters for raw-block local NVMe SSDs.
@@ -1243,6 +1352,34 @@ spec:
                         description: Immutable. Defines whether the instance has Secure
                           Boot enabled.
                         type: boolean
+                    type: object
+                  soleTenantConfig:
+                    description: Immutable. Node affinity options for sole tenant
+                      node pools.
+                    properties:
+                      nodeAffinity:
+                        description: Immutable. .
+                        items:
+                          properties:
+                            key:
+                              description: Immutable. .
+                              type: string
+                            operator:
+                              description: Immutable. .
+                              type: string
+                            values:
+                              description: Immutable. .
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - key
+                          - operator
+                          - values
+                          type: object
+                        type: array
+                    required:
+                    - nodeAffinity
                     type: object
                   spot:
                     description: Immutable. Whether the nodes are created as spot
@@ -1416,9 +1553,7 @@ spec:
                   enablePrivateEndpoint:
                     description: When true, the cluster's private endpoint is used
                       as the cluster endpoint and access through the public endpoint
-                      is disabled. When false, either endpoint can be used. This field
-                      only applies to private clusters, when enable_private_nodes
-                      is true.
+                      is disabled. When false, either endpoint can be used.
                     type: boolean
                   enablePrivateNodes:
                     description: Immutable. Enables the private cluster feature, creating
@@ -1562,6 +1697,21 @@ spec:
                 required:
                 - bigqueryDestination
                 type: object
+              securityPostureConfig:
+                description: Defines the config needed to enable/disable features
+                  for the Security Posture API.
+                properties:
+                  mode:
+                    description: Sets the mode of the Kubernetes security posture
+                      API's off-cluster features. Available options include DISABLED
+                      and BASIC.
+                    type: string
+                  vulnerabilityMode:
+                    description: Sets the mode of the Kubernetes security posture
+                      API's workload vulnerability scanning. Available options include
+                      VULNERABILITY_DISABLED and VULNERABILITY_BASIC.
+                    type: string
+                type: object
               serviceExternalIpsConfig:
                 description: If set, and enabled=true, services with external ips
                   field will not be blocked.
@@ -1673,6 +1823,41 @@ spec:
                   current reported status reflects the most recent desired state of
                   the resource.
                 type: integer
+              observedState:
+                description: The observed state of the underlying GCP resource.
+                properties:
+                  masterAuth:
+                    description: DEPRECATED. Basic authentication was removed for
+                      GKE cluster versions >= 1.19. The authentication information
+                      for accessing the Kubernetes master. Some values in this block
+                      are only returned by the API if your service account has permission
+                      to get credentials for your GKE cluster. If you see an unexpected
+                      diff unsetting your client cert, ensure you have the container.clusters.getCredentials
+                      permission.
+                    properties:
+                      clientCertificate:
+                        description: Base64 encoded public certificate used by clients
+                          to authenticate to the cluster endpoint.
+                        type: string
+                      clusterCaCertificate:
+                        description: Base64 encoded public certificate that is the
+                          root of trust for the cluster.
+                        type: string
+                    type: object
+                  privateClusterConfig:
+                    description: Configuration for private clusters, clusters with
+                      private nodes.
+                    properties:
+                      privateEndpoint:
+                        description: The internal IP address of this cluster's master
+                          endpoint.
+                        type: string
+                      publicEndpoint:
+                        description: The external IP address of this cluster's master
+                          endpoint.
+                        type: string
+                    type: object
+                type: object
               operation:
                 type: string
               selfLink:

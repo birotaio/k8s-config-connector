@@ -19,6 +19,8 @@ import (
 	"log"
 	"time"
 
+	operatorv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/test/util/paths"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/repo"
@@ -38,9 +40,12 @@ func init() {
 	if err := apis.AddToScheme(s); err != nil {
 		log.Fatalf("error registering schemes: %v", err)
 	}
+	if err := operatorv1beta1.SchemeBuilder.AddToScheme(s); err != nil {
+		log.Fatalf("error registering operator v1beta1 schemes: %v", err)
+	}
 }
 
-func StartTestEnvironmentOrLogFatal(testType test.TestType, crds []*apiextensions.CustomResourceDefinition, whCfgs []webhook.WebhookConfig) *envtest.Environment {
+func StartTestEnvironmentOrLogFatal(testType test.Type, crds []*apiextensions.CustomResourceDefinition, whCfgs []webhook.Config) *envtest.Environment {
 	env, err := startTestEnvironment(testType, crds, whCfgs)
 	if err != nil {
 		log.Fatal(err)
@@ -48,9 +53,10 @@ func StartTestEnvironmentOrLogFatal(testType test.TestType, crds []*apiextension
 	return env
 }
 
-func startTestEnvironment(testType test.TestType, crds []*apiextensions.CustomResourceDefinition, whCfgs []webhook.WebhookConfig) (*envtest.Environment, error) {
+func startTestEnvironment(testType test.Type, crds []*apiextensions.CustomResourceDefinition, whCfgs []webhook.Config) (*envtest.Environment, error) {
 	env := &envtest.Environment{
 		ControlPlaneStartTimeout: time.Minute,
+		ControlPlaneStopTimeout:  time.Minute,
 	}
 	switch {
 	case len(crds) > 0:
@@ -58,19 +64,19 @@ func startTestEnvironment(testType test.TestType, crds []*apiextensions.CustomRe
 	case testType == test.UnitTestType:
 		env.CRDs = test.FakeCRDs()
 	case testType == test.IntegrationTestType:
-		env.CRDDirectoryPaths = []string{repo.GetCRDsPath()}
+		env.CRDDirectoryPaths = []string{repo.GetCRDsPath(), paths.GetOperatorCRDsPath()}
 	}
 	if testType == test.IntegrationTestType {
 		ConfigureWebhookInstallOptions(env, whCfgs)
 	}
 	_, err := env.Start()
 	if err != nil {
-		return nil, fmt.Errorf("error starting test environment: %v", err)
+		return nil, fmt.Errorf("error starting test environment: %w", err)
 	}
 	return env, nil
 }
 
-func ConfigureWebhookInstallOptions(env *envtest.Environment, whCfgs []webhook.WebhookConfig) {
+func ConfigureWebhookInstallOptions(env *envtest.Environment, whCfgs []webhook.Config) {
 	validatingWebhookCfg, mutatingWebhookCfg := webhook.GenerateWebhookManifests(
 		webhook.ValidatingWebhookConfigurationName,
 		webhook.MutatingWebhookConfigurationName,

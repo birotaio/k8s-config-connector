@@ -15,14 +15,18 @@
 package filteredinputstream
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/asset"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/log"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/stream"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"k8s.io/klog/v2"
 )
 
 var defaultNetworkingNameRegexByAssetType = map[string]string{
@@ -31,7 +35,17 @@ var defaultNetworkingNameRegexByAssetType = map[string]string{
 	"compute.googleapis.com/Route":      ".*default-route-.*$",
 }
 
-func isAssetSupported(smLoader *servicemappingloader.ServiceMappingLoader, tfProvider *schema.Provider, a *asset.Asset) bool {
+func isAssetSupported(ctx context.Context, smLoader *servicemappingloader.ServiceMappingLoader, tfProvider *schema.Provider, config *config.ControllerConfig, a *asset.Asset) bool {
+	log := klog.FromContext(ctx)
+
+	// First check if this resource uses our direct-reconciliation model
+	exportUsesDirect, err := direct.ExportUsesDirect(ctx, a.Name, config)
+	if err != nil {
+		log.Error(err, "checking if resource is direct-implemented", "url", a.Name)
+	} else if exportUsesDirect {
+		return true
+	}
+
 	_, rc, err := asset.GetServiceMappingAndResourceConfig(smLoader, a)
 	if err != nil {
 		// ignore resources that we don't have service mappings and resource configs for
@@ -45,7 +59,7 @@ func isAssetSupported(smLoader *servicemappingloader.ServiceMappingLoader, tfPro
 // isDefaultNetworkingAsset returns true if the asset is a default networking asset.
 // Default networking assets are not always acquirable via Config Connector or Terraform
 // due to their non-standard configuration.
-func isDefaultNetworkingAsset(smLoader *servicemappingloader.ServiceMappingLoader, tfProvider *schema.Provider, a *asset.Asset) bool {
+func isDefaultNetworkingAsset(a *asset.Asset) bool {
 	if defaultRegexMatch, ok := defaultNetworkingNameRegexByAssetType[a.AssetType]; ok {
 		matched, err := regexp.MatchString(defaultRegexMatch, a.Name)
 		if err != nil {
@@ -57,17 +71,17 @@ func isDefaultNetworkingAsset(smLoader *servicemappingloader.ServiceMappingLoade
 	return false
 }
 
-func NewFilteredAssetStream(assetStream *asset.Stream, tfProvider *schema.Provider) (stream.AssetStream, error) {
+func NewFilteredAssetStream(ctx context.Context, assetStream *asset.Stream, tfProvider *schema.Provider, config *config.ControllerConfig) (stream.AssetStream, error) {
 	smLoader, err := servicemappingloader.New()
 	if err != nil {
-		return nil, fmt.Errorf("error loading service mappings: %v", err)
+		return nil, fmt.Errorf("error loading service mappings: %w", err)
 	}
 	filter := func(a *asset.Asset) bool {
-		if !isAssetSupported(smLoader, tfProvider, a) {
+		if !isAssetSupported(ctx, smLoader, tfProvider, config, a) {
 			log.Verbose("skipping unsupported asset: %v", a.AssetType)
 			return false
 		}
-		if isDefaultNetworkingAsset(smLoader, tfProvider, a) {
+		if isDefaultNetworkingAsset(a) {
 			log.Verbose("skipping default asset, as it cannot be normally acquired or imported: %v/%v", a.AssetType, a.Name)
 			return false
 		}

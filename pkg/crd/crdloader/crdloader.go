@@ -21,7 +21,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/test/util/paths"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/text"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/repo"
 
@@ -72,7 +72,7 @@ func (l *CrdLoader) getCRDViaList(group, version, kind string) (*apiextensions.C
 	for ok := true; ok; ok = listOptions.Raw.Continue != "" {
 		var list apiextensions.CustomResourceDefinitionList
 		if err := l.kubeClient.List(context.TODO(), &list, &listOptions); err != nil {
-			return nil, fmt.Errorf("error listing CRDs for GVK %v: %v", formatGVK(group, version, kind), err)
+			return nil, fmt.Errorf("error listing CRDs for GVK %v: %w", formatGVK(group, version, kind), err)
 		}
 		crds = append(crds, list.Items...)
 		listOptions.Raw.Continue = list.Continue
@@ -85,7 +85,7 @@ func (l *CrdLoader) getCRDViaGet(group, version, kind string) (*apiextensions.Cu
 	var crd apiextensions.CustomResourceDefinition
 	nn := types.NamespacedName{Name: fmt.Sprintf("%v.%v", lowercasePluralKind, group)}
 	if err := l.kubeClient.Get(context.TODO(), nn, &crd); err != nil {
-		return nil, fmt.Errorf("error getting CRD for GVK %v: %v", formatGVK(group, version, kind), err)
+		return nil, fmt.Errorf("error getting CRD for GVK %v: %w", formatGVK(group, version, kind), err)
 	}
 	return &crd, nil
 }
@@ -104,7 +104,7 @@ func GetCRDForGVK(gvk schema.GroupVersionKind) (*apiextensions.CustomResourceDef
 func GetCRD(group, version, kind string) (*apiextensions.CustomResourceDefinition, error) {
 	crds, err := LoadCRDs()
 	if err != nil {
-		return nil, fmt.Errorf("error loading CRDs: %v", err)
+		return nil, fmt.Errorf("error loading CRDs: %w", err)
 	}
 	return getMatchingCRD(group, version, kind, crds)
 }
@@ -137,7 +137,13 @@ func isMatch(group, version, kind string, crd apiextensions.CustomResourceDefini
 		}
 	}
 	if version != "" {
-		if k8s.GetVersionFromCRD(&crd) != version {
+		foundVersion := false
+		for i := range crd.Spec.Versions {
+			if crd.Spec.Versions[i].Name == version {
+				foundVersion = true
+			}
+		}
+		if !foundVersion {
 			return false
 		}
 	}
@@ -154,11 +160,36 @@ func formatGVK(group, version, kind string) string {
 	return fmt.Sprintf("{%v, %v, %v}", group, version, kind)
 }
 
+// LoadCRDs returns the list of CRDs Config Connector manages that map to GCP
+// resources.
 func LoadCRDs() ([]apiextensions.CustomResourceDefinition, error) {
-	crdsRoot := repo.GetCRDsPath()
+	return loadCRDs(repo.GetCRDsPath())
+}
+
+// LoadAllCRDs returns the list of all the CRDs Config Connector manages,
+// including the ones map to GCP resources, and the ones used to manage the
+// Config Connector operator.
+func LoadAllCRDs() ([]apiextensions.CustomResourceDefinition, error) {
+	results := make([]apiextensions.CustomResourceDefinition, 0)
+	loadFuncs := []func() ([]apiextensions.CustomResourceDefinition, error){LoadCRDs, loadOperatorCRDs}
+	for _, loadFunc := range loadFuncs {
+		crds, err := loadFunc()
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, crds...)
+	}
+	return results, nil
+}
+
+func loadOperatorCRDs() ([]apiextensions.CustomResourceDefinition, error) {
+	return loadCRDs(paths.GetOperatorCRDsPath())
+}
+
+func loadCRDs(crdsRoot string) ([]apiextensions.CustomResourceDefinition, error) {
 	files, err := ioutil.ReadDir(crdsRoot)
 	if err != nil {
-		return nil, fmt.Errorf("error listing directory '%v': %v", crdsRoot, err)
+		return nil, fmt.Errorf("error listing directory '%v': %w", crdsRoot, err)
 	}
 	results := make([]apiextensions.CustomResourceDefinition, 0)
 	for _, crdFile := range files {
@@ -174,12 +205,12 @@ func LoadCRDs() ([]apiextensions.CustomResourceDefinition, error) {
 func FileToCRD(fileName string) (*apiextensions.CustomResourceDefinition, error) {
 	bytes, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file '%v': %v", fileName, err)
+		return nil, fmt.Errorf("error reading file '%v': %w", fileName, err)
 	}
 	var crd apiextensions.CustomResourceDefinition
 	err = yaml.Unmarshal(bytes, &crd)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling '%v' to CRD: %v", fileName, err)
+		return nil, fmt.Errorf("error unmarshalling '%v' to CRD: %w", fileName, err)
 	}
 	return &crd, nil
 }

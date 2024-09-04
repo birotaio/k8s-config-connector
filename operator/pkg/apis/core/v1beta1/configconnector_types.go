@@ -40,6 +40,32 @@ type ConfigConnectorSpec struct {
 	// When in namespaced mode, you must create a ConfigConnectorContext object per namespace that you want to enable Config Connector in, and each must set `googleServiceAccount` to specify the Google Service Account to be used to authenticate with Google Cloud APIs for the namespace.
 	//+kubebuilder:validation:Enum=cluster;namespaced
 	Mode string `json:"mode,omitempty"`
+
+	// The actuation mode of Config Connector controls how resources are actuated onto the cloud provider.
+	// This can be either 'Reconciling' or 'Paused'.
+	// In 'Paused', k8s resources are still reconciled with the api server but not actuated onto the cloud provider.
+	// If Config Connector is running in 'namespaced' mode, then the value in ConfigConnectorContext (CCC) takes precedence.
+	// If CCC doesn't define a value but ConfigConnecor (CC) does, we defer to that value. Otherwise,
+	// the default is 'Reconciling' where resources get actuated.
+	//+kubebuilder:validation:Enum=Reconciling;Paused
+	//+kubebuilder:validation:Optional
+	Actuation ActuationMode `json:"actuationMode,omitempty"`
+
+	// StateIntoSpec is the user override of the default value for the
+	// 'cnrm.cloud.google.com/state-into-spec' annotation if the annotation is
+	// unset for a resource.
+	// If the field is set in both the ConfigConnector object and the
+	// ConfigConnectorContext object is in the namespaced mode, then the value
+	// in the ConfigConnectorContext object will be used.
+	// 'Absent' means that unspecified fields in the resource spec stay
+	// unspecified after successful reconciliation.
+	// 'Merge' means that unspecified fields in the resource spec are populated
+	// after a successful reconciliation if those unspecified fields are
+	// computed/defaulted by the API. It is only applicable to resources
+	// supporting the 'Merge' option.
+	//+kubebuilder:validation:Enum=Absent;Merge
+	//+kubebuilder:validation:Optional
+	StateIntoSpec *StateIntoSpecValue `json:"stateIntoSpec,omitempty"`
 }
 
 // ConfigConnectorStatus defines the observed state of ConfigConnector

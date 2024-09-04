@@ -34,7 +34,11 @@ func init() {
 		ResourceKind: "ComputeExternalVPNGateway",
 		SkipUpdate:   true,
 	}
-
+	resourceContextMap["computemanagedsslcertificate"] = ResourceContext{
+		ResourceKind: "ComputeManagedSSLCertificate",
+		// This resource doesn't support update.
+		SkipUpdate: true,
+	}
 	resourceContextMap["cloudfunctioncomputeregionnetworkendpointgroup"] = ResourceContext{
 		ResourceKind: "ComputeRegionNetworkEndpointGroup",
 		// The GCP resource for ComputeRegionNetworkEndpointGroup doesn't
@@ -254,5 +258,10 @@ func init() {
 	resourceContextMap["organizationcomputefirewallpolicyassociation"] = ResourceContext{
 		ResourceKind: "ComputeFirewallPolicyAssociation",
 		SkipUpdate:   true, // No update method in DCL at the moment
+	}
+
+	resourceContextMap["computenetworkfirewallpolicyassociation"] = ResourceContext{
+		ResourceKind: "ComputeNetworkFirewallPolicyAssociation",
+		SkipUpdate:   true, // No input fields in this resource support update.
 	}
 }

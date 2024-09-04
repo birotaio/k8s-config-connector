@@ -19,8 +19,12 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
+	customizev1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/customize/v1alpha1"
+	customizev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/customize/v1beta1"
 	corev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/controllers"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/k8s"
 	testcontroller "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/test/controller"
 	testmain "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/test/main"
@@ -32,7 +36,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	addonv1alpha1 "sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/addon/pkg/apis/v1alpha1"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/declarative/pkg/manifest"
 )
 
@@ -106,7 +113,7 @@ spec:
 		},
 	}
 
-	m := testcontroller.ParseObjects(t, ctx, testcontroller.GetPerNamespaceManifest())
+	m := testcontroller.ParseObjects(ctx, t, testcontroller.GetPerNamespaceManifest())
 	_, err := transformNamespacedComponentTemplates(ctx, mgr.GetClient(), ccc, m.Items)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -248,7 +255,7 @@ func TestHandlePerNamespaceComponentsCreate(t *testing.T) {
 			c := mgr.GetClient()
 			testcontroller.EnsureNamespaceExists(c, k8s.OperatorSystemNamespace)
 			testcontroller.EnsureNamespaceExists(c, k8s.CNRMSystemNamespace)
-			m := testcontroller.ParseObjects(t, ctx, tc.loadedManifest)
+			m := testcontroller.ParseObjects(ctx, t, tc.loadedManifest)
 			r := newConfigConnectorReconciler(c)
 
 			if err := c.Create(ctx, tc.cc); err != nil {
@@ -258,7 +265,7 @@ func TestHandlePerNamespaceComponentsCreate(t *testing.T) {
 			if err := c.Create(ctx, tc.ccc); err != nil {
 				t.Fatalf("error creating %v %v: %v", tc.ccc.Kind, tc.ccc.Name, err)
 			}
-			err := handleLifecycles(t, ctx, r, tc.ccc, m)
+			err := handleLifecycles(ctx, t, r, tc.ccc, m)
 			if tc.hasError {
 				if err == nil {
 					t.Fatalf("got nil, but want an error")
@@ -269,17 +276,17 @@ func TestHandlePerNamespaceComponentsCreate(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			expectedObjs := tc.resultsFunc(t, c)
-			expectedManifest := testcontroller.ParseObjects(t, ctx, expectedObjs)
-			expectedJson, err := expectedManifest.JSONManifest()
+			expectedManifest := testcontroller.ParseObjects(ctx, t, expectedObjs)
+			expectedJSON, err := expectedManifest.JSONManifest()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			resJson, err := m.JSONManifest()
+			resJSON, err := m.JSONManifest()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if !reflect.DeepEqual(resJson, expectedJson) {
-				t.Fatalf("unexpected diff: %v", cmp.Diff(resJson, expectedJson))
+			if !reflect.DeepEqual(resJSON, expectedJSON) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(resJSON, expectedJSON))
 			}
 
 			// Verify that the CC object is NOT attached finalizers by the CCC controller.
@@ -442,7 +449,7 @@ func TestHandlePerNamespaceComponentsDelete(t *testing.T) {
 			contextKey := client.ObjectKeyFromObject(tc.ccc)
 			testcontroller.EnsureNamespaceExists(c, k8s.OperatorSystemNamespace)
 			testcontroller.EnsureNamespaceExists(c, k8s.CNRMSystemNamespace)
-			m := testcontroller.ParseObjects(t, ctx, tc.loadedManifest)
+			m := testcontroller.ParseObjects(ctx, t, tc.loadedManifest)
 			r := newConfigConnectorReconciler(c)
 			if tc.cc != nil {
 				if err := c.Create(ctx, tc.cc); err != nil {
@@ -481,7 +488,7 @@ func TestHandlePerNamespaceComponentsDelete(t *testing.T) {
 			// Handle the lifecycle of CCC.
 			// If error is expected, assert that there is an error returned.
 			// Otherwise, assert that the finalized objects are matching with the expect the result.
-			err := handleLifecycles(t, ctx, r, tc.ccc, m)
+			err := handleLifecycles(ctx, t, r, tc.ccc, m)
 			if tc.hasError {
 				if err == nil {
 					t.Fatalf("got nil, but want an error")
@@ -491,17 +498,17 @@ func TestHandlePerNamespaceComponentsDelete(t *testing.T) {
 					t.Fatalf("unexpected error: %v", err)
 				}
 				expectedObjs := tc.resultsFunc(t, c)
-				expectedManifest := testcontroller.ParseObjects(t, ctx, expectedObjs)
-				expectedJson, err := expectedManifest.JSONManifest()
+				expectedManifest := testcontroller.ParseObjects(ctx, t, expectedObjs)
+				expectedJSON, err := expectedManifest.JSONManifest()
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
-				resJson, err := m.JSONManifest()
+				resJSON, err := m.JSONManifest()
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
-				if !reflect.DeepEqual(resJson, expectedJson) {
-					t.Fatalf("unexpected diff: %v", cmp.Diff(resJson, expectedJson))
+				if !reflect.DeepEqual(resJSON, expectedJSON) {
+					t.Fatalf("unexpected diff: %v", cmp.Diff(resJSON, expectedJSON))
 				}
 			}
 
@@ -540,7 +547,7 @@ func TestHandleReconcileFailed(t *testing.T) {
 	defer stop()
 	c := mgr.GetClient()
 	mockEventRecorder := testmocks.NewMockEventRecorder(t, mgr.GetScheme())
-	r := ConfigConnectorContextReconciler{
+	r := Reconciler{
 		client:   c,
 		recorder: mockEventRecorder,
 		log:      logr.Discard(),
@@ -567,7 +574,7 @@ func TestHandleReconcileFailed(t *testing.T) {
 		t.Errorf("error handling failed reconciliation: %v", err)
 	}
 
-	expectedErrMsg := fmt.Sprintf(k8s.ReconcileErrMsgTmpl, reconcileErr)
+	expectedErrMsg := "error during reconciliation: reconciliation error"
 	mockEventRecorder.AssertEventRecorded(kind, nn, v1.EventTypeWarning, k8s.UpdateFailed, expectedErrMsg)
 
 	newCCC := &corev1beta1.ConfigConnectorContext{}
@@ -592,7 +599,7 @@ func TestHandleReconcileSucceeded(t *testing.T) {
 	defer stop()
 	c := mgr.GetClient()
 	mockEventRecorder := testmocks.NewMockEventRecorder(t, mgr.GetScheme())
-	r := ConfigConnectorContextReconciler{
+	r := Reconciler{
 		client:   c,
 		recorder: mockEventRecorder,
 		log:      logr.Discard(),
@@ -632,8 +639,367 @@ func TestHandleReconcileSucceeded(t *testing.T) {
 	}
 }
 
-func handleLifecycles(t *testing.T, ctx context.Context,
-	r *ConfigConnectorContextReconciler, ccc *corev1beta1.ConfigConnectorContext, m *manifest.Objects) error {
+// TestConfigConnectorContextControllerWatchMultipleCustomizationCR creates 2 namespaces verifies the correct behavior of
+// the customization watcher of configConnectorContext operator.
+func TestConfigConnectorContextControllerWatchMultipleCustomizationCR(t *testing.T) {
+	var (
+		fooCCC = &corev1beta1.ConfigConnectorContext{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8s.ConfigConnectorContextAllowedName,
+				Namespace: "foo-ns",
+			},
+		}
+		barCCC = &corev1beta1.ConfigConnectorContext{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8s.ConfigConnectorContextAllowedName,
+				Namespace: "foo-ns",
+			},
+		}
+		fooCR = &customizev1beta1.NamespacedControllerResource{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cnrm-controller-manager",
+				Namespace: "foo-ns",
+			},
+			Spec: customizev1beta1.NamespacedControllerResourceSpec{
+				Containers: []customizev1beta1.ContainerResourceSpec{
+					{
+						Name:      "manager",
+						Resources: customizev1beta1.ResourceRequirements{},
+					},
+				},
+			},
+		}
+		barCR = &customizev1beta1.NamespacedControllerResource{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cnrm-controller-manager",
+				Namespace: "bar-ns",
+			},
+			Spec: customizev1beta1.NamespacedControllerResourceSpec{
+				Containers: []customizev1beta1.ContainerResourceSpec{
+					{
+						Name:      "manager",
+						Resources: customizev1beta1.ResourceRequirements{},
+					},
+				},
+			},
+		}
+	)
+
+	// test setup
+	ctx, cancel := context.WithCancel(context.Background())
+	mgr, stop := testmain.StartTestManagerFromNewTestEnv()
+	defer func() {
+		cancel()
+		stop()
+	}()
+	r := newConfigConnectorContextReconcilerWithCustomizationWatcher(mgr)
+	if err := r.customizationWatcher.EnsureWatchStarted(ctx, types.NamespacedName{Namespace: fooCCC.Namespace, Name: fooCCC.Name}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := r.customizationWatcher.EnsureWatchStarted(ctx, types.NamespacedName{Namespace: barCCC.Namespace, Name: barCCC.Name}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := mgr.GetClient()
+
+	// after a namespacedControllerResource object is created in "foo-ns" namespace,
+	// check that a watch event is raised with the correct name and namespace.
+	testcontroller.EnsureNamespaceExists(c, fooCR.Namespace)
+	if err := c.Create(ctx, fooCR); err != nil {
+		t.Fatalf("error creating %v %v/%v: %v", fooCR.Kind, fooCR.Namespace, fooCR.Name, err)
+	}
+	select { // expect watch event raised on "foo-ns/configconnectorcontext.core.cnrm.cloud.google.com"
+	case e := <-r.customizationWatcher.Events():
+		if e.Object.GetNamespace() != "foo-ns" {
+			t.Fatalf("unexpected namespace for watch event object, want foo-ns, got %v", e.Object.GetNamespace())
+		}
+		if e.Object.GetName() != k8s.ConfigConnectorContextAllowedName {
+			t.Fatalf("unexpected name for watch event object, want %v, got %v", k8s.ConfigConnectorContextAllowedName, e.Object.GetName())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatalf("expect watch event, got no event")
+	}
+	select { // expect no more watch event
+	case e := <-r.customizationWatcher.Events():
+		t.Fatalf("unexpected watch event object: %v", e.Object)
+	default:
+	}
+
+	// after a namespacedControllerResource object is created in "bar-ns" namespace,
+	// check that a watch event is raised with the correct name and namespace.
+	testcontroller.EnsureNamespaceExists(c, barCR.Namespace)
+	if err := c.Create(ctx, barCR); err != nil {
+		t.Fatalf("error creating %v %v/%v: %v", barCR.Kind, barCR.Namespace, barCR.Name, err)
+	}
+	select { // expect watch event raised on "bar-ns/configconnectorcontext.core.cnrm.cloud.google.com"
+	case e := <-r.customizationWatcher.Events():
+		if e.Object.GetNamespace() != "bar-ns" {
+			t.Fatalf("unexpected namespace for watch event object, want foo-ns, got %v", e.Object.GetNamespace())
+		}
+		if e.Object.GetName() != k8s.ConfigConnectorContextAllowedName {
+			t.Fatalf("unexpected name for watch event object, want %v, got %v", k8s.ConfigConnectorContextAllowedName, e.Object.GetName())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatalf("expect watch event, got no event")
+	}
+	select { // expect no more watch event
+	case e := <-r.customizationWatcher.Events():
+		t.Fatalf("unexpected watch event: %v", e)
+	default:
+	}
+
+	// after delete a namespacedControllerResource, check that a watch event is raised with the correct name and namespace.
+	if err := c.Delete(ctx, fooCR); err != nil {
+		t.Fatalf("error deleting %v %v/%v: %v", fooCR.Kind, fooCR.Namespace, fooCR.Name, err)
+	}
+	select { // expect watch event raised on "foo-ns/configconnectorcontext.core.cnrm.cloud.google.com"
+	case e := <-r.customizationWatcher.Events():
+		if e.Object.GetNamespace() != "foo-ns" {
+			t.Fatalf("unexpected namespace for watch event object, want foo-ns, got %v", e.Object.GetNamespace())
+		}
+		if e.Object.GetName() != k8s.ConfigConnectorContextAllowedName {
+			t.Fatalf("unexpected name for watch event object, want %v, got %v", k8s.ConfigConnectorContextAllowedName, e.Object.GetName())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatalf("expect watch event, got no event")
+	}
+}
+
+func TestApplyNamespacedCustomizations(t *testing.T) {
+	ccc := &corev1beta1.ConfigConnectorContext{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8s.ConfigConnectorContextAllowedName,
+			Namespace: "foo-ns",
+		},
+	}
+	tests := []struct {
+		name                          string
+		manifests                     []string
+		namespacedCustomizationCR     *customizev1beta1.NamespacedControllerResource
+		clusterScopedCustomizationCR  *customizev1beta1.ControllerResource
+		expectedManifests             []string
+		expectedCustomizationCRStatus customizev1beta1.NamespacedControllerResourceStatus
+		skipCheckingCRStatus          bool
+	}{
+		{
+			name:                      "customize the resources for cnrm-controller-manager",
+			manifests:                 testcontroller.NamespacedComponents,
+			namespacedCustomizationCR: testcontroller.NamespacedControllerResourceCRForControllerManagerResources,
+			expectedManifests:         testcontroller.NamespacedComponentsWithCustomizedControllerManager,
+			expectedCustomizationCRStatus: customizev1beta1.NamespacedControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: true,
+				},
+			},
+		},
+		{
+			name:                      "customize for a non-existing controller fails",
+			manifests:                 testcontroller.NamespacedComponents,
+			namespacedCustomizationCR: testcontroller.NamespacedControllerResourceCRForNonExistingController,
+			expectedManifests:         testcontroller.NamespacedComponents, // same as the input manifests
+			expectedCustomizationCRStatus: customizev1beta1.NamespacedControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: false,
+					Errors:  []string{testcontroller.ErrNonExistingController},
+				},
+			},
+		},
+		{
+			name:                      "customize for a non-existing container in a valid controller fails",
+			manifests:                 testcontroller.NamespacedComponents,
+			namespacedCustomizationCR: testcontroller.NamespacedControllerResourceCRForNonExistingContainer,
+			expectedManifests:         testcontroller.NamespacedComponents, // same as the input manifests
+			expectedCustomizationCRStatus: customizev1beta1.NamespacedControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: false,
+					Errors:  []string{testcontroller.ErrNonExistingContainer},
+				},
+			},
+		},
+		{
+			name:                         "cluster-scoped customization CR has no effect",
+			manifests:                    testcontroller.NamespacedComponents,
+			clusterScopedCustomizationCR: testcontroller.ControllerResourceCRForControllerManagerResources,
+			expectedManifests:            testcontroller.NamespacedComponents, // same as the input manifests
+			skipCheckingCRStatus:         true,
+		},
+		{
+			name:                      "customization from a different namespace has no effect",
+			manifests:                 testcontroller.NamespacedComponents,
+			namespacedCustomizationCR: testcontroller.NamespacedControllerResourceCRWrongNamespace,
+			expectedManifests:         testcontroller.NamespacedComponents, // same as the input manifests
+			expectedCustomizationCRStatus: customizev1beta1.NamespacedControllerResourceStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{}, // no update to status because it is not in the same namespace as the CCC reconciler.
+			},
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// test setup
+			ctx := context.TODO()
+			mgr, stop := testmain.StartTestManagerFromNewTestEnv()
+			defer stop()
+			c := mgr.GetClient()
+			if tc.namespacedCustomizationCR != nil {
+				cr := tc.namespacedCustomizationCR
+				testcontroller.EnsureNamespaceExists(c, cr.Namespace)
+				if err := c.Create(ctx, cr); err != nil {
+					t.Fatalf("error creating %v %v/%v: %v", cr.Kind, cr.Namespace, cr.Name, err)
+				}
+			}
+			if tc.clusterScopedCustomizationCR != nil {
+				cr := tc.clusterScopedCustomizationCR
+				if err := c.Create(ctx, cr); err != nil {
+					t.Fatalf("error creating %v %v/%v: %v", cr.Kind, cr.Namespace, cr.Name, err)
+				}
+			}
+			manifests := testcontroller.ParseObjects(ctx, t, tc.manifests)
+			r := newConfigConnectorReconciler(c)
+
+			// run the test function
+			fn := r.applyNamespacedCustomizations()
+			if err := fn(ctx, ccc, manifests); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// check the resulting manifests
+			gotJSON, err := manifests.JSONManifest()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			expectedManifests := testcontroller.ParseObjects(ctx, t, tc.expectedManifests)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			expectedJSON, err := expectedManifests.JSONManifest()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(gotJSON, expectedJSON) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(gotJSON, expectedJSON))
+			}
+
+			// check the status of namespaced customization CR
+			if tc.skipCheckingCRStatus {
+				return
+			}
+			updatedCR := &customizev1beta1.NamespacedControllerResource{}
+			if err := c.Get(ctx, types.NamespacedName{Namespace: tc.namespacedCustomizationCR.Namespace, Name: tc.namespacedCustomizationCR.Name}, updatedCR); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			gotStatus := updatedCR.Status
+			if !reflect.DeepEqual(gotStatus, tc.expectedCustomizationCRStatus) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(gotStatus, tc.expectedCustomizationCRStatus))
+			}
+		})
+	}
+}
+
+func TestApplyNamespacedRateLimitCustomizations(t *testing.T) {
+	ccc := &corev1beta1.ConfigConnectorContext{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8s.ConfigConnectorContextAllowedName,
+			Namespace: "foo-ns",
+		},
+	}
+	tests := []struct {
+		name                   string
+		manifests              []string
+		controllerReconcilerCR *customizev1alpha1.NamespacedControllerReconciler
+		expectedManifests      []string
+		expectedCRStatus       customizev1alpha1.NamespacedControllerReconcilerStatus
+	}{
+		{
+			name:                   "customize the rate limit for cnrm-controller-manager",
+			manifests:              testcontroller.NamespacedComponents,
+			controllerReconcilerCR: testcontroller.NamespacedControllerReconcilerCR,
+			expectedManifests:      testcontroller.NamespacedComponentsWithRatLimitCustomization,
+			expectedCRStatus: customizev1alpha1.NamespacedControllerReconcilerStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: true,
+				},
+			},
+		},
+		{
+			name:                   "customize the rate limit for a unsupported controller fails",
+			manifests:              testcontroller.NamespacedComponents,
+			controllerReconcilerCR: testcontroller.NamespacedControllerReconcilerCRForUnsupportedController,
+			expectedManifests:      testcontroller.NamespacedComponents, // same as the input manifests
+			expectedCRStatus: customizev1alpha1.NamespacedControllerReconcilerStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{
+					Healthy: false,
+					Errors:  []string{testcontroller.ErrUnsupportedController},
+				},
+			},
+		},
+		{
+			name:                   "customization from a different namespace has no effect",
+			manifests:              testcontroller.NamespacedComponents,
+			controllerReconcilerCR: testcontroller.NamespacedControllerReconcilerCRWrongNamespace,
+			expectedManifests:      testcontroller.NamespacedComponents, // same as the input manifests
+			expectedCRStatus: customizev1alpha1.NamespacedControllerReconcilerStatus{
+				CommonStatus: addonv1alpha1.CommonStatus{}, // no update to status because it is not in the same namespace as the CCC reconciler.
+			},
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// test setup
+			ctx := context.TODO()
+			mgr, stop := testmain.StartTestManagerFromNewTestEnv()
+			defer stop()
+			c := mgr.GetClient()
+			if tc.controllerReconcilerCR != nil {
+				cr := tc.controllerReconcilerCR
+				testcontroller.EnsureNamespaceExists(c, cr.Namespace)
+				if err := c.Create(ctx, cr); err != nil {
+					t.Fatalf("error creating %v %v/%v: %v", cr.Kind, cr.Namespace, cr.Name, err)
+				}
+			}
+			manifests := testcontroller.ParseObjects(ctx, t, tc.manifests)
+			r := newConfigConnectorReconciler(c)
+
+			// run the test function
+			fn := r.applyNamespacedCustomizations()
+			if err := fn(ctx, ccc, manifests); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// check the resulting manifests
+			gotJSON, err := manifests.JSONManifest()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			expectedManifests := testcontroller.ParseObjects(ctx, t, tc.expectedManifests)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			expectedJSON, err := expectedManifests.JSONManifest()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(gotJSON, expectedJSON) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(gotJSON, expectedJSON))
+			}
+
+			// check the status of namespaced customization CR
+			updatedCR := &customizev1alpha1.NamespacedControllerReconciler{}
+			if err := c.Get(ctx, types.NamespacedName{Namespace: tc.controllerReconcilerCR.Namespace, Name: tc.controllerReconcilerCR.Name}, updatedCR); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			gotStatus := updatedCR.Status
+			if !reflect.DeepEqual(gotStatus, tc.expectedCRStatus) {
+				t.Fatalf("unexpected diff: %v", cmp.Diff(gotStatus, tc.expectedCRStatus))
+			}
+		})
+	}
+}
+
+func handleLifecycles(ctx context.Context, t *testing.T,
+	r *Reconciler, ccc *corev1beta1.ConfigConnectorContext, m *manifest.Objects) error {
 	t.Helper()
 	fn := r.transformNamespacedComponents()
 	if err := fn(ctx, ccc, m); err != nil {
@@ -644,16 +1010,27 @@ func handleLifecycles(t *testing.T, ctx context.Context,
 		return err
 	}
 	fn = r.handleCCContextLifecycle()
-	if err := fn(ctx, ccc, m); err != nil {
-		return err
-	}
-	return nil
+	return fn(ctx, ccc, m)
 }
 
-func newConfigConnectorReconciler(c client.Client) *ConfigConnectorContextReconciler {
-	return &ConfigConnectorContextReconciler{
+func newConfigConnectorReconciler(c client.Client) *Reconciler {
+	return &Reconciler{
 		client:     c,
 		log:        logr.Discard(),
 		labelMaker: SourceLabel(),
 	}
+}
+
+func newConfigConnectorContextReconcilerWithCustomizationWatcher(m ctrl.Manager) *Reconciler {
+	r := &Reconciler{
+		client: m.GetClient(),
+		log:    logr.Discard(),
+	}
+	r.customizationWatcher = controllers.NewWithDynamicClient(
+		dynamic.NewForConfigOrDie(m.GetConfig()),
+		controllers.CustomizationWatcherOptions{
+			TriggerGVRs: controllers.NamespacedCustomizationCRsToWatch,
+			Log:         logr.Discard(),
+		})
+	return r
 }

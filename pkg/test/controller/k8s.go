@@ -26,8 +26,10 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
 	testgcp "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/gcp"
 
+	"errors"
+
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -80,7 +82,7 @@ func assertEventNotRecorded(t *testing.T, c client.Client, kind, name, namespace
 	err := waitUntilEventRecorded(t, c, kind, name, namespace, reason)
 	if err == nil {
 		t.Errorf("expected event with reason '%v' to not be recorded for %v %v/%v, but it was", reason, kind, namespace, name)
-	} else if err != wait.ErrWaitTimeout {
+	} else if !errors.Is(err, wait.ErrWaitTimeout) {
 		t.Errorf("error waiting for event with reason '%v' to be recorded for %v %v/%v: %v", reason, kind, namespace, name, err)
 	}
 }
@@ -131,7 +133,7 @@ func WaitForUnstructDeleteToFinish(t *testing.T, kubeClient client.Client, origU
 		if err == nil {
 			return false, nil
 		}
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
 		return true, err
@@ -142,33 +144,44 @@ func WaitForUnstructDeleteToFinish(t *testing.T, kubeClient client.Client, origU
 }
 
 // ReplaceTestVars replaces all occurrences of placeholder strings e.g. ${uniqueId} in a given byte slice.
-func ReplaceTestVars(t *testing.T, b []byte, uniqueId string, project testgcp.GCPProject) []byte {
+func ReplaceTestVars(t *testing.T, b []byte, uniqueID string, project testgcp.GCPProject) []byte {
 	s := string(b)
-	s = strings.Replace(s, "${uniqueId}", uniqueId, -1)
+	s = strings.Replace(s, "${uniqueId}", uniqueID, -1)
 	s = strings.Replace(s, "${projectId}", project.ProjectID, -1)
 	if strings.Contains(s, "${projectNumber}") {
 		projectNumber := strconv.FormatInt(project.ProjectNumber, 10)
 		s = strings.Replace(s, "${projectNumber}", projectNumber, -1)
 	}
 	// Handle placeholder strings for folder id and org id specially because they are pure numbers while yaml marshalling expects strings.
-	s = strings.Replace(s, fmt.Sprintf("folders/${%s}", testgcp.TestFolderId), fmt.Sprintf("folders/%s", testgcp.GetFolderID(t)), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestFolderId), fmt.Sprintf("\"%s\"", testgcp.GetFolderID(t)), -1)
-	s = strings.Replace(s, fmt.Sprintf("folders/${%s}", testgcp.TestFolder2Id), fmt.Sprintf("folders/%s", testgcp.GetFolder2ID(t)), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestFolder2Id), fmt.Sprintf("\"%s\"", testgcp.GetFolder2ID(t)), -1)
-	s = strings.Replace(s, fmt.Sprintf("organizations/${%s}", testgcp.TestOrgId), fmt.Sprintf("organizations/%s", testgcp.GetOrgID(t)), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestOrgId), fmt.Sprintf("\"%s\"", testgcp.GetOrgID(t)), -1)
-	s = strings.Replace(s, fmt.Sprintf("organizations/${%s}", testgcp.IAMIntegrationTestsOrganizationId), fmt.Sprintf("organizations/%s", testgcp.GetIAMIntegrationTestsOrganizationId(t)), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.IAMIntegrationTestsOrganizationId), fmt.Sprintf("\"%s\"", testgcp.GetIAMIntegrationTestsOrganizationId(t)), -1)
+	s = strings.Replace(s, fmt.Sprintf("folders/${%s}", testgcp.TestFolderID.Key), fmt.Sprintf("folders/%s", testgcp.TestFolderID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestFolderID.Key), fmt.Sprintf("\"%s\"", testgcp.TestFolderID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("folders/${%s}", testgcp.TestFolder2ID.Key), fmt.Sprintf("folders/%s", testgcp.TestFolder2ID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestFolder2ID.Key), fmt.Sprintf("\"%s\"", testgcp.TestFolder2ID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("organizations/${%s}", testgcp.TestOrgID.Key), fmt.Sprintf("organizations/%s", testgcp.TestOrgID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestOrgID.Key), fmt.Sprintf("\"%s\"", testgcp.TestOrgID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestDependentOrgProjectID.Key), fmt.Sprintf("\"%s\"", testgcp.TestDependentOrgProjectID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("projects/${%s}", testgcp.TestDependentOrgProjectID.Key), fmt.Sprintf("projects/%s", testgcp.TestDependentOrgProjectID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("projects/${%s}", testgcp.TestDependentFolderProjectID.Key), fmt.Sprintf("projects/%s", testgcp.TestDependentFolderProjectID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestDependentOrgProjectIDWithoutQuotation), fmt.Sprintf("%s", testgcp.TestDependentOrgProjectID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestDependentFolderProjectID.Key), fmt.Sprintf("\"%s\"", testgcp.TestDependentFolderProjectID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("projects/${%s}", testgcp.TestDependentFolder2ProjectID), fmt.Sprintf("projects/%s", testgcp.GetDependentFolder2ProjectID(t)), -1)
+	s = strings.Replace(s, fmt.Sprintf("projects/${%s}", testgcp.TestDependentNoNetworkProjectID.Key), fmt.Sprintf("projects/%s", testgcp.TestDependentNoNetworkProjectID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestDependentNoNetworkProjectID.Key), fmt.Sprintf("\"%s\"", testgcp.TestDependentNoNetworkProjectID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("organizations/${%s}", testgcp.IAMIntegrationTestsOrganizationID.Key), fmt.Sprintf("organizations/%s", testgcp.IAMIntegrationTestsOrganizationID.Get()), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.IAMIntegrationTestsOrganizationID.Key), fmt.Sprintf("\"%s\"", testgcp.IAMIntegrationTestsOrganizationID.Get()), -1)
 	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.IsolatedTestOrgName), testgcp.GetIsolatedTestOrgName(t), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestBillingAccountId), testgcp.GetBillingAccountID(t), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestBillingAccountIDForBillingResources), testgcp.GetTestBillingAccountIDForBillingResources(t), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.IAMIntegrationTestsBillingAccountId), testgcp.GetIAMIntegrationTestsBillingAccountId(t), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.FirestoreTestProject), testgcp.GetFirestoreTestProject(t), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestBillingAccountID.Key), testgcp.TestBillingAccountID.Get(), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestBillingAccountIDForBillingResources.Key), testgcp.TestBillingAccountIDForBillingResources.Get(), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.FirestoreTestProject.Key), testgcp.FirestoreTestProject.Get(), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.IAMIntegrationTestsBillingAccountID.Key), testgcp.IAMIntegrationTestsBillingAccountID.Get(), -1)
 	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.CloudFunctionsTestProject), testgcp.GetCloudFunctionsTestProject(t), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.IdentityPlatformTestProject), testgcp.GetIdentityPlatformTestProject(t), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.IdentityPlatformTestProject.Key), testgcp.IdentityPlatformTestProject.Get(), -1)
 	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.InterconnectTestProject), testgcp.GetInterconnectTestProject(t), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.HighCPUQuotaTestProject), testgcp.GetHighCpuQuotaTestProject(t), -1)
-	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.RecaptchaEnterpriseTestProject), testgcp.GetRecaptchaEnterpriseTestProject(t), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.HighCPUQuotaTestProject), testgcp.GetHighCPUQuotaTestProject(t), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.RecaptchaEnterpriseTestProject.Key), testgcp.RecaptchaEnterpriseTestProject.Get(), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestKCCAttachedClusterProject.Key), testgcp.TestKCCAttachedClusterProject.Get(), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestKCCVertexAIIndexBucket.Key), testgcp.TestKCCVertexAIIndexBucket.Get(), -1)
+	s = strings.Replace(s, fmt.Sprintf("${%s}", testgcp.TestKCCVertexAIIndexDataURI.Key), testgcp.TestKCCVertexAIIndexDataURI.Get(), -1)
 	return []byte(s)
 }
 

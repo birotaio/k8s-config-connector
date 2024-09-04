@@ -127,6 +127,11 @@ type AlertpolicyAlertStrategy struct {
 	// +optional
 	AutoClose *string `json:"autoClose,omitempty"`
 
+	/* Control over how the notification channels in 'notification_channels'
+	are notified when this alert fires, on a per-channel basis. */
+	// +optional
+	NotificationChannelStrategy []AlertpolicyNotificationChannelStrategy `json:"notificationChannelStrategy,omitempty"`
+
 	/* Required for alert policies with a LogMatch condition.
 	This limit is not implemented for alert policies that are not log-based. */
 	// +optional
@@ -232,6 +237,66 @@ type AlertpolicyConditionMonitoringQueryLanguage struct {
 	Trigger *AlertpolicyTrigger `json:"trigger,omitempty"`
 }
 
+type AlertpolicyConditionPrometheusQueryLanguage struct {
+	/* The alerting rule name of this alert in the corresponding Prometheus
+	configuration file.
+
+	Some external tools may require this field to be populated correctly
+	in order to refer to the original Prometheus configuration file.
+	The rule group name and the alert name are necessary to update the
+	relevant AlertPolicies in case the definition of the rule group changes
+	in the future.
+
+	This field is optional. If this field is not empty, then it must be a
+	valid Prometheus label name. */
+	// +optional
+	AlertRule *string `json:"alertRule,omitempty"`
+
+	/* Alerts are considered firing once their PromQL expression evaluated
+	to be "true" for this long. Alerts whose PromQL expression was not
+	evaluated to be "true" for long enough are considered pending. The
+	default value is zero. Must be zero or positive. */
+	// +optional
+	Duration *string `json:"duration,omitempty"`
+
+	/* How often this rule should be evaluated. Must be a positive multiple
+	of 30 seconds or missing. The default value is 30 seconds. If this
+	PrometheusQueryLanguageCondition was generated from a Prometheus
+	alerting rule, then this value should be taken from the enclosing
+	rule group. */
+	// +optional
+	EvaluationInterval *string `json:"evaluationInterval,omitempty"`
+
+	/* Labels to add to or overwrite in the PromQL query result. Label names
+	must be valid.
+
+	Label values can be templatized by using variables. The only available
+	variable names are the names of the labels in the PromQL result, including
+	"__name__" and "value". "labels" may be empty. This field is intended to be
+	used for organizing and identifying the AlertPolicy. */
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	/* The PromQL expression to evaluate. Every evaluation cycle this
+	expression is evaluated at the current time, and all resultant time
+	series become pending/firing alerts. This field must not be empty. */
+	Query string `json:"query"`
+
+	/* The rule group name of this alert in the corresponding Prometheus
+	configuration file.
+
+	Some external tools may require this field to be populated correctly
+	in order to refer to the original Prometheus configuration file.
+	The rule group name and the alert name are necessary to update the
+	relevant AlertPolicies in case the definition of the rule group changes
+	in the future.
+
+	This field is optional. If this field is not empty, then it must be a
+	valid Prometheus label name. */
+	// +optional
+	RuleGroup *string `json:"ruleGroup,omitempty"`
+}
+
 type AlertpolicyConditionThreshold struct {
 	/* Specifies the alignment of data points in
 	individual time series as well as how to
@@ -334,6 +399,15 @@ type AlertpolicyConditionThreshold struct {
 	// +optional
 	Filter *string `json:"filter,omitempty"`
 
+	/* When this field is present, the 'MetricThreshold'
+	condition forecasts whether the time series is
+	predicted to violate the threshold within the
+	'forecastHorizon'. When this field is not set, the
+	'MetricThreshold' tests the current value of the
+	timeseries against the threshold. */
+	// +optional
+	ForecastOptions *AlertpolicyForecastOptions `json:"forecastOptions,omitempty"`
+
 	/* A value against which to compare the time
 	series. */
 	// +optional
@@ -365,6 +439,16 @@ type AlertpolicyConditions struct {
 	/* A Monitoring Query Language query that outputs a boolean stream. */
 	// +optional
 	ConditionMonitoringQueryLanguage *AlertpolicyConditionMonitoringQueryLanguage `json:"conditionMonitoringQueryLanguage,omitempty"`
+
+	/* A Monitoring Query Language query that outputs a boolean stream
+
+	A condition type that allows alert policies to be defined using
+	Prometheus Query Language (PromQL).
+
+	The PrometheusQueryLanguageCondition message contains information
+	from a Prometheus alerting rule and its associated rule group. */
+	// +optional
+	ConditionPrometheusQueryLanguage *AlertpolicyConditionPrometheusQueryLanguage `json:"conditionPrometheusQueryLanguage,omitempty"`
 
 	/* A condition that compares a time series against a
 	threshold. */
@@ -489,6 +573,29 @@ type AlertpolicyDocumentation struct {
 	MimeType *string `json:"mimeType,omitempty"`
 }
 
+type AlertpolicyForecastOptions struct {
+	/* The length of time into the future to forecast
+	whether a timeseries will violate the threshold.
+	If the predicted value is found to violate the
+	threshold, and the violation is observed in all
+	forecasts made for the Configured 'duration',
+	then the timeseries is considered to be failing. */
+	ForecastHorizon string `json:"forecastHorizon"`
+}
+
+type AlertpolicyNotificationChannelStrategy struct {
+	/* The notification channels that these settings apply to. Each of these
+	correspond to the name field in one of the NotificationChannel objects
+	referenced in the notification_channels field of this AlertPolicy. The format is
+	'projects/[PROJECT_ID_OR_NUMBER]/notificationChannels/[CHANNEL_ID]'. */
+	// +optional
+	NotificationChannelNames []string `json:"notificationChannelNames,omitempty"`
+
+	/* The frequency at which to send reminder notifications for open incidents. */
+	// +optional
+	RenotifyInterval *string `json:"renotifyInterval,omitempty"`
+}
+
 type AlertpolicyNotificationRateLimit struct {
 	/* Not more than one notification per period. */
 	// +optional
@@ -500,7 +607,7 @@ type AlertpolicyTrigger struct {
 	that must fail the predicate for the
 	condition to be triggered. */
 	// +optional
-	Count *int `json:"count,omitempty"`
+	Count *int64 `json:"count,omitempty"`
 
 	/* The percentage of time series that
 	must fail the predicate for the
@@ -548,6 +655,12 @@ type MonitoringAlertPolicySpec struct {
 	/* Immutable. Optional. The service-generated name of the resource. Used for acquisition only. Leave unset to create a new resource. */
 	// +optional
 	ResourceID *string `json:"resourceID,omitempty"`
+
+	/* The severity of an alert policy indicates how important
+	incidents generated by that policy are. The severity level will be displayed on
+	the Incident detail page and in notifications. Possible values: ["CRITICAL", "ERROR", "WARNING"]. */
+	// +optional
+	Severity *string `json:"severity,omitempty"`
 }
 
 type AlertpolicyCreationRecordStatus struct {
@@ -577,11 +690,18 @@ type MonitoringAlertPolicyStatus struct {
 
 	/* ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource. */
 	// +optional
-	ObservedGeneration *int `json:"observedGeneration,omitempty"`
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories=gcp,shortName=gcpmonitoringalertpolicy;gcpmonitoringalertpolicies
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/stability-level=stable";"cnrm.cloud.google.com/system=true";"cnrm.cloud.google.com/tf2crd=true"
+// +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
+// +kubebuilder:printcolumn:name="Ready",JSONPath=".status.conditions[?(@.type=='Ready')].status",type="string",description="When 'True', the most recent reconcile of the resource succeeded"
+// +kubebuilder:printcolumn:name="Status",JSONPath=".status.conditions[?(@.type=='Ready')].reason",type="string",description="The reason for the value in 'Ready'"
+// +kubebuilder:printcolumn:name="Status Age",JSONPath=".status.conditions[?(@.type=='Ready')].lastTransitionTime",type="date",description="The last transition time for the value in 'Status'"
 
 // MonitoringAlertPolicy is the Schema for the monitoring API
 // +k8s:openapi-gen=true
