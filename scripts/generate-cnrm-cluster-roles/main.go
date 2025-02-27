@@ -28,7 +28,7 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/repo"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/slice"
 
-	"github.com/ghodss/yaml"
+	"github.com/ghodss/yaml" //nolint:depguard
 	rbacv1 "k8s.io/api/rbac/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -48,8 +48,10 @@ func main() {
 		log.Fatalf("error getting new service mapping loader: %v", err)
 	}
 	serviceMetadataLoader := dclmetadata.New()
-	gvks := supportedgvks.All(smLoader, serviceMetadataLoader)
-
+	gvks, err := supportedgvks.All(smLoader, serviceMetadataLoader)
+	if err != nil {
+		log.Fatalf("error loading all supported GVKs: %v", err)
+	}
 	apis := make(map[string]bool)
 	for _, gvk := range gvks {
 		apis[gvk.Group] = true

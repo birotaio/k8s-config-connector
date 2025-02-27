@@ -41,7 +41,7 @@ func (s *RegionalBackendServicesV1) Get(ctx context.Context, req *pb.GetRegionBa
 
 	obj := &pb.BackendService{}
 	if err := s.storage.Get(ctx, fqn, obj); err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.NotFound, "The resource '%s' was not found", fqn)
 	}
 
 	return obj, nil
@@ -59,7 +59,7 @@ func (s *RegionalBackendServicesV1) Insert(ctx context.Context, req *pb.InsertRe
 	id := s.generateID()
 
 	obj := proto.Clone(req.GetBackendServiceResource()).(*pb.BackendService)
-	obj.SelfLink = PtrTo("https://www.googleapis.com/compute/v1/" + name.String())
+	obj.SelfLink = PtrTo(buildComputeSelfLink(ctx, fqn))
 	obj.CreationTimestamp = PtrTo(s.nowString())
 	obj.Id = &id
 	obj.Kind = PtrTo("compute#backendService")

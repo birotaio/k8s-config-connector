@@ -512,6 +512,18 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - discoveryengine.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - dlp.cnrm.cloud.google.com
   resources:
   - '*'
@@ -764,7 +776,31 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - managedkafka.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - memcache.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - memorystore.cnrm.cloud.google.com
   resources:
   - '*'
   verbs:
@@ -908,6 +944,18 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - privilegedaccessmanager.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - pubsub.cnrm.cloud.google.com
   resources:
   - '*'
@@ -981,6 +1029,18 @@ rules:
   - delete
 - apiGroups:
   - secretmanager.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - securesourcemanager.cnrm.cloud.google.com
   resources:
   - '*'
   verbs:

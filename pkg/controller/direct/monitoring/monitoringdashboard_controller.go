@@ -30,6 +30,7 @@ import (
 	refs "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/common"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/directbase"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
 )
@@ -64,7 +65,7 @@ var _ directbase.Adapter = &dashboardAdapter{}
 
 // AdapterForObject implements the Model interface.
 func (m *dashboardModel) AdapterForObject(ctx context.Context, kube client.Reader, u *unstructured.Unstructured) (directbase.Adapter, error) {
-	gcpClient, err := newGCPClient(ctx, m.config)
+	gcpClient, err := newGCPClient(m.config)
 	if err != nil {
 		return nil, fmt.Errorf("building gcp client: %w", err)
 	}
@@ -87,7 +88,7 @@ func (m *dashboardModel) AdapterForObject(ctx context.Context, kube client.Reade
 		return nil, fmt.Errorf("cannot resolve resource ID")
 	}
 
-	projectRef, err := refs.ResolveProject(ctx, kube, obj, &obj.Spec.ProjectRef)
+	projectRef, err := refs.ResolveProject(ctx, kube, obj.GetNamespace(), &obj.Spec.ProjectRef)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +97,7 @@ func (m *dashboardModel) AdapterForObject(ctx context.Context, kube client.Reade
 		return nil, fmt.Errorf("cannot resolve project")
 	}
 
-	if err := VisitFields(obj, &refNormalizer{ctx: ctx, src: obj, project: *projectRef, kube: kube}); err != nil {
+	if err := common.NormalizeReferences(ctx, kube, obj, projectRef); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +123,7 @@ func (m *dashboardModel) AdapterForURL(ctx context.Context, url string) (directb
 
 	tokens := strings.Split(strings.TrimPrefix(url, "//monitoring.googleapis.com/"), "/")
 	if len(tokens) == 4 && tokens[0] == "projects" && tokens[2] == "dashboards" {
-		gcpClient, err := newGCPClient(ctx, m.config)
+		gcpClient, err := newGCPClient(m.config)
 		if err != nil {
 			return nil, fmt.Errorf("building gcp client: %w", err)
 		}

@@ -35,9 +35,10 @@ import (
 	bigqueryv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigquery/v1alpha1"
 	bigqueryv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigquery/v1beta1"
 	bigqueryanalyticshubv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigqueryanalyticshub/v1alpha1"
-	bigqueryconnectionv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigqueryconnection/v1alpha1"
+	bigqueryanalyticshubv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigqueryanalyticshub/v1beta1"
+	bigqueryconnectionv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigqueryconnection/v1beta1"
 	bigquerydatapolicyv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigquerydatapolicy/v1alpha1"
-	bigquerydatatransferv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigquerydatatransfer/v1alpha1"
+	bigquerydatatransferv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigquerydatatransfer/v1beta1"
 	bigqueryreservationv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigqueryreservation/v1alpha1"
 	bigtablev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/bigtable/v1beta1"
 	billingbudgetsv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/billingbudgets/v1beta1"
@@ -62,7 +63,7 @@ import (
 	datacatalogv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/datacatalog/v1alpha1"
 	datacatalogv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/datacatalog/v1beta1"
 	dataflowv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/dataflow/v1beta1"
-	dataformv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/dataform/v1alpha1"
+	dataformv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/dataform/v1beta1"
 	datafusionv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/datafusion/v1beta1"
 	dataprocv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/dataproc/v1beta1"
 	datastorev1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/datastore/v1alpha1"
@@ -70,6 +71,7 @@ import (
 	deploymentmanagerv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/deploymentmanager/v1alpha1"
 	dialogflowv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/dialogflow/v1alpha1"
 	dialogflowcxv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/dialogflowcx/v1alpha1"
+	discoveryenginev1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/discoveryengine/v1alpha1"
 	dlpv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/dlp/v1beta1"
 	dnsv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/dns/v1alpha1"
 	dnsv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/dns/v1beta1"
@@ -84,6 +86,7 @@ import (
 	firebasedatabasev1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/firebasedatabase/v1alpha1"
 	firebasehostingv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/firebasehosting/v1alpha1"
 	firebasestoragev1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/firebasestorage/v1alpha1"
+	firestorev1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/firestore/v1alpha1"
 	firestorev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/firestore/v1beta1"
 	gkebackupv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/gkebackup/v1alpha1"
 	gkehubv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/gkehub/v1beta1"
@@ -111,11 +114,11 @@ import (
 	osconfigv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/osconfig/v1beta1"
 	osloginv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/oslogin/v1alpha1"
 	privatecav1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/privateca/v1beta1"
+	privilegedaccessmanagerv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/privilegedaccessmanager/v1beta1"
 	pubsubv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/pubsub/v1beta1"
 	pubsublitev1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/pubsublite/v1alpha1"
 	pubsublitev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/pubsublite/v1beta1"
 	recaptchaenterprisev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/recaptchaenterprise/v1beta1"
-	redisv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/redis/v1alpha1"
 	redisv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/redis/v1beta1"
 	resourcemanagerv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/resourcemanager/v1beta1"
 	runv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/run/v1beta1"
@@ -141,6 +144,7 @@ import (
 	vpcaccessv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/vpcaccess/v1beta1"
 	workflowsv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/workflows/v1alpha1"
 	workstationsv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/workstations/v1alpha1"
+	workstationsv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/workstations/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -165,9 +169,10 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	bigqueryv1alpha1.AddToScheme,
 	bigqueryv1beta1.AddToScheme,
 	bigqueryanalyticshubv1alpha1.AddToScheme,
-	bigqueryconnectionv1alpha1.AddToScheme,
+	bigqueryanalyticshubv1beta1.AddToScheme,
+	bigqueryconnectionv1beta1.AddToScheme,
 	bigquerydatapolicyv1alpha1.AddToScheme,
-	bigquerydatatransferv1alpha1.AddToScheme,
+	bigquerydatatransferv1beta1.AddToScheme,
 	bigqueryreservationv1alpha1.AddToScheme,
 	bigtablev1beta1.AddToScheme,
 	billingbudgetsv1beta1.AddToScheme,
@@ -192,7 +197,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	datacatalogv1alpha1.AddToScheme,
 	datacatalogv1beta1.AddToScheme,
 	dataflowv1beta1.AddToScheme,
-	dataformv1alpha1.AddToScheme,
+	dataformv1beta1.AddToScheme,
 	datafusionv1beta1.AddToScheme,
 	dataprocv1beta1.AddToScheme,
 	datastorev1alpha1.AddToScheme,
@@ -200,6 +205,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	deploymentmanagerv1alpha1.AddToScheme,
 	dialogflowv1alpha1.AddToScheme,
 	dialogflowcxv1alpha1.AddToScheme,
+	discoveryenginev1alpha1.AddToScheme,
 	dlpv1beta1.AddToScheme,
 	dnsv1alpha1.AddToScheme,
 	dnsv1beta1.AddToScheme,
@@ -214,6 +220,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	firebasedatabasev1alpha1.AddToScheme,
 	firebasehostingv1alpha1.AddToScheme,
 	firebasestoragev1alpha1.AddToScheme,
+	firestorev1alpha1.AddToScheme,
 	firestorev1beta1.AddToScheme,
 	gkebackupv1alpha1.AddToScheme,
 	gkehubv1beta1.AddToScheme,
@@ -241,11 +248,11 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	osconfigv1beta1.AddToScheme,
 	osloginv1alpha1.AddToScheme,
 	privatecav1beta1.AddToScheme,
+	privilegedaccessmanagerv1beta1.AddToScheme,
 	pubsubv1beta1.AddToScheme,
 	pubsublitev1alpha1.AddToScheme,
 	pubsublitev1beta1.AddToScheme,
 	recaptchaenterprisev1beta1.AddToScheme,
-	redisv1alpha1.AddToScheme,
 	redisv1beta1.AddToScheme,
 	resourcemanagerv1beta1.AddToScheme,
 	runv1beta1.AddToScheme,
@@ -271,6 +278,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	vpcaccessv1beta1.AddToScheme,
 	workflowsv1alpha1.AddToScheme,
 	workstationsv1alpha1.AddToScheme,
+	workstationsv1beta1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

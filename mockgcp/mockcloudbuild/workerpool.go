@@ -16,7 +16,8 @@ package mockcloudbuild
 
 import (
 	"context"
-	"reflect"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"cloud.google.com/go/longrunning/autogen/longrunningpb"
@@ -64,23 +65,60 @@ func (s *CloudBuildV1) CreateWorkerPool(ctx context.Context, req *pb.CreateWorke
 
 	obj := proto.Clone(req.GetWorkerPool()).(*pb.WorkerPool)
 	obj.Name = fqn
+	obj.CreateTime = now
+
+	populateDefaultsForWorkerPool(obj)
+
+	if err := s.validateAndNormalizeWorkerPool(obj); err != nil {
+		return nil, err
+	}
+
 	if err := s.storage.Create(ctx, fqn, obj); err != nil {
 		return nil, err
 	}
 	metadata := &pb.CreateWorkerPoolOperationMetadata{
-		WorkerPool:   fqn,
-		CreateTime:   now,
-		CompleteTime: now,
+		WorkerPool: fqn,
+		CreateTime: now,
 	}
 	return s.operations.StartLRO(ctx, name.String(), metadata, func() (proto.Message, error) {
-		// Many fields are not populated in the LRO result
-		result := proto.Clone(obj).(*pb.WorkerPool)
-		result.CreateTime = now
-		result.UpdateTime = now
-		result.State = pb.WorkerPool_RUNNING
-		result.Etag = fields.ComputeWeakEtag(result)
-		return result, nil
+		return obj, nil
 	})
+}
+
+func populateDefaultsForWorkerPool(wp *pb.WorkerPool) {
+	now := timestamppb.Now()
+	wp.UpdateTime = now
+	wp.State = pb.WorkerPool_RUNNING
+	wp.Etag = fields.ComputeWeakEtag(wp)
+	wp.Uid = "11111111111111111111"
+}
+
+func (s *CloudBuildV1) validateAndNormalizeWorkerPool(wp *pb.WorkerPool) error {
+	privatePoolV1Config := wp.GetPrivatePoolV1Config()
+
+	// Normalize the peered network link to always use the project number
+	if privatePoolV1Config != nil && privatePoolV1Config.NetworkConfig != nil {
+		peeredNetwork := privatePoolV1Config.NetworkConfig.GetPeeredNetwork()
+		if peeredNetwork == "" {
+			return status.Errorf(codes.InvalidArgument, "peeredNetwork is required")
+		} else {
+			tokens := strings.Split(peeredNetwork, "/")
+			projectToken := ""
+			if len(tokens) == 5 && tokens[0] == "projects" && tokens[2] == "global" && tokens[3] == "networks" {
+				projectToken = tokens[1]
+			} else {
+				return fmt.Errorf("format of peered network %q was not known (use projects/<project>/global/networks/<networkid>)", peeredNetwork)
+			}
+
+			project, err := s.Projects.GetProjectByIDOrNumber(projectToken)
+			if err != nil {
+				return fmt.Errorf("error getting project %q: %w", projectToken, err)
+			}
+
+			privatePoolV1Config.NetworkConfig.PeeredNetwork = fmt.Sprintf("projects/%d/global/networks/%s", project.Number, tokens[4])
+		}
+	}
+	return nil
 }
 
 func (s *CloudBuildV1) UpdateWorkerPool(ctx context.Context, req *pb.UpdateWorkerPoolRequest) (*longrunningpb.Operation, error) {
@@ -89,43 +127,33 @@ func (s *CloudBuildV1) UpdateWorkerPool(ctx context.Context, req *pb.UpdateWorke
 		return nil, err
 	}
 	fqn := name.String()
+
 	obj := &pb.WorkerPool{}
 	if err := s.storage.Get(ctx, fqn, obj); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Errorf(codes.NotFound, "Requested entity was not found.")
+		}
 		return nil, err
 	}
-	now := timestamppb.Now()
-	obj.UpdateTime = now
-	source := reflect.ValueOf(req.WorkerPool)
-	target := reflect.ValueOf(obj).Elem()
-	for _, path := range req.UpdateMask.Paths {
-		f := target.FieldByName(path)
-		if f.IsValid() && f.CanSet() {
-			switch f.Kind() {
-			case reflect.Int, reflect.Int64:
-				intVal := source.FieldByName(path).Int()
-				f.SetInt(intVal)
-			case reflect.String:
-				stringVal := source.FieldByName(path).String()
-				f.SetString(stringVal)
-			}
-
-		}
+	if err := fields.UpdateByFieldMask(obj, req.WorkerPool, req.UpdateMask.Paths); err != nil {
+		return nil, err
 	}
+
+	populateDefaultsForWorkerPool(obj)
+
+	if err := s.validateAndNormalizeWorkerPool(obj); err != nil {
+		return nil, err
+	}
+
 	if err := s.storage.Update(ctx, fqn, obj); err != nil {
 		return nil, err
 	}
 	metadata := &pb.UpdateWorkerPoolOperationMetadata{
-		WorkerPool:   name.String(),
-		CreateTime:   now,
-		CompleteTime: now,
+		WorkerPool: name.String(),
+		CreateTime: timestamppb.Now(),
 	}
 	return s.operations.StartLRO(ctx, name.String(), metadata, func() (proto.Message, error) {
-		// Many fields are not populated in the LRO result
-		result := proto.Clone(obj).(*pb.WorkerPool)
-		result.UpdateTime = now
-		result.State = pb.WorkerPool_RUNNING
-		result.Etag = fields.ComputeWeakEtag(result)
-		return result, nil
+		return obj, nil
 	})
 }
 
@@ -163,11 +191,11 @@ type workerPoolName struct {
 }
 
 func (n *workerPoolName) String() string {
-	return "projects/" + n.Project.ID + "/locations/" + n.Location + "/workerPools/" + n.WorkerPoolName
+	return n.GetParent() + "/workerPools/" + n.WorkerPoolName
 }
 
 func (n *workerPoolName) GetParent() string {
-	return "projects/" + n.Project.ID + "/locations/" + n.Location
+	return "projects/" + strconv.FormatInt(n.Project.Number, 10) + "/locations/" + n.Location
 }
 
 func (s *MockService) parseWorkerPoolName(name string) (*workerPoolName, error) {

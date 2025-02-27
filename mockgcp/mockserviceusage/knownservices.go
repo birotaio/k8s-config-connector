@@ -15,6 +15,7 @@
 package mockserviceusage
 
 var allServices = []string{
+	"apigee.googleapis.com",
 	"bigquery.googleapis.com",
 	"compute.googleapis.com",
 	"pubsub.googleapis.com",
@@ -23,10 +24,12 @@ var allServices = []string{
 	"gkehub.googleapis.com",
 	"anthos.googleapis.com",
 	"anthosconfigmanagement.googleapis.com",
+	"anthospolicycontroller.googleapis.com",
 	"multiclusteringress.googleapis.com",
 	"multiclusterservicediscovery.googleapis.com",
 	"mesh.googleapis.com",
 	"servicenetworking.googleapis.com",
+	"vpcaccess.googleapis.com",
 	"container.googleapis.com",
 }
 

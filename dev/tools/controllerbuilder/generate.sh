@@ -21,94 +21,193 @@ set -o pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd ${REPO_ROOT}/dev/tools/controllerbuilder
 
-APIS_DIR=${REPO_ROOT}/apis/
-OUTPUT_MAPPER=${REPO_ROOT}/pkg/controller/direct/
+./generate-proto.sh
+
+
+# DiscoveryEngine
+go run . generate-types \
+    --service google.cloud.discoveryengine.v1 \
+    --api-version discoveryengine.cnrm.cloud.google.com/v1alpha1 \
+    --resource DiscoveryEngineDataStore:DataStore \
+    --resource DiscoveryEngineDataStoreTargetSite:TargetSite \
+    --resource DiscoveryEngineEngine:Engine
+
+# go run . prompt --src-dir ~/kcc/k8s-config-connector --proto-dir ~/kcc/k8s-config-connector/.build/third_party/googleapis/ <<EOF
+# // +kcc:proto=google.cloud.discoveryengine.v1.Engine
+# EOF
+
+go run . generate-mapper \
+    --service google.cloud.discoveryengine.v1 \
+    --api-version discoveryengine.cnrm.cloud.google.com/v1alpha1
 
 # DataFlow
 go run . generate-types \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service google.dataflow.v1beta3 \
     --api-version dataflow.cnrm.cloud.google.com/v1beta1 \
-    --output-api ${APIS_DIR} \
-    --kind DataflowFlexTemplateJob \
-    --proto-resource FlexTemplateRuntimeEnvironment
+    --resource DataflowFlexTemplateJob:FlexTemplateRuntimeEnvironment
 
 go run . generate-mapper \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service google.dataflow.v1beta3 \
-    --api-version dataflow.cnrm.cloud.google.com/v1alpha1 \
-    --api-go-package-path github.com/GoogleCloudPlatform/k8s-config-connector/apis \
-    --output-dir ${OUTPUT_MAPPER} \
-    --api-dir ${APIS_DIR}
+    --api-version dataflow.cnrm.cloud.google.com/v1alpha1
 
 # SecureSourceManagerInstance
 go run . generate-types \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service google.cloud.securesourcemanager.v1 \
     --api-version securesourcemanager.cnrm.cloud.google.com/v1alpha1 \
-    --output-api ${APIS_DIR} \
-    --kind SecureSourceManagerInstance \
-    --proto-resource Instance
+    --resource SecureSourceManagerInstance:Instance
 
 go run . generate-mapper \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service google.cloud.securesourcemanager.v1 \
-    --api-version securesourcemanager.cnrm.cloud.google.com/v1alpha1 \
-    --api-go-package-path github.com/GoogleCloudPlatform/k8s-config-connector/apis \
-    --output-dir ${OUTPUT_MAPPER} \
-    --api-dir ${APIS_DIR}
+    --api-version securesourcemanager.cnrm.cloud.google.com/v1alpha1
 
 # RedisCluster
 go run . generate-types  \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service google.cloud.redis.cluster.v1 \
-    --api-version redis.cnrm.cloud.google.com/v1alpha1  \
-    --output-api ${APIS_DIR} \
-    --kind RedisCluster \
-    --proto-resource Cluster
+    --api-version redis.cnrm.cloud.google.com/v1alpha1 \
+    --resource RedisCluster:Cluster
+
+go run . generate-types  \
+    --service google.cloud.redis.cluster.v1 \
+    --api-version redis.cnrm.cloud.google.com/v1beta1  \
+    --resource RedisCluster:Cluster
 
 go run . generate-mapper \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service google.cloud.redis.cluster.v1 \
-    --api-version redis.cnrm.cloud.google.com/v1alpha1  \
-    --api-go-package-path github.com/GoogleCloudPlatform/k8s-config-connector/apis \
-    --output-dir ${OUTPUT_MAPPER} \
-    --api-dir ${APIS_DIR}
+    --api-version redis.cnrm.cloud.google.com/v1beta1
 
 # Bigtable
 
 go run . generate-types  \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service google.bigtable.admin.v2 \
     --api-version bigtable.cnrm.cloud.google.com/v1beta1  \
-    --output-api ${APIS_DIR} \
-    --kind BigtableInstance \
-    --proto-resource Instance
+    --resource BigtableInstance:Instance
 
 go run . generate-mapper \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service google.bigtable.admin.v2 \
-    --api-version bigtable.cnrm.cloud.google.com/v1beta1  \
-    --api-go-package-path github.com/GoogleCloudPlatform/k8s-config-connector/apis \
-    --output-dir ${OUTPUT_MAPPER} \
-    --api-dir ${APIS_DIR}
+    --api-version bigtable.cnrm.cloud.google.com/v1beta1
 
 # NetworkConnectivity
 go run . generate-types \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service mockgcp.cloud.networkconnectivity.v1 \
     --api-version networkconnectivity.cnrm.cloud.google.com/v1alpha1 \
-    --output-api ${APIS_DIR} \
-    --kind NetworkConnectivityServiceConnectionPolicy \
-    --proto-resource ServiceConnecqionPolicy
+    --resource NetworkConnectivityServiceConnectionPolicy:ServiceConnectionPolicy
 
 go run . generate-mapper \
-    --proto-source-path ../proto-to-mapper/build/googleapis.pb \
     --service mockgcp.cloud.networkconnectivity.v1 \
-    --api-version networkconnectivity.cnrm.cloud.google.com/v1alpha1 \
-    --api-go-package-path github.com/GoogleCloudPlatform/k8s-config-connector/apis \
-    --output-dir ${OUTPUT_MAPPER} \
-    --api-dir ${APIS_DIR}
+    --api-version networkconnectivity.cnrm.cloud.google.com/v1alpha1
+
+# BigQueryDataset
+go run . generate-types  \
+    --service google.cloud.bigquery.v2 \
+    --api-version bigquery.cnrm.cloud.google.com/v1beta1  \
+    --resource BigQueryDataset:Dataset
+
+# go run . generate-mapper \
+#     --service google.cloud.bigquery.v2 \
+#     --api-version bigquery.cnrm.cloud.google.com/v1beta1
+
+# BigQueryDataTransferConfig
+go run . generate-types \
+    --service google.cloud.bigquery.datatransfer.v1 \
+    --api-version bigquerydatatransfer.cnrm.cloud.google.com/v1beta1 \
+    --resource BigQueryDataTransferConfig:TransferConfig \
+    --skip-scaffold-files # skipping because the files were generated using a previous pattern, making them incompatible with the new scaffolding approach.
+
+go run . generate-mapper \
+    --service google.cloud.bigquery.datatransfer.v1 \
+    --api-version bigquerydatatransfer.cnrm.cloud.google.com/v1beta1
+
+# Firestore
+go run . generate-types \
+    --service google.firestore.admin.v1 \
+    --api-version firestore.cnrm.cloud.google.com/v1beta1 \
+    --resource FirestoreDatabase:Database
+
+go run . generate-mapper \
+    --service google.firestore.admin.v1 \
+    --api-version firestore.cnrm.cloud.google.com/v1beta1
+
+# Certificate Manager DNSAuthorization
+go run . generate-types \
+    --service google.cloud.certificatemanager.v1  \
+    --resource CertificateManagerDNSAuthorization:DnsAuthorization \
+    --api-version "certificatemanager.cnrm.cloud.google.com/v1beta1"
+
+go run . generate-types \
+    --service google.cloud.certificatemanager.v1  \
+    --resource CertificateManagerDNSAuthorization:DnsAuthorization \
+    --api-version "certificatemanager.cnrm.cloud.google.com/v1alpha1"
+
+# Workstations
+go run . generate-types \
+    --service google.cloud.workstations.v1 \
+    --api-version workstations.cnrm.cloud.google.com/v1beta1 \
+    --resource WorkstationCluster:WorkstationCluster
+
+go run . generate-types \
+    --service google.cloud.workstations.v1 \
+    --api-version workstations.cnrm.cloud.google.com/v1beta1 \
+    --resource WorkstationConfig:WorkstationConfig
+
+go run . generate-types \
+    --service google.cloud.workstations.v1 \
+    --api-version workstations.cnrm.cloud.google.com/v1beta1 \
+    --resource Workstation:Workstation
+
+go run . generate-mapper \
+    --service google.cloud.workstations.v1 \
+    --api-version workstations.cnrm.cloud.google.com/v1beta1
+
+# SecretManager
+go run main.go generate-types \
+     --service google.cloud.secretmanager.v1 \
+     --resource SecretManagerSecret:Secret \
+     --api-version "secretmanager.cnrm.cloud.google.com/v1beta1"
+
+go run . generate-mapper \
+   --service google.cloud.secretmanager.v1 \
+   --api-version "secretmanager.cnrm.cloud.google.com/v1beta1"
+
+# Spanner
+go run main.go generate-types \
+    --service google.spanner.admin.instance.v1 \
+    --resource SpannerInstance:Instance \
+    --api-version "spanner.cnrm.cloud.google.com/v1beta1"
+
+go run . generate-mapper \
+   --service google.spanner.admin.instance.v1  \
+   --api-version "spanner.cnrm.cloud.google.com/v1beta1"
+
+# IAPSettings
+go run . generate-types \
+    --service google.cloud.iap.v1 \
+    --api-version iap.cnrm.cloud.google.com/v1alpha1 \
+    --resource IAPSettings:IapSettings
+
+go run . generate-mapper \
+    --service google.cloud.iap.v1 \
+    --api-version iap.cnrm.cloud.google.com/v1alpha1
+
+# ManagedKafka
+go run . generate-types \
+    --service google.cloud.managedkafka.v1 \
+    --api-version managedkafka.cnrm.cloud.google.com/v1alpha1 \
+    --resource ManagedKafkaCluster:Cluster
+
+go run . generate-mapper \
+    --service google.cloud.managedkafka.v1 \
+    --api-version managedkafka.cnrm.cloud.google.com/v1alpha1
+
+# PrivilegedAccessManager
+go run . generate-mapper \
+    --service google.cloud.privilegedaccessmanager.v1 \
+    --api-version privilegedaccessmanager.cnrm.cloud.google.com/v1beta1
+
+# Apigee
+go run . generate-types \
+    --service mockgcp.cloud.apigee.v1 \
+    --api-version apigee.cnrm.cloud.google.com/v1alpha1 \
+    --resource ApigeeInstance:GoogleCloudApigeeV1Instance
 
 # Fix up formatting
 ${REPO_ROOT}/dev/tasks/fix-gofmt

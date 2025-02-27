@@ -42,6 +42,9 @@ func (s *GlobalForwardingRulesV1) Get(ctx context.Context, req *pb.GetGlobalForw
 
 	obj := &pb.ForwardingRule{}
 	if err := s.storage.Get(ctx, fqn, obj); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Errorf(codes.NotFound, "The resource '%s' was not found", fqn)
+		}
 		return nil, err
 	}
 
@@ -60,10 +63,12 @@ func (s *GlobalForwardingRulesV1) Insert(ctx context.Context, req *pb.InsertGlob
 	id := s.generateID()
 
 	obj := proto.Clone(req.GetForwardingRuleResource()).(*pb.ForwardingRule)
-	obj.SelfLink = PtrTo("https://www.googleapis.com/compute/v1/" + name.String())
+	obj.SelfLink = PtrTo(buildComputeSelfLink(ctx, fqn))
 	obj.CreationTimestamp = PtrTo(s.nowString())
 	obj.Id = &id
 	obj.Kind = PtrTo("compute#forwardingRule")
+	// labels will be added separately with setLabels
+	obj.Labels = nil
 	// If below values are not provided by user, it appears to default by GCP
 	if obj.LabelFingerprint == nil {
 		obj.LabelFingerprint = PtrTo(computeFingerprint(obj))
@@ -76,6 +81,20 @@ func (s *GlobalForwardingRulesV1) Insert(ctx context.Context, req *pb.InsertGlob
 	}
 	if obj.NetworkTier == nil {
 		obj.NetworkTier = PtrTo("PREMIUM")
+	}
+	if *obj.LoadBalancingScheme == "" {
+		obj.LoadBalancingScheme = nil
+	}
+	if isPSCForwardingRule(obj) {
+		var num uint64 = 111111111111
+		obj.PscConnectionId = &num
+		obj.ServiceDirectoryRegistrations = []*pb.ForwardingRuleServiceDirectoryRegistration{
+			{
+				Namespace:              PtrTo("goog-psc-${networkID}-${networkID}"),
+				ServiceDirectoryRegion: PtrTo("us-central1"),
+			},
+		}
+
 	}
 
 	// pattern: \d+(?:-\d+)?
@@ -96,16 +115,83 @@ func (s *GlobalForwardingRulesV1) Insert(ctx context.Context, req *pb.InsertGlob
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "network %q is not valid", obj.GetNetwork())
 		}
-		obj.Network = PtrTo(fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/global/networks/%s", networkName.Project.ID, networkName.Name))
+		obj.Network = PtrTo(buildComputeSelfLink(ctx, fmt.Sprintf("projects/%s/global/networks/%s", networkName.Project.ID, networkName.Name)))
 	}
+
+	if obj.Subnetwork != nil {
+		subnetworkName, err := s.parseSubnetName(obj.GetSubnetwork())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "subnetwork %q is not valid", obj.GetSubnetwork())
+		}
+		obj.Subnetwork = PtrTo(buildComputeSelfLink(ctx, fmt.Sprintf("projects/%s/regions/%s/subnetworks/%s", subnetworkName.Project.ID, subnetworkName.Region, subnetworkName.Name)))
+	}
+
+	// output only field. This field is only used for internal load balancing.
+	if obj.LoadBalancingScheme != nil && *obj.LoadBalancingScheme == "INTERNAL" {
+		if obj.ServiceLabel != nil {
+			obj.ServiceName = PtrTo(fmt.Sprintf("%s.%s.il4.global.lb.%s.internal", obj.GetServiceLabel(), name.Name, name.Project.ID))
+		}
+	}
+
+	// network field is only used for global internal load balancing.
+	// If neither subnetwork nor network field is specified, the default network will be used.
+	if obj.Network == nil && obj.Subnetwork == nil && obj.LoadBalancingScheme != nil && *obj.LoadBalancingScheme != "EXTERNAL" {
+		obj.Network = PtrTo(buildComputeSelfLink(ctx, "projects/${projectId}/global/networks/default"))
+	}
+
 	if err := s.storage.Create(ctx, fqn, obj); err != nil {
+		return nil, err
+	}
+
+	var opType *string
+	if isPSCForwardingRule(obj) {
+		opType = PtrTo("createPSCServiceEndpoint")
+	} else {
+		opType = PtrTo("insert")
+	}
+
+	op := &pb.Operation{
+		TargetId:      obj.Id,
+		TargetLink:    obj.SelfLink,
+		OperationType: opType,
+		User:          PtrTo("user@example.com"),
+	}
+	return s.startGlobalLRO(ctx, name.Project.ID, op, func() (proto.Message, error) {
+		return obj, nil
+	})
+}
+
+func (s *GlobalForwardingRulesV1) Patch(ctx context.Context, req *pb.PatchGlobalForwardingRuleRequest) (*pb.Operation, error) {
+	reqName := "projects/" + req.GetProject() + "/global" + "/forwardingRules/" + req.GetForwardingRule()
+	name, err := s.parseGlobalForwardingRuleName(reqName)
+	if err != nil {
+		return nil, err
+	}
+
+	fqn := name.String()
+
+	obj := &pb.ForwardingRule{}
+	if err := s.storage.Get(ctx, fqn, obj); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Errorf(codes.NotFound, "The resource '%s' was not found", fqn)
+		}
+		return nil, err
+	}
+
+	proto.Merge(obj, req.GetForwardingRuleResource())
+	// checked GCP log, when AllowGlobalAccess is false, the field will be ignored
+	if obj.AllowGlobalAccess != nil && *obj.AllowGlobalAccess == false {
+		obj.AllowGlobalAccess = nil
+	}
+
+	if err := s.storage.Update(ctx, fqn, obj); err != nil {
 		return nil, err
 	}
 
 	op := &pb.Operation{
 		TargetId:      obj.Id,
 		TargetLink:    obj.SelfLink,
-		OperationType: PtrTo("insert"),
+		OperationType: PtrTo("patch"),
 		User:          PtrTo("user@example.com"),
 	}
 	return s.startGlobalLRO(ctx, name.Project.ID, op, func() (proto.Message, error) {
@@ -127,10 +213,17 @@ func (s *GlobalForwardingRulesV1) Delete(ctx context.Context, req *pb.DeleteGlob
 		return nil, err
 	}
 
+	var opType *string
+	if isPSCForwardingRule(deleted) {
+		opType = PtrTo("deletePscForwardingRule")
+	} else {
+		opType = PtrTo("delete")
+	}
+
 	op := &pb.Operation{
 		TargetId:      deleted.Id,
 		TargetLink:    deleted.SelfLink,
-		OperationType: PtrTo("delete"),
+		OperationType: opType,
 		User:          PtrTo("user@example.com"),
 	}
 	return s.startGlobalLRO(ctx, name.Project.ID, op, func() (proto.Message, error) {
@@ -160,10 +253,13 @@ func (s *GlobalForwardingRulesV1) SetLabels(ctx context.Context, req *pb.SetLabe
 	op := &pb.Operation{
 		TargetId:      obj.Id,
 		TargetLink:    obj.SelfLink,
-		OperationType: PtrTo("SetLabels"),
+		OperationType: PtrTo("setLabels"),
 		User:          PtrTo("user@example.com"),
 		// SetLabels operation has EndTime in response
 		EndTime: PtrTo("2024-04-01T12:34:56.123456Z"),
+		// SetLabels operation finished super fast
+		Progress: PtrTo(int32(100)),
+		Status:   PtrTo(pb.Operation_DONE),
 	}
 	return s.startGlobalLRO(ctx, name.Project.ID, op, func() (proto.Message, error) {
 		return obj, nil
@@ -229,4 +325,12 @@ func (s *MockService) parseGlobalForwardingRuleName(name string) (*globalForward
 	} else {
 		return nil, status.Errorf(codes.InvalidArgument, "name %q is not valid", name)
 	}
+}
+
+func isPSCForwardingRule(obj *pb.ForwardingRule) bool {
+	target := *obj.Target
+	if target == "all-apis" || target == "vpc-sc" || strings.Contains(target, "/serviceAttachments/") {
+		return true
+	}
+	return false
 }

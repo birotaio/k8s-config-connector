@@ -62,7 +62,7 @@ func (s *SubnetsV1) Insert(ctx context.Context, req *pb.InsertSubnetworkRequest)
 	id := s.generateID()
 
 	obj := proto.Clone(req.GetSubnetworkResource()).(*pb.Subnetwork)
-	obj.SelfLink = PtrTo("https://www.googleapis.com/compute/v1/" + name.String())
+	obj.SelfLink = PtrTo(buildComputeSelfLink(ctx, fqn))
 	obj.CreationTimestamp = PtrTo(s.nowString())
 	obj.Id = &id
 	obj.Kind = PtrTo("compute#subnetwork")
@@ -78,7 +78,7 @@ func (s *SubnetsV1) Insert(ctx context.Context, req *pb.InsertSubnetworkRequest)
 	if obj.Purpose == nil {
 		obj.Purpose = PtrTo("PRIVATE")
 	}
-	obj.Region = PtrTo(fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/regions/%s", name.Project.ID, name.Region))
+	obj.Region = PtrTo(buildComputeSelfLink(ctx, fmt.Sprintf("projects/%s/regions/%s", name.Project.ID, name.Region)))
 	if obj.StackType == nil {
 		obj.StackType = PtrTo("IPV4_ONLY")
 	}
@@ -86,13 +86,28 @@ func (s *SubnetsV1) Insert(ctx context.Context, req *pb.InsertSubnetworkRequest)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "network %q is not valid", obj.GetNetwork())
 	}
-	obj.Network = PtrTo(fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/global/networks/%s", networkName.Project.ID, networkName.Name))
+	obj.Network = PtrTo(buildComputeSelfLink(ctx, fmt.Sprintf("projects/%s/global/networks/%s", networkName.Project.ID, networkName.Name)))
 
 	obj.GatewayAddress = PtrTo("10.2.0.1")
 	// obj.AllowSubnetCidrRoutesOverlap = PtrTo(false)
 	obj.Fingerprint = PtrTo(computeFingerprint(obj))
 	if err := s.storage.Create(ctx, fqn, obj); err != nil {
 		return nil, err
+	}
+
+	// Add the subnetwork to the list in the network
+	{
+		networkFQN := networkName.String()
+		network := &pb.Network{}
+		if err := s.storage.Get(ctx, networkFQN, network); err != nil {
+			return nil, err
+		}
+
+		network.Subnetworks = append(network.Subnetworks, obj.GetSelfLink())
+
+		if err := s.storage.Update(ctx, networkFQN, network); err != nil {
+			return nil, err
+		}
 	}
 
 	op := &pb.Operation{
@@ -114,9 +129,37 @@ func (s *SubnetsV1) Delete(ctx context.Context, req *pb.DeleteSubnetworkRequest)
 
 	fqn := name.String()
 
+	existing := &pb.Subnetwork{}
+	if err := s.storage.Get(ctx, fqn, existing); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Errorf(codes.NotFound, "The resource '%s' was not found", fqn)
+		}
+		return nil, err
+	}
+
+	networkName, err := s.parseNetworkSelfLink(existing.GetNetwork())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "network %q is not valid", existing.GetNetwork())
+	}
+
 	deleted := &pb.Subnetwork{}
 	if err := s.storage.Delete(ctx, fqn, deleted); err != nil {
 		return nil, err
+	}
+
+	// Remove the subnetwork from the list in the network
+	{
+		networkFQN := networkName.String()
+		network := &pb.Network{}
+		if err := s.storage.Get(ctx, networkFQN, network); err != nil {
+			return nil, err
+		}
+
+		network.Subnetworks, _ = removeFromSlice(network.Subnetworks, deleted.GetSelfLink())
+
+		if err := s.storage.Update(ctx, networkFQN, network); err != nil {
+			return nil, err
+		}
 	}
 
 	op := &pb.Operation{
@@ -193,4 +236,17 @@ func (s *MockService) newSubnetName(project string, region string, name string) 
 		Region:  region,
 		Name:    name,
 	}, nil
+}
+
+func removeFromSlice[T comparable](s []T, removeValue T) ([]T, bool) {
+	var keep []T
+	removed := false
+	for _, t := range s {
+		if t == removeValue {
+			removed = true
+			continue
+		}
+		keep = append(keep, t)
+	}
+	return keep, removed
 }

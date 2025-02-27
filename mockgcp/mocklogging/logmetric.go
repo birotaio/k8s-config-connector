@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +tool:mockgcp-support
+// proto.service: google.logging.v2.MetricsServiceV2
+// proto.message: google.logging.v2.LogMetric
+
 package mocklogging
 
 import (
@@ -178,7 +182,7 @@ func (s *MockService) parseLogMetricName(name string) (*logMetricName, error) {
 		}
 
 		return name, nil
-	} else {
-		return nil, status.Errorf(codes.InvalidArgument, "name %q is not valid", name)
 	}
+
+	return nil, status.Errorf(codes.InvalidArgument, "name %q is not valid", name)
 }

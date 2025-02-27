@@ -24,12 +24,15 @@ import (
 	pb "cloud.google.com/go/dataflow/apiv1beta3/dataflowpb"
 	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/dataflow/v1beta1"
 	refs "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/k8s/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/common"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/directbase"
-	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/monitoring"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
 	"google.golang.org/protobuf/proto"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
@@ -57,8 +60,9 @@ type dataflowFlexTemplateJobAdapter struct {
 	resourceID string
 	jobID      string
 
-	desired *pb.LaunchFlexTemplateParameter
-	actual  *pb.Job
+	desiredObj *krm.DataflowFlexTemplateJob
+	desired    *pb.LaunchFlexTemplateParameter
+	actual     *pb.Job
 
 	flexTemplatesClient *api.FlexTemplatesClient
 	jobsClient          *api.JobsV1Beta3Client
@@ -113,7 +117,7 @@ func (m *dataFlowFlexTemplateJobModel) AdapterForObject(ctx context.Context, kub
 	jobID := obj.Status.JobID
 
 	// TODO: Move from monitoring package into shared package (and make refs implement an interface)
-	if err := monitoring.VisitFields(obj, &refNormalizer{ctx: ctx, src: obj, project: *projectRef, kube: kube}); err != nil {
+	if err := common.VisitFields(obj, &refNormalizer{ctx: ctx, src: obj, project: *projectRef, kube: kube}); err != nil {
 		return nil, err
 	}
 
@@ -128,6 +132,7 @@ func (m *dataFlowFlexTemplateJobModel) AdapterForObject(ctx context.Context, kub
 		resourceID:          resourceID,
 		jobID:               jobID,
 		desired:             desired,
+		desiredObj:          obj,
 		flexTemplatesClient: flexTemplatesClient,
 		jobsClient:          jobsClient,
 	}, nil
@@ -303,7 +308,34 @@ func (a *dataflowFlexTemplateJobAdapter) getJob(ctx context.Context, jobID strin
 }
 
 func (a *dataflowFlexTemplateJobAdapter) Export(ctx context.Context) (*unstructured.Unstructured, error) {
-	return nil, nil
+	if a.actual == nil {
+		return nil, fmt.Errorf("Find() not called")
+	}
+	u := &unstructured.Unstructured{}
+
+	obj := &krm.DataflowFlexTemplateJob{}
+	mapCtx := &direct.MapContext{}
+	actualFlexTemplateParameter, err := toLaunchParameter(ctx, a.resourceID, a.desiredObj)
+	if err != nil {
+		return nil, err
+	}
+
+	obj.Spec = direct.ValueOf(DataflowFlexTemplateJobSpec_FromProto(mapCtx, actualFlexTemplateParameter.Environment))
+	if mapCtx.Err() != nil {
+		return nil, mapCtx.Err()
+	}
+
+	obj.Spec.Region = direct.PtrTo(a.location)
+	uObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+	u.SetName(a.actual.Id)
+	u.SetGroupVersionKind(krm.DataflowFlexTemplateJobGVK)
+	u.SetLabels(a.actual.Labels)
+
+	u.Object = uObj
+	return u, nil
 }
 
 // Create implements the Adapter interface.
@@ -330,30 +362,57 @@ func (a *dataflowFlexTemplateJobAdapter) Create(ctx context.Context, createOp *d
 	}
 
 	job := response.GetJob()
-	jobID := job.GetId()
-	// TODO: Use jobCreateTime for mutation checking?
-	// jobCreateTime := job.CreateTime()
 
-	ready := false
-	for !ready {
-		time.Sleep(2 * time.Second)
-		latest, err := a.getJob(ctx, jobID)
-		if err != nil {
-			// TODO: not right!
-			return fmt.Errorf("getting state of job")
-		}
-		switch latest.CurrentState {
-		case pb.JobState_JOB_STATE_RUNNING:
-			ready = true
-		default:
-			log.Info("unexpected job state waiting for job running", "state", latest.CurrentState)
-		}
+	if err := a.updateStatus(ctx, createOp, job); err != nil {
+		return err
 	}
 
+	return nil
+}
+
+func (a *dataflowFlexTemplateJobAdapter) updateStatus(ctx context.Context, op directbase.Operation, job *pb.Job) error {
 	status := &krm.DataflowFlexTemplateJobStatus{
-		JobID: jobID,
+		JobID:        job.GetId(),
+		CurrentState: direct.PtrTo(job.CurrentState.String()),
+		Type:         direct.PtrTo(job.Type.String()),
 	}
-	return setStatus(u, status)
+
+	var readyCondition *v1alpha1.Condition
+
+	switch job.CurrentState {
+	case pb.JobState_JOB_STATE_RUNNING:
+		readyCondition = &v1alpha1.Condition{
+			Type:    v1alpha1.ReadyConditionType,
+			Status:  v1.ConditionTrue,
+			Reason:  k8s.UpToDate,
+			Message: "The resource is up to date",
+		}
+		// We are healthy - no requeue needed
+
+	case pb.JobState_JOB_STATE_FAILED, pb.JobState_JOB_STATE_CANCELLED, pb.JobState_JOB_STATE_DONE, pb.JobState_JOB_STATE_DRAINED:
+		readyCondition = &v1alpha1.Condition{
+			Type:    v1alpha1.ReadyConditionType,
+			Status:  v1.ConditionFalse,
+			Reason:  k8s.UpToDate, // Because we are stopping reconciliation
+			Message: fmt.Sprintf("Dataflow job has reached terminal state '%v'", job.CurrentState),
+		}
+		// State is terminal, no need to requeue
+
+	default:
+		readyCondition = &v1alpha1.Condition{
+			Type:    v1alpha1.ReadyConditionType,
+			Status:  v1.ConditionFalse,
+			Reason:  k8s.Updating,
+			Message: fmt.Sprintf("Waiting for Dataflow job to be running (state is %v)", job.CurrentState),
+		}
+		op.RequestRequeue()
+	}
+
+	if err := op.UpdateStatus(ctx, status, readyCondition); err != nil {
+		return fmt.Errorf("updating status: %w", err)
+	}
+
+	return nil
 }
 
 // Update implements the Adapter interface.
@@ -363,7 +422,31 @@ func (a *dataflowFlexTemplateJobAdapter) Update(ctx context.Context, updateOp *d
 	log := klog.FromContext(ctx)
 	log.V(0).Info("updating object", "u", u)
 
-	if true {
+	observedGeneration, _, err := unstructured.NestedInt64(u.Object, "status", "observedGeneration")
+	if err != nil {
+		return fmt.Errorf("reading status.observedGeneration: %w", err)
+	}
+	metadataGeneration := u.GetGeneration()
+
+	// We rely on the FlexJob being immutable, so drift at the GCP level should not be possible.
+	// Instead, we reconcile whenever we see a different metadata.generation
+	if observedGeneration == metadataGeneration {
+		log.V(0).Info("object status.observedGeneration matches metadata.generation, skipping reconcile", "status.observedGeneration", observedGeneration, "metadata.generation", metadataGeneration)
+
+		j, _ := u.MarshalJSON()
+		log.V(0).Info("object is", "json", string(j))
+
+		// If we are waiting on the existing job, update the status
+		if a.actual != nil {
+			if err := a.updateStatus(ctx, updateOp, a.actual); err != nil {
+				return err
+			}
+
+			// TODO: If job fails to update, we probably need to "put back" the old job id
+			// But we also want to avoid repeatedly launching a failing job...
+			// The current behaviour will only try to launch once, which seems reasonable.
+		}
+
 		return nil
 	}
 
@@ -383,35 +466,10 @@ func (a *dataflowFlexTemplateJobAdapter) Update(ctx context.Context, updateOp *d
 	}
 
 	job := response.GetJob()
-	jobID := job.GetId()
 
-	// TODO: Use jobCreateTime for mutation checking?
-	// jobCreateTime := job.CreateTime()
-
-	status := &krm.DataflowFlexTemplateJobStatus{
-		JobID: jobID,
+	if err := a.updateStatus(ctx, updateOp, job); err != nil {
+		return err
 	}
-	return setStatus(u, status)
-}
-
-func (a *dataflowFlexTemplateJobAdapter) fullyQualifiedName() string {
-	return fmt.Sprintf("projects/%s/locations/%s/clusters/%s", a.projectID, a.location, a.resourceID)
-}
-
-func setStatus(u *unstructured.Unstructured, typedStatus any) error {
-	status, err := runtime.DefaultUnstructuredConverter.ToUnstructured(typedStatus)
-	if err != nil {
-		return fmt.Errorf("error converting status to unstructured: %w", err)
-	}
-
-	old, _, _ := unstructured.NestedMap(u.Object, "status")
-	if old != nil {
-		status["conditions"] = old["conditions"]
-		status["observedGeneration"] = old["observedGeneration"]
-		status["externalRef"] = old["externalRef"]
-	}
-
-	u.Object["status"] = status
 
 	return nil
 }

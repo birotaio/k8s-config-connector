@@ -55,6 +55,7 @@ var (
 	TestFolderID                            = EnvVar{Key: "TEST_FOLDER_ID"}
 	TestFolder2ID                           = EnvVar{Key: "TEST_FOLDER_2_ID"}
 	TestOrgID                               = EnvVar{Key: "TEST_ORG_ID"}
+	IsolatedTestOrgName                     = EnvVar{Key: "ISOLATED_TEST_ORG_NAME"}
 	TestDependentOrgProjectID               = EnvVar{Key: "TEST_DEPENDENT_ORG_PROJECT_ID"}
 	TestDependentFolderProjectID            = EnvVar{Key: "TEST_DEPENDENT_FOLDER_PROJECT_ID"}
 	TestDependentNoNetworkProjectID         = EnvVar{Key: "TEST_DEPENDENT_NO_NETWORK_PROJECT_ID"} // A dependent project with default network disabled
@@ -64,16 +65,17 @@ var (
 	TestBillingAccountIDForBillingResources = EnvVar{Key: "BILLING_ACCOUNT_ID_FOR_BILLING_RESOURCES"}
 	TestAttachedClusterName                 = EnvVar{Key: "TEST_ATTACHED_CLUSTER_NAME"}
 	TestKCCAttachedClusterProject           = EnvVar{Key: "KCC_ATTACHED_CLUSTER_TEST_PROJECT"}
+	TestKCCAttachedClusterPlatformVersion   = EnvVar{Key: "ATTACHED_CLUSTER_PLATFORM_VERSION"}
 	FirestoreTestProject                    = EnvVar{Key: "FIRESTORE_TEST_PROJECT"}
 	IdentityPlatformTestProject             = EnvVar{Key: "IDENTITY_PLATFORM_TEST_PROJECT"}
 	RecaptchaEnterpriseTestProject          = EnvVar{Key: "RECAPTCHA_ENTERPRISE_TEST_PROJECT"}
 	TestKCCVertexAIIndexBucket              = EnvVar{Key: "KCC_VERTEX_AI_INDEX_TEST_BUCKET"}
 	TestKCCVertexAIIndexDataURI             = EnvVar{Key: "KCC_VERTEX_AI_INDEX_TEST_DATA_URI"}
+	TestGroupEmail                          = EnvVar{Key: "KCC_ENG_GROUP_EMAIL"}
 )
 
 const (
 	TestDependentFolder2ProjectID             = "TEST_DEPENDENT_FOLDER_2_PROJECT_ID"
-	IsolatedTestOrgName                       = "ISOLATED_TEST_ORG_NAME"
 	CloudFunctionsTestProject                 = "CLOUD_FUNCTIONS_TEST_PROJECT"
 	InterconnectTestProject                   = "INTERCONNECT_TEST_PROJECT"
 	HighCPUQuotaTestProject                   = "HIGH_CPU_QUOTA_TEST_PROJECT"
@@ -83,7 +85,6 @@ const (
 
 var (
 	testDependentFolder2ProjectID = os.Getenv(TestDependentFolder2ProjectID)
-	isolatedTestOrgName           = os.Getenv(IsolatedTestOrgName)
 	cloudFunctionsTestProject     = os.Getenv(CloudFunctionsTestProject)
 	interconnectTestProject       = os.Getenv(InterconnectTestProject)
 	highCPUQuotaTestProject       = os.Getenv(HighCPUQuotaTestProject)
@@ -163,10 +164,6 @@ func FindDefaultServiceAccount() (string, error) {
 
 func GetDependentFolder2ProjectID(_ *testing.T) string {
 	return testDependentFolder2ProjectID
-}
-
-func GetIsolatedTestOrgName(_ *testing.T) string {
-	return isolatedTestOrgName
 }
 
 func GetCloudFunctionsTestProject(_ *testing.T) string {

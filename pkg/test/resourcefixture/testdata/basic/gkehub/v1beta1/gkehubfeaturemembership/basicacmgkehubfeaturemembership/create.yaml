@@ -20,6 +20,7 @@ spec:
   projectRef:
     name: gkehubfm-${uniqueId}
   location: global
+  membershipLocation: us-central1
   membershipRef:
     name: gkehubmembership-basic-acm-${uniqueId}
   featureRef:
@@ -27,4 +28,5 @@ spec:
   configmanagement:
     configSync:
       sourceFormat: unstructured
-    version: "1.18.1"
+      stopSyncing: false
+    version: "1.19.2"

@@ -18,7 +18,7 @@
 # ----------------- Build Container ---------------------------
 # Build the go app.
 # Explicitly set to latest vs golang:1.22
-FROM golang:1.22.6 AS build-stage
+FROM golang:1.23.4 AS build-stage
 
 # Set destination for COPY
 WORKDIR /go/src/app
@@ -32,13 +32,12 @@ RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o expander main.go
 
 
-FROM golang:1.22.6 as bins
+FROM golang:1.23.4 as bins
 
 WORKDIR /workspace
 
 # Version string to embed in built binary.
-ARG HELM_VERSION=v3.9.0
-ARG KUSTOMIZE_VERSION=v4.5.2
+ARG HELM_VERSION=v3.16.2
 
 # Install Helm
 RUN wget https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz -O /tmp/helm-${HELM_VERSION}-linux-amd64.tar.gz && \

@@ -12,7 +12,7 @@ tools:
 	wget -N -O bin/protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v3.12.4/protoc-3.12.4-linux-x86_64.zip
 	cd bin; rm -rf protoc; mkdir protoc; cd protoc; unzip ../protoc.zip
 
-GOOGLEAPI_VERSION?=HEAD
+GOOGLEAPI_VERSION?=$(shell grep https://github.com/googleapis/googleapis git.versions | awk '{print $$2}' )
 .PHONY: sync-repo
 sync-repo:
 	mkdir -p third_party
@@ -50,62 +50,77 @@ gen-proto-no-fixup:
 		./apis/mockgcp/cloud/networkconnectivity/v1/*.proto \
 		./apis/mockgcp/cloud/servicenetworking/v1/*.proto \
 		./apis/mockgcp/cloud/resourcemanager/v1/*.proto \
+		./apis/google/apps/cloudidentity/groups/v1beta1/*.proto \
 		./apis/mockgcp/storage/v1/*.proto \
+		./apis/mockgcp/cloud/apigee/v1/*.proto \
 		./third_party/googleapis/mockgcp/api/apikeys/v2/*.proto \
-		./third_party/googleapis/mockgcp/devtools/artifactregistry/v1/*.proto \
-		./third_party/googleapis/mockgcp/devtools/cloudbuild/v1/*.proto	 \
-		./third_party/googleapis/mockgcp/dataflow/v1beta3/*.proto \
-		./third_party/googleapis/mockgcp/iam/admin/v1/*.proto \
-		./third_party/googleapis/mockgcp/logging/v2/*.proto \
-		./third_party/googleapis/mockgcp/pubsub/v1/*.proto \
-		./third_party/googleapis/mockgcp/spanner/admin/database/v1/*.proto \
-		./third_party/googleapis/mockgcp/spanner/admin/instance/v1/*.proto \
+		./third_party/googleapis/mockgcp/api/serviceusage/v1/*.proto \
+		./third_party/googleapis/mockgcp/api/serviceusage/v1beta1/*.proto \
 		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/annotation*.proto \
 		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/data_item.proto \
 		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/dataset*.proto \
 		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/encryption_spec.proto \
+		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/api_auth.proto \
 		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/io.proto \
 		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/operation.proto \
 		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/saved_query.proto \
 		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/tensorboard*.proto \
-		./third_party/googleapis/mockgcp/cloud/alloydb/v1beta/*.proto \
 		./third_party/googleapis/mockgcp/cloud/aiplatform/v1beta1/user_action_reference.proto \
-		./third_party/googleapis/mockgcp/cloud/billing/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/alloydb/v1beta/*.proto \
+		./third_party/googleapis/mockgcp/cloud/bigquery/analyticshub/v1/*.proto \
 		./third_party/googleapis/mockgcp/cloud/bigquery/connection/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/bigquery/datatransfer/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/billing/v1/*.proto \
 		./third_party/googleapis/mockgcp/cloud/certificatemanager/v1/*.proto \
 		./third_party/googleapis/mockgcp/cloud/common/*.proto \
 		./third_party/googleapis/mockgcp/cloud/compute/v1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/gkemulticloud/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/documentai/v1/*.proto \
 		./third_party/googleapis/mockgcp/cloud/edgecontainer/v1/*.proto \
 		./third_party/googleapis/mockgcp/cloud/edgenetwork/v1/*.proto \
 		./third_party/googleapis/mockgcp/cloud/functions/v1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/kms/v1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/networkservices/v1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/pubsublite/v1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/redis/v1beta1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/redis/cluster/v1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/resourcemanager/v3/*.proto \
-		./third_party/googleapis/mockgcp/cloud/security/privateca/v1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/privilegedaccessmanager/v1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/secretmanager/v1/*.proto \
-		./third_party/googleapis/mockgcp/cloud/sql/v1beta4/*.proto \
-		./third_party/googleapis/mockgcp/container/v1beta1/*.proto \
-		./third_party/googleapis/mockgcp/monitoring/v3/*.proto \
-		./third_party/googleapis/mockgcp/monitoring/dashboard/v1/*.proto \
-		./third_party/googleapis/mockgcp/api/serviceusage/v1/*.proto \
-		./third_party/googleapis/mockgcp/api/serviceusage/v1beta1/*.proto \
 		./third_party/googleapis/mockgcp/cloud/gkehub/v1beta/*.proto \
+		./third_party/googleapis/mockgcp/cloud/gkehub/policycontroller/v1beta/*.proto \
 		./third_party/googleapis/mockgcp/cloud/gkehub/v1beta/configmanagement/*.proto \
 		./third_party/googleapis/mockgcp/cloud/gkehub/v1beta/metering/*.proto \
 		./third_party/googleapis/mockgcp/cloud/gkehub/v1beta/multiclusteringress/*.proto \
 		./third_party/googleapis/mockgcp/cloud/gkehub/v1beta1/membership.proto \
-		./third_party/googleapis/mockgrafeas/v1/*.proto
-		
+		./third_party/googleapis/mockgcp/cloud/gkemulticloud/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/kms/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/networkservices/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/privilegedaccessmanager/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/pubsublite/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/redis/cluster/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/redis/v1beta1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/resourcemanager/v3/*.proto \
+		./third_party/googleapis/mockgcp/cloud/secretmanager/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/securesourcemanager/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/security/privateca/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/servicedirectory/v1beta1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/sql/v1beta4/*.proto \
+		./third_party/googleapis/mockgcp/cloud/vpcaccess/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/workstations/v1/*.proto \
+		./third_party/googleapis/mockgcp/container/v1beta1/*.proto \
+		./third_party/googleapis/mockgcp/dataflow/v1beta3/*.proto \
+		./third_party/googleapis/mockgcp/devtools/artifactregistry/v1/*.proto \
+		./third_party/googleapis/mockgcp/devtools/cloudbuild/v1/*.proto	 \
+		./third_party/googleapis/mockgcp/firestore/admin/v1/*.proto \
+		./third_party/googleapis/mockgcp/iam/admin/v1/*.proto \
+		./third_party/googleapis/mockgcp/logging/v2/*.proto \
+		./third_party/googleapis/mockgcp/monitoring/dashboard/v1/*.proto \
+		./third_party/googleapis/mockgcp/monitoring/metricsscope/v1/*.proto \
+		./third_party/googleapis/mockgcp/monitoring/v3/*.proto \
+		./third_party/googleapis/mockgcp/pubsub/v1/*.proto \
+		./third_party/googleapis/mockgcp/spanner/admin/database/v1/*.proto \
+		./third_party/googleapis/mockgcp/spanner/admin/instance/v1/*.proto \
+		./third_party/googleapis/mockgrafeas/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/bigquery/biglake/v1/*.proto \
+		./third_party/googleapis/mockgcp/cloud/bigquery/reservation/v1/*.proto
+
 
 .PHONY: generate-grpc-for-google-protos
 generate-grpc-for-google-protos:
 	mkdir -p third_party
-	git clone https://github.com/googleapis/googleapis.git third_party/googleapis || (cd third_party/googleapis && git reset --hard origin/master && git pull)
+	git clone https://github.com/googleapis/googleapis.git third_party/googleapis || (cd third_party/googleapis && git fetch --all && git reset --hard $(GOOGLEAPI_VERSION) && git pull)
 	mkdir -p ./generated
 
 	PATH=bin/:${PATH} bin/protoc/bin/protoc \
@@ -116,6 +131,8 @@ generate-grpc-for-google-protos:
 		--grpc-gateway_opt logtostderr=true \
 		--grpc-gateway_opt paths=source_relative \
 		--grpc-gateway_opt standalone=true \
+		./third_party/googleapis/google/cloud/discoveryengine/v1/data_store_service.proto \
+		./third_party/googleapis/google/cloud/discoveryengine/v1/engine_service.proto \
 		./third_party/googleapis/google/bigtable/admin/v2/*.proto
 
 .PHONY: generate-protos-from-openapi
@@ -141,5 +158,17 @@ generate-protos-from-openapi:
 	wget -O temp/ids-api-v1.json https://raw.githubusercontent.com/googleapis/google-api-go-client/b49e3b908a8ed562e068736f1c42e992538ba6e0/ids/v1/ids-api.json
 	mkdir -p apis/mockgcp/cloud/ids/v1/
 	cd tools/gapic; go run . --proto-version=2 --proto-package mockgcp.cloud.ids.v1 ../../temp/ids-api-v1.json > ../../apis/mockgcp/cloud/ids/v1/service.proto
+
+	wget -O temp/kms-api-v1.json https://raw.githubusercontent.com/googleapis/google-api-go-client/main/cloudkms/v1/cloudkms-api.json
+	mkdir -p apis/mockgcp/cloud/kms/v1/
+	cd tools/gapic; go run . --proto-version=2 --proto-package mockgcp.cloud.kms.v1 ../../temp/kms-api-v1.json > ../../apis/mockgcp/cloud/kms/v1/service.proto
+
+	wget -O temp/apigee-v1.json https://raw.githubusercontent.com/googleapis/google-api-go-client/refs/heads/main/apigee/v1/apigee-api.json
+	mkdir -p apis/mockgcp/cloud/apigee/v1/
+	cd tools/gapic; go run . --proto-package mockgcp.cloud.apigee.v1 ../../temp/apigee-v1.json > ../../apis/mockgcp/cloud/apigee/v1/service.proto
+
+	wget -O temp/cloudidentity-api.json https://raw.githubusercontent.com/googleapis/google-api-go-client/refs/heads/main/cloudidentity/v1beta1/cloudidentity-api.json
+	mkdir -p apis/google/apps/cloudidentity/groups/v1beta1/
+	cd tools/gapic; go run . --proto-version=2 --proto-package google.apps.cloudidentity.groups.v1beta1 ../../temp/cloudidentity-api.json > ../../apis/google/apps/cloudidentity/groups/v1beta1//service.proto
 
 	rm -r temp

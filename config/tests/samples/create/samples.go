@@ -15,7 +15,6 @@
 package create
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -37,7 +36,7 @@ import (
 	testyaml "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/yaml"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/repo"
 
-	"github.com/ghodss/yaml"
+	"github.com/ghodss/yaml" //nolint:depguard
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -228,13 +227,13 @@ func waitForReadySingleResource(t *Harness, u *unstructured.Unstructured, timeou
 	if err == nil {
 		return
 	}
-	if !errors.Is(err, wait.ErrWaitTimeout) {
-		t.Errorf("error while polling for ready on %v with name '%v': %v", u.GetKind(), u.GetName(), err)
+	if !wait.Interrupted(err) {
+		t.Error(fmt.Errorf("error while polling for ready on %v with name '%v': %w", u.GetKind(), u.GetName(), err))
 		return
 	}
 	baseMsg := fmt.Sprintf("timed out waiting for ready on %v with name '%v'", u.GetKind(), u.GetName())
 	if err := t.GetClient().Get(t.Ctx, name, u); err != nil {
-		t.Errorf("%v, error retrieving final status.conditions: %v", baseMsg, err)
+		t.Error(fmt.Errorf("%v, error retrieving final status.conditions: %w", baseMsg, err))
 		return
 	}
 	objectStatus := dynamic.GetObjectStatus(t.T, u)
@@ -396,8 +395,12 @@ func newSubstitutionVariables(t *testing.T, project testgcp.GCPProject) map[stri
 	subs["${DLP_TEST_BUCKET?}"] = testgcp.GetDLPTestBucket(t)
 	subs["${ATTACHED_CLUSTER_NAME?}"] = testgcp.TestAttachedClusterName.Get()
 	subs["${KCC_ATTACHED_CLUSTER_TEST_PROJECT?}"] = testgcp.TestKCCAttachedClusterProject.Get()
+	subs["${ATTACHED_CLUSTER_PLATFORM_VERSION?}"] = testgcp.TestKCCAttachedClusterPlatformVersion.Get()
 	subs["${KCC_VERTEX_AI_INDEX_TEST_BUCKET?}"] = testgcp.TestKCCVertexAIIndexBucket.Get()
 	subs["${KCC_VERTEX_AI_INDEX_TEST_DATA_URI?}"] = testgcp.TestKCCVertexAIIndexDataURI.Get()
+	// It needs to be a real group email, so decide to use a placeholder here to
+	// avoid exposing internal information.
+	subs["${GROUP_EMAIL?}"] = testgcp.TestGroupEmail.Get()
 	return subs
 }
 

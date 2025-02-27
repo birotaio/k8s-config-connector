@@ -17,6 +17,7 @@ package mockkms
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -30,8 +31,10 @@ import (
 // MockService represents a mocked kms service.
 type MockService struct {
 	*common.MockEnvironment
-	storage    storage.Storage
-	operations *operations.Operations
+	storage              storage.Storage
+	operations           *operations.Operations
+	v1AutokeyAdminServer *autokeyAdminServer
+	v1AutokeyServer      *autokeyServer
 }
 
 // New creates a MockService.
@@ -41,6 +44,8 @@ func New(env *common.MockEnvironment, storage storage.Storage) *MockService {
 		storage:         storage,
 		operations:      operations.NewOperationsService(storage),
 	}
+	s.v1AutokeyAdminServer = &autokeyAdminServer{MockService: s}
+	s.v1AutokeyServer = &autokeyServer{MockService: s}
 	return s
 }
 
@@ -50,13 +55,16 @@ func (s *MockService) ExpectedHosts() []string {
 
 func (s *MockService) Register(grpcServer *grpc.Server) {
 	pb.RegisterKeyManagementServiceServer(grpcServer, &kmsServer{MockService: s})
+	pb.RegisterAutokeyAdminServer(grpcServer, s.v1AutokeyAdminServer)
+	pb.RegisterAutokeyServer(grpcServer, s.v1AutokeyServer)
 }
 
 func (s *MockService) NewHTTPMux(ctx context.Context, conn *grpc.ClientConn) (http.Handler, error) {
 	mux, err := httpmux.NewServeMux(ctx, conn, httpmux.Options{},
 		pb.RegisterKeyManagementServiceHandler,
-		// TODO: Any LROs on this API?
-		//	s.operations.RegisterOperationsPath("/v1/{prefix=**}/operations/{name}"),
+		pb.RegisterAutokeyAdminHandler,
+		pb.RegisterAutokeyHandler,
+		s.operations.RegisterOperationsPath("/v1/{prefix=**}/operations/{name}"),
 	)
 	if err != nil {
 		return nil, err
@@ -64,10 +72,9 @@ func (s *MockService) NewHTTPMux(ctx context.Context, conn *grpc.ClientConn) (ht
 
 	// Returns slightly non-standard errors
 	mux.RewriteError = func(ctx context.Context, error *httpmux.ErrorResponse) {
-		if error.Code == 404 {
+		if error.Code == 404 && (strings.Contains(error.Message, "KeyRing") || strings.Contains(error.Message, "CryptoKey")) {
 			error.Errors = nil
 		}
 	}
-
 	return mux, nil
 }

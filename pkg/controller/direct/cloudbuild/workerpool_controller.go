@@ -19,21 +19,23 @@ package cloudbuild
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 
 	gcp "cloud.google.com/go/cloudbuild/apiv1/v2"
 	cloudbuildpb "cloud.google.com/go/cloudbuild/apiv1/v2/cloudbuildpb"
+	cloudresourcemanager "cloud.google.com/go/resourcemanager/apiv3"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/cloudbuild/v1beta1"
 	refs "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/common"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/directbase"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -67,6 +69,19 @@ func (m *model) client(ctx context.Context) (*gcp.Client, error) {
 	return gcpClient, err
 }
 
+func (m *model) projectsClient(ctx context.Context) (*cloudresourcemanager.ProjectsClient, error) {
+	opts, err := m.config.RESTClientOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	crmClient, err := cloudresourcemanager.NewProjectsRESTClient(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("building cloudresourcemanager client: %w", err)
+	}
+	return crmClient, err
+}
+
 func (m *model) AdapterForObject(ctx context.Context, reader client.Reader, u *unstructured.Unstructured) (directbase.Adapter, error) {
 	obj := &krm.CloudBuildWorkerPool{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &obj); err != nil {
@@ -82,7 +97,7 @@ func (m *model) AdapterForObject(ctx context.Context, reader client.Reader, u *u
 		return nil, fmt.Errorf("cannot resolve resource ID")
 	}
 	// Get GCP Project
-	projectRef, err := refs.ResolveProject(ctx, reader, obj, obj.Spec.ProjectRef)
+	projectRef, err := refs.ResolveProject(ctx, reader, obj.GetNamespace(), obj.Spec.ProjectRef)
 	if err != nil {
 		return nil, err
 	}
@@ -119,14 +134,10 @@ func (m *model) AdapterForObject(ctx context.Context, reader client.Reader, u *u
 		}
 	}
 
-	// Get computeNetwork
-	if obj.Spec.PrivatePoolConfig.NetworkConfig != nil {
-		networkRef, err := refs.ResolveComputeNetwork(ctx, reader, obj, &obj.Spec.PrivatePoolConfig.NetworkConfig.PeeredNetworkRef)
-		if err != nil {
-			return nil, err
-
-		}
-		obj.Spec.PrivatePoolConfig.NetworkConfig.PeeredNetworkRef.External = networkRef.String()
+	// Get Project GCP client
+	projectClient, err := m.projectsClient(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	// Get CloudBuild GCP client
@@ -134,22 +145,50 @@ func (m *model) AdapterForObject(ctx context.Context, reader client.Reader, u *u
 	if err != nil {
 		return nil, err
 	}
+
 	return &Adapter{
-		id:        id,
-		gcpClient: gcpClient,
-		desired:   obj,
+		id:            id,
+		projectClient: projectClient,
+		gcpClient:     gcpClient,
+		reader:        reader,
+		desired:       obj,
 	}, nil
 }
 
 func (m *model) AdapterForURL(ctx context.Context, url string) (directbase.Adapter, error) {
+	// Format: //cloudbuild.googleapis.com/projects/<project>/lcoations/<location>/workerPools/<id>
+	if !strings.HasPrefix(url, "//cloudbuild.googleapis.com/") {
+		return nil, nil
+	}
+
+	tokens := strings.Split(strings.TrimPrefix(url, "//cloudbuild.googleapis.com/"), "/")
+	if len(tokens) == 6 && tokens[0] == "projects" && tokens[2] == "locations" && tokens[4] == "workerPools" {
+		// Get CloudBuild GCP client
+		gcpClient, err := m.client(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return &Adapter{
+			id: &CloudBuildWorkerPoolIdentity{
+				project:    tokens[1],
+				location:   tokens[3],
+				workerpool: tokens[5],
+			},
+			gcpClient: gcpClient,
+		}, nil
+	}
+
 	return nil, nil
 }
 
 type Adapter struct {
-	id        *CloudBuildWorkerPoolIdentity
-	gcpClient *gcp.Client
-	desired   *krm.CloudBuildWorkerPool
-	actual    *cloudbuildpb.WorkerPool
+	id            *CloudBuildWorkerPoolIdentity
+	projectClient *cloudresourcemanager.ProjectsClient
+	gcpClient     *gcp.Client
+	reader        client.Reader
+	desired       *krm.CloudBuildWorkerPool
+	actual        *cloudbuildpb.WorkerPool
 }
 
 var _ directbase.Adapter = &Adapter{}
@@ -170,6 +209,11 @@ func (a *Adapter) Find(ctx context.Context) (bool, error) {
 
 func (a *Adapter) Create(ctx context.Context, createOp *directbase.CreateOperation) error {
 	u := createOp.GetUnstructured()
+
+	err := a.resolveDependencies(ctx, a.reader, a.desired)
+	if err != nil {
+		return err
+	}
 
 	log := klog.FromContext(ctx).WithName(ctrlName)
 	log.V(2).Info("creating object", "u", u)
@@ -208,60 +252,12 @@ func (a *Adapter) Create(ctx context.Context, createOp *directbase.CreateOperati
 func (a *Adapter) Update(ctx context.Context, updateOp *directbase.UpdateOperation) error {
 	u := updateOp.GetUnstructured()
 
-	updateMask := &fieldmaskpb.FieldMask{}
-
-	if !reflect.DeepEqual(a.desired.Spec.DisplayName, a.actual.DisplayName) {
-		updateMask.Paths = append(updateMask.Paths, "display_name")
+	err := a.resolveDependencies(ctx, a.reader, a.desired)
+	if err != nil {
+		return err
 	}
 
-	typedConfig, ok := a.actual.Config.(*cloudbuildpb.WorkerPool_PrivatePoolV1Config)
-	if !ok {
-		return fmt.Errorf("unable to convert cloudbuildworkerpool %s config to workerpool PrivatePoolV1Config", a.actual.Name)
-	}
-	actualConfig := typedConfig.PrivatePoolV1Config
-	desiredConfig := a.desired.Spec.PrivatePoolConfig
-
-	if desiredConfig.NetworkConfig != nil {
-		switch actualConfig.NetworkConfig.EgressOption {
-		case cloudbuildpb.PrivatePoolV1Config_NetworkConfig_EGRESS_OPTION_UNSPECIFIED:
-			if !reflect.DeepEqual(direct.ValueOf(desiredConfig.NetworkConfig.EgressOption), "UNSPECIFIED") {
-				updateMask.Paths = append(updateMask.Paths, "private_pool_v1_config.network_config.egress_option")
-			}
-		case cloudbuildpb.PrivatePoolV1Config_NetworkConfig_NO_PUBLIC_EGRESS:
-			if !reflect.DeepEqual(direct.ValueOf(desiredConfig.NetworkConfig.EgressOption), "NO_PUBLIC_EGRESS") {
-				updateMask.Paths = append(updateMask.Paths, "private_pool_v1_config.network_config.egress_option")
-			}
-		case cloudbuildpb.PrivatePoolV1Config_NetworkConfig_PUBLIC_EGRESS:
-			if !reflect.DeepEqual(direct.ValueOf(desiredConfig.NetworkConfig.EgressOption), "PUBLIC_EGRESS") {
-				updateMask.Paths = append(updateMask.Paths, "private_pool_v1_config.network_config.egress_option")
-			}
-		}
-		expectedIPRange := direct.ValueOf(desiredConfig.NetworkConfig.PeeredNetworkIPRange)
-		if expectedIPRange != "" && !reflect.DeepEqual(expectedIPRange, actualConfig.NetworkConfig.PeeredNetworkIpRange) {
-			updateMask.Paths = append(updateMask.Paths, "private_pool_v1_config.network_config.peered_network_ip_range")
-		}
-
-		// TODO: better handle the network complexity
-		// 1. peered_network is an immutable field. whether/when shall we validate
-		// 2. the gcp workerpool stores the network with "project_number", different from the spec which uses the "project_id".
-		//    * projects/<project_number>/global/networks/<network_id>
-		//    * projects/<project_id>/global/networks/<network_id>
-		desiredNetwork := strings.Split(desiredConfig.NetworkConfig.PeeredNetworkRef.External, "/")
-		actualNetwork := strings.Split(actualConfig.NetworkConfig.PeeredNetwork, "/")
-		if len(desiredNetwork) == 5 && len(actualNetwork) == 5 && !reflect.DeepEqual(desiredNetwork[4], actualNetwork[4]) {
-			return fmt.Errorf("peered_network is immutable field")
-		}
-	}
-	if !reflect.DeepEqual(desiredConfig.WorkerConfig.DiskSizeGb, actualConfig.WorkerConfig.DiskSizeGb) {
-		updateMask.Paths = append(updateMask.Paths, "private_pool_v1_config.worker_config.disk_size_gb")
-	}
-	if !reflect.DeepEqual(desiredConfig.WorkerConfig.MachineType, actualConfig.WorkerConfig.MachineType) {
-		updateMask.Paths = append(updateMask.Paths, "private_pool_v1_config.worker_config.machine_type")
-	}
-	if len(updateMask.Paths) == 0 {
-		klog.Warningf("unexpected empty update mask, desired: %v, actual: %v", a.desired, a.actual)
-		return nil
-	}
+	log := klog.FromContext(ctx).WithName(ctrlName)
 
 	desired := a.desired.DeepCopy()
 	mapCtx := &direct.MapContext{}
@@ -271,9 +267,19 @@ func (a *Adapter) Update(ctx context.Context, updateOp *directbase.UpdateOperati
 	}
 	wp.Name = a.id.FullyQualifiedName()
 	wp.Etag = a.actual.Etag
+
+	paths, err := common.CompareProtoMessage(wp, a.actual, common.BasicDiff)
+	if err != nil {
+		return err
+	}
+
+	if len(paths) == 0 {
+		log.V(2).Info("no field needs update", "name", a.id.AsExternalRef())
+		return nil
+	}
 	req := &cloudbuildpb.UpdateWorkerPoolRequest{
 		WorkerPool: wp,
-		UpdateMask: updateMask,
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: sets.List(paths)},
 	}
 	op, err := a.gcpClient.UpdateWorkerPool(ctx, req)
 	if err != nil {
@@ -292,7 +298,29 @@ func (a *Adapter) Update(ctx context.Context, updateOp *directbase.UpdateOperati
 }
 
 func (a *Adapter) Export(ctx context.Context) (*unstructured.Unstructured, error) {
-	return nil, nil
+	if a.actual == nil {
+		return nil, fmt.Errorf("Find() not called")
+	}
+	u := &unstructured.Unstructured{}
+
+	obj := &krm.CloudBuildWorkerPool{}
+	obj.SetGroupVersionKind(krm.GroupVersionKind)
+	obj.SetName(a.actual.Name)
+
+	mapCtx := &direct.MapContext{}
+	obj.Spec = direct.ValueOf(CloudBuildWorkerPoolSpec_FromProto(mapCtx, a.actual))
+	if mapCtx.Err() != nil {
+		return nil, mapCtx.Err()
+	}
+	obj.Spec.ProjectRef = &refs.ProjectRef{External: *a.id.AsExternalRef()}
+	obj.Spec.Location = a.id.location
+	uObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	u.Object = uObj
+	return u, nil
 }
 
 // Delete implements the Adapter interface.
@@ -331,5 +359,20 @@ func setStatus(u *unstructured.Unstructured, typedStatus any) error {
 
 	u.Object["status"] = status
 
+	return nil
+}
+
+func (a *Adapter) resolveDependencies(ctx context.Context, reader client.Reader, obj *krm.CloudBuildWorkerPool) error {
+	// Resolve computeNetwork
+	networkSpec := obj.Spec.PrivatePoolConfig.NetworkConfig
+	if networkSpec != nil {
+		if err := networkSpec.PeeredNetworkRef.Normalize(ctx, reader, obj); err != nil {
+			return err
+		}
+
+		if err := networkSpec.PeeredNetworkRef.ConvertToProjectNumber(ctx, a.projectClient); err != nil {
+			return err
+		}
+	}
 	return nil
 }

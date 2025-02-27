@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/klog/v2"
 )
 
@@ -113,6 +114,19 @@ func Enum_ToProto[U ProtoEnum](mapCtx *MapContext, in *string) U {
 	return 0
 }
 
+func EnumSlice_ToProto[U ProtoEnum](mapCtx *MapContext, in []string) []U {
+	if in == nil {
+		return nil
+	}
+
+	var out []U
+	for _, s := range in {
+		u := Enum_ToProto[U](mapCtx, &s)
+		out = append(out, u)
+	}
+	return out
+}
+
 func Enum_FromProto[U ProtoEnum](mapCtx *MapContext, v U) *string {
 	descriptor := v.Descriptor()
 
@@ -129,6 +143,27 @@ func Enum_FromProto[U ProtoEnum](mapCtx *MapContext, v U) *string {
 	return &s
 }
 
+func EnumSlice_FromProto[U ProtoEnum](mapCtx *MapContext, in []U) []string {
+	if in == nil {
+		return nil
+	}
+
+	var out []string
+	for _, u := range in {
+		// Unlike Enum_FromProto, we don't skip 0 here
+		descriptor := u.Descriptor()
+
+		val := descriptor.Values().ByNumber(protoreflect.EnumNumber(u))
+		if val == nil {
+			mapCtx.Errorf("unknown enum value %d", u)
+			return nil
+		}
+		s := string(val.Name())
+		out = append(out, s)
+	}
+	return out
+}
+
 func LazyPtr[V comparable](v V) *V {
 	var defaultV V
 	if v == defaultV {
@@ -137,9 +172,75 @@ func LazyPtr[V comparable](v V) *V {
 	return &v
 }
 
-func ToOpenAPIDateTime(ts *timestamppb.Timestamp) *string {
-	formatted := ts.AsTime().Format(time.RFC3339)
+func StringTimestamp_FromProto(mapCtx *MapContext, ts *timestamppb.Timestamp) *string {
+	if ts == nil {
+		return nil
+	}
+	formatted := ts.AsTime().Format(time.RFC3339Nano)
 	return &formatted
+}
+
+func StringTimestamp_ToProto(mapCtx *MapContext, s *string) *timestamppb.Timestamp {
+	if s == nil {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, *s)
+	if err != nil {
+		mapCtx.Errorf("invalid timestamp %q", *s)
+	}
+	ts := timestamppb.New(t)
+	return ts
+}
+
+func StringDuration_FromProto(mapCtx *MapContext, d *durationpb.Duration) *string {
+	if d == nil {
+		return nil
+	}
+	s := d.AsDuration().String()
+	return &s
+}
+
+func StringDuration_ToProto(mapCtx *MapContext, s *string) *durationpb.Duration {
+	if s == nil {
+		return nil
+	}
+	td, err := time.ParseDuration(*s)
+	if err != nil {
+		mapCtx.Errorf("invalid duration %q", *s)
+	}
+	return durationpb.New(td)
+}
+
+func StringValue_FromProto(mapCtx *MapContext, in *wrapperspb.StringValue) *string {
+	if in == nil {
+		return nil
+	}
+	out := in.Value
+	return &out
+}
+
+func StringValue_ToProto(mapCtx *MapContext, in *string) *wrapperspb.StringValue {
+	if in == nil {
+		return nil
+	}
+	out := wrapperspb.String(*in)
+	return out
+}
+
+func BoolValue_FromProto(mapCtx *MapContext, in *wrapperspb.BoolValue) *bool {
+	if in == nil {
+		return nil
+	}
+	out := in.Value
+	return &out
+}
+
+func BoolValue_ToProto(mapCtx *MapContext, in *bool) *wrapperspb.BoolValue {
+	if in == nil {
+		return nil
+	}
+	out := wrapperspb.Bool(*in)
+	return out
 }
 
 func PtrTo[T any](t T) *T {
@@ -157,6 +258,11 @@ func ValueOf[T any](p *T) T {
 // IsNotFound returns true if the given error is an HTTP 404.
 func IsNotFound(err error) bool {
 	return HasHTTPCode(err, 404)
+}
+
+// IsBadRequest returns true if the given error is an HTTP 400.
+func IsBadRequest(err error) bool {
+	return HasHTTPCode(err, 400)
 }
 
 // HasHTTPCode returns true if the given error is an HTTP response with the given code.
@@ -204,17 +310,25 @@ func Duration_FromProto(mapCtx *MapContext, in *durationpb.Duration) *string {
 		return nil
 	}
 
+	s := in.Seconds
+	n := in.Nanos
+
+	if in.Nanos/1e9 > 0 {
+		s += int64(in.Nanos / 1e9)
+		n = in.Nanos % 1e9
+	}
+
 	// We want to report the duration without truncation (do don't want to map via float64)
-	s := strconv.FormatInt(in.Seconds, 10)
-	if in.Nanos != 0 {
-		nanos := strconv.FormatInt(int64(in.Nanos), 10)
+	sStr := strconv.FormatInt(s, 10)
+	if n != 0 {
+		nanos := strconv.FormatInt(int64(n), 10)
 		pad := 9 - len(nanos)
 		nanos = strings.Repeat("0", pad) + nanos
 		nanos = strings.TrimRight(nanos, "0")
-		s += "." + nanos
+		sStr += "." + nanos
 	}
-	s += "s"
-	return &s
+	sStr += "s"
+	return &sStr
 }
 
 func SecondsString_FromProto(mapCtx *MapContext, in *durationpb.Duration) *string {
@@ -241,4 +355,109 @@ func SecondsString_ToProto(mapCtx *MapContext, in *string, fieldName string) *du
 	}
 	out := &durationpb.Duration{Seconds: seconds}
 	return out
+}
+func Int64Value_FromProto(mapCtx *MapContext, ts *wrapperspb.Int64Value) int64 {
+	if ts == nil {
+		return 0
+	}
+
+	return ts.GetValue()
+}
+func Int64Value_ToProto(mapCtx *MapContext, s int64) *wrapperspb.Int64Value {
+	return wrapperspb.Int64(s)
+}
+
+func FloatValue_FromProto(mapCtx *MapContext, in *wrapperspb.FloatValue) *float32 {
+	if in == nil {
+		return nil
+	}
+	out := in.Value
+	return &out
+}
+
+func FloatValue_ToProto(mapCtx *MapContext, in *float32) *wrapperspb.FloatValue {
+	if in == nil {
+		return nil
+	}
+	out := wrapperspb.Float(*in)
+	return out
+}
+
+// Float64 wrapper functions
+func DoubleValue_FromProto(mapCtx *MapContext, in *wrapperspb.DoubleValue) *float64 {
+	if in == nil {
+		return nil
+	}
+	out := in.Value
+	return &out
+}
+
+func DoubleValue_ToProto(mapCtx *MapContext, in *float64) *wrapperspb.DoubleValue {
+	if in == nil {
+		return nil
+	}
+	out := wrapperspb.Double(*in)
+	return out
+}
+
+func Int32Value_FromProto(mapCtx *MapContext, in *wrapperspb.Int32Value) *int32 {
+	if in == nil {
+		return nil
+	}
+	out := in.Value
+	return &out
+}
+
+func Int32Value_ToProto(mapCtx *MapContext, in *int32) *wrapperspb.Int32Value {
+	if in == nil {
+		return nil
+	}
+	out := wrapperspb.Int32(*in)
+	return out
+}
+
+func UInt32Value_FromProto(mapCtx *MapContext, in *wrapperspb.UInt32Value) *uint32 {
+	if in == nil {
+		return nil
+	}
+	out := in.Value
+	return &out
+}
+
+func UInt32Value_ToProto(mapCtx *MapContext, in *uint32) *wrapperspb.UInt32Value {
+	if in == nil {
+		return nil
+	}
+	out := wrapperspb.UInt32(*in)
+	return out
+}
+
+func UInt64Value_FromProto(mapCtx *MapContext, in *wrapperspb.UInt64Value) *uint64 {
+	if in == nil {
+		return nil
+	}
+	out := in.Value
+	return &out
+}
+
+func UInt64Value_ToProto(mapCtx *MapContext, in *uint64) *wrapperspb.UInt64Value {
+	if in == nil {
+		return nil
+	}
+	out := wrapperspb.UInt64(*in)
+	return out
+}
+
+func BytesValue_FromProto(mapCtx *MapContext, in *wrapperspb.BytesValue) []byte {
+	if in == nil {
+		return nil
+	}
+	return in.Value
+}
+
+func BytesValue_ToProto(mapCtx *MapContext, in []byte) *wrapperspb.BytesValue {
+	if in == nil {
+		return nil
+	}
+	return wrapperspb.Bytes(in)
 }

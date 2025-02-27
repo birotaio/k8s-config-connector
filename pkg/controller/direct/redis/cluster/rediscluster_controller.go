@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	api "cloud.google.com/go/redis/cluster/apiv1"
 	pb "cloud.google.com/go/redis/cluster/apiv1/clusterpb"
@@ -28,12 +29,12 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/redis/v1alpha1"
+	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/redis/v1beta1"
 	refs "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/common"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/directbase"
-	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/monitoring"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
 )
 
@@ -96,7 +97,7 @@ func (m *redisClusterModel) AdapterForObject(ctx context.Context, kube client.Re
 		return nil, fmt.Errorf("cannot resolve location")
 	}
 
-	projectRef, err := refs.ResolveProject(ctx, kube, obj, &obj.Spec.ProjectRef)
+	projectRef, err := refs.ResolveProject(ctx, kube, obj.GetNamespace(), &obj.Spec.ProjectRef)
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +106,7 @@ func (m *redisClusterModel) AdapterForObject(ctx context.Context, kube client.Re
 		return nil, fmt.Errorf("cannot resolve project")
 	}
 
-	// TODO: Move from monitoring package into shared package (and make refs implement an interface)
-	if err := monitoring.VisitFields(obj, &refNormalizer{ctx: ctx, src: obj, project: *projectRef, kube: kube}); err != nil {
+	if err := common.VisitFields(obj, &refNormalizer{ctx: ctx, src: obj, project: *projectRef, kube: kube}); err != nil {
 		return nil, err
 	}
 
@@ -187,11 +187,15 @@ func (a *redisClusterAdapter) Delete(ctx context.Context, deleteOp *directbase.D
 		if direct.IsNotFound(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("deleting redisCluster %s: %w", a.fullyQualifiedName(), err)
+		if !strings.Contains(err.Error(), "missing \"value\" field") {
+			return false, fmt.Errorf("deleting redisCluster %s: %w", a.fullyQualifiedName(), err)
+		}
 	}
 
 	if err := op.Wait(ctx); err != nil {
-		return false, fmt.Errorf("waiting for redisCluster delete %s: %w", a.fullyQualifiedName(), err)
+		if !strings.Contains(err.Error(), "missing \"value\" field") {
+			return false, fmt.Errorf("waiting for redisCluster delete %s: %w", a.fullyQualifiedName(), err)
+		}
 	}
 
 	return true, nil
