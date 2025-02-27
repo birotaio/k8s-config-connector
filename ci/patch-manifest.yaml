@@ -1,0 +1,41 @@
+#@ load("@ytt:overlay", "overlay")
+
+
+#@overlay/match by=overlay.subset({"kind": "Deployment"}), expects=2
+---
+spec:
+  template:
+    spec:
+      #@overlay/match missing_ok=True
+      nodeSelector:
+        pool: default
+
+
+#@overlay/match by=overlay.subset({"kind": "StatefulSet"}), expects=2
+---
+spec:
+  template:
+    spec:
+      #@overlay/match missing_ok=True
+      nodeSelector:
+        pool: default
+
+
+#@overlay/match by=overlay.subset({"kind": "StatefulSet", "metadata": {"name": "cnrm-controller-manager"}}), expects=1
+---
+spec:
+  template:
+    metadata:
+      annotations:
+        #@overlay/match missing_ok=True
+        vault.hashicorp.com/agent-inject: "true"
+        #@overlay/match missing_ok=True
+        vault.hashicorp.com/agent-cache-enable: "true"
+        #@overlay/match missing_ok=True
+        vault.hashicorp.com/role: "config-connector"
+    spec:
+      containers:
+        #@overlay/match by=lambda idx,old,new: "env" in old, expects=1
+        - env:
+            #@overlay/match by=overlay.subset({"name": "GOOGLE_APPLICATION_CREDENTIALS"}), expects=1
+            - value: "/vault/secrets/gcp-key"
