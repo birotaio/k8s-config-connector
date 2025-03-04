@@ -59,7 +59,7 @@ COPY --from=builder /go/src/github.com/GoogleCloudPlatform/k8s-config-connector/
 RUN chown 1000 -R /configconnector-operator
 
 # Copy the directory into a thin, distroless image (go/gke-distroless)
-FROM gcr.io/gke-release/gke-distroless/static:gke_distroless_20230307.00_p0 AS final
+FROM gcr.io/gke-release/gke-distroless/static:gke_distroless_20230307.00_p0 AS production
 WORKDIR /configconnector-operator/
 COPY --from=packager /configconnector-operator /configconnector-operator
 ENV PATH="/configconnector-operator/:${PATH}"

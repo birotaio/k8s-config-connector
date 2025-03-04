@@ -1,6 +1,5 @@
 #@ load("@ytt:overlay", "overlay")
 
-
 #@overlay/match by=overlay.subset({"kind": "Deployment"}), expects=2
 ---
 spec:
@@ -10,7 +9,6 @@ spec:
       nodeSelector:
         pool: default
 
-
 #@overlay/match by=overlay.subset({"kind": "StatefulSet"}), expects=2
 ---
 spec:
@@ -19,7 +17,6 @@ spec:
       #@overlay/match missing_ok=True
       nodeSelector:
         pool: default
-
 
 #@overlay/match by=overlay.subset({"kind": "StatefulSet", "metadata": {"name": "cnrm-controller-manager"}}), expects=1
 ---
@@ -34,8 +31,12 @@ spec:
         #@overlay/match missing_ok=True
         vault.hashicorp.com/role: "config-connector"
     spec:
+      #@overlay/remove
+      volumes: []
       containers:
         #@overlay/match by=lambda idx,old,new: "env" in old, expects=1
         - env:
             #@overlay/match by=overlay.subset({"name": "GOOGLE_APPLICATION_CREDENTIALS"}), expects=1
             - value: "/vault/secrets/gcp-key"
+          #@overlay/remove
+          volumeMounts: []

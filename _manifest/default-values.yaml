@@ -1,5 +1,4 @@
 #@data/values
 ---
 
-#! unused by required by the deployment pipeline
 image_tag: ""
