@@ -1,4 +1,7 @@
 #@data/values
 ---
+cluster:
+  name: "toto"
 
 image_tag: ""
+cnrm_version: "1.128.0"

@@ -1,0 +1,12 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+
+#@ match_sa = overlay.subset({"kind":"ServiceAccount", "metadata":{"name":"configconnector-operator"}})
+#@ match_satefulset = overlay.subset({"kind":"StatefulSet", "metadata":{"name":"configconnector-operator"}})
+#@ match_service = overlay.subset({"kind":"Service", "metadata":{"name":"configconnector-operator-service"}})
+
+#@overlay/match by=overlay.or_op(match_sa, match_satefulset, match_service), expects="0+"
+---
+metadata:
+  #@overlay/match missing_ok=True
+  namespace: configconnector-operator-system

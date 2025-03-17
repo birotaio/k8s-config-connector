@@ -1,0 +1,34 @@
+#@ load("@ytt:data", "data")
+#@ load("@ytt:overlay", "overlay")
+
+#@overlay/match by=overlay.subset({"metadata":{"annotations": {"cnrm.cloud.google.com/version": "0.0.0-dev"}}}), expects="0+"
+---
+metadata:
+  annotations:
+    #@overlay/replace
+    cnrm.cloud.google.com/version: #@ data.values.cnrm_version
+
+#@overlay/match by=overlay.subset({"kind":"StatefulSet", "metadata":{"name": "configconnector-operator"}}), expects="0+"
+---
+metadata:
+  #@overlay/match missing_ok=True
+  annotations:
+    kapp.k14s.io/update-strategy: fallback-on-replace
+spec:
+  template:
+    spec:
+      containers:
+        #@overlay/match by="name"
+        - name: manager
+          #@overlay/match missing_ok=True
+          image: #@ "eu.gcr.io/birota-cloud/k8s-config-connector:{}".format(data.values.image_tag)
+---
+apiVersion: core.cnrm.cloud.google.com/v1beta1
+kind: ConfigConnector
+metadata:
+  # the name is restricted to ensure that there is only one
+  # ConfigConnector resource installed in your cluster
+  name: configconnector.core.cnrm.cloud.google.com
+spec:
+  mode: cluster
+  credentialSecretName: #@ "config-connector-{}".format(data.values.cluster.name)
