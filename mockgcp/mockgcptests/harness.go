@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockgcpregistry"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/pkg/storage"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/cli/log"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gcp"
@@ -46,7 +47,9 @@ import (
 type Harness struct {
 	*testing.T
 
-	MockGCP    mockgcp.Interface
+	MockGCP            mockgcp.Interface
+	registeredServices mockgcpregistry.Normalizer
+
 	HTTPClient *http.Client
 
 	Ctx context.Context
@@ -88,6 +91,10 @@ func (t *Harness) cleanup() {
 
 }
 
+func (h *Harness) RegisteredServices() mockgcpregistry.Normalizer {
+	return h.registeredServices
+}
+
 func (h *Harness) CompareGoldenFile(p string, got string, normalizers ...func(s string) string) {
 	abs, err := filepath.Abs(p)
 	if err != nil {
@@ -121,6 +128,7 @@ func (t *Harness) Init() {
 
 		mockCloudGRPCClientConnection = mockCloud.NewGRPCConnection(ctx)
 		t.MockGCP = mockCloud
+		t.registeredServices = mockCloud.(mockgcpregistry.Normalizer)
 
 		roundTripper := http.RoundTripper(mockCloud)
 
@@ -141,6 +149,11 @@ func (t *Harness) Init() {
 		t.Logf("targeting real GCP")
 		// } else if targetGCP := os.Getenv("E2E_GCP_TARGET"); targetGCP == "vcr" {
 		// 	t.Logf("creating vcr test")
+
+		// We create registered services, even though we only use it for replacements
+		var kubeClient client.Client // TODO: We should replace this, it didn't work
+		mockCloud := mockgcp.NewMockRoundTripperForTest(t.T, kubeClient, storage.NewInMemoryStorage())
+		t.registeredServices = mockCloud.(mockgcpregistry.Normalizer)
 	} else {
 		t.Fatalf("E2E_GCP_TARGET=%q not supported", targetGCP)
 	}
@@ -289,33 +302,41 @@ func (t *Harness) Init() {
 	}
 }
 
-func (t *Harness) StartProxy() {
-	httpClient := t.HTTPClient
-	t.proxy = &Proxy{
-		httpClient: httpClient,
-	}
+func (t *Harness) StartProxy(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
 
-	listener, err := net.Listen("tcp", "localhost:0")
+	httpClient := t.HTTPClient
+	t.proxy = NewProxy(httpClient)
+
+	httpListener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("net.Listen failed: %v", err)
 	}
 
 	httpServer := &http.Server{}
 	httpServer.Handler = t.proxy
+	go func() {
+		if err := httpServer.Serve(httpListener); err != nil {
+			if err != http.ErrServerClosed {
+				t.Errorf("error from http proxy server: %v", err)
+			}
+		}
+	}()
 
 	go func() {
-		if err := httpServer.Serve(listener); err != nil {
+		if err := t.proxy.ListenAndServeHTTPS(ctx); err != nil {
 			if err != http.ErrServerClosed {
-				t.Errorf("error from proxy server: %v", err)
+				t.Errorf("error from http proxy server: %v", err)
 			}
 		}
 	}()
 
 	t.Cleanup(func() {
 		httpServer.Close()
+		cancel()
 	})
 
-	t.ProxyEndpoint = listener.Addr().(*net.TCPAddr)
+	t.ProxyEndpoint = httpListener.Addr().(*net.TCPAddr)
 }
 
 func (t *Harness) RunCommand(cmdline string) {

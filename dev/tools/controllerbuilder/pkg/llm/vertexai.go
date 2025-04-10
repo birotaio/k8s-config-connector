@@ -20,15 +20,23 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/vertexai/genai"
+	"github.com/googleapis/gax-go/v2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc/codes"
 	"k8s.io/klog/v2"
 )
 
+type GCPOptions interface {
+	GetProject() string
+	GetLocation() string
+}
+
 // BuildVertexAIClient builds a client for the VertexAI API.
-func BuildVertexAIClient(ctx context.Context) (*VertexAIClient, error) {
+func BuildVertexAIClient(ctx context.Context, options ...GCPOptions) (*VertexAIClient, error) {
 	log := klog.FromContext(ctx)
 
 	var opts []option.ClientOption
@@ -42,6 +50,12 @@ func BuildVertexAIClient(ctx context.Context) (*VertexAIClient, error) {
 	projectID := ""
 	location := ""
 
+	for _, o := range options {
+		if o != nil {
+			projectID = o.GetProject()
+			location = o.GetLocation()
+		}
+	}
 	if projectID == "" {
 		cmd := exec.CommandContext(ctx, "gcloud", "config", "get", "project")
 		var stdout bytes.Buffer
@@ -60,23 +74,29 @@ func BuildVertexAIClient(ctx context.Context) (*VertexAIClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("building vertexai client: %w", err)
 	}
-	return &VertexAIClient{client: client}, nil
+	model := "gemini-2.0-pro-exp-02-05"
+	return &VertexAIClient{
+		client: client,
+		model:  model,
+	}, nil
 }
 
 type VertexAIClient struct {
 	client *genai.Client
+	model  string
 }
 
 func (c *VertexAIClient) Close() error {
 	return c.client.Close()
 }
 
+func (c *VertexAIClient) WithModel(model string) *VertexAIClient {
+	c.model = model
+	return c
+}
+
 func (c *VertexAIClient) StartChat(systemPrompt string) Chat {
-	// model := c.client.GenerativeModel("vertexai-1.5-flash")
-	// model := c.client.GenerativeModel("vertexai-exp-1206")
-	model := c.client.GenerativeModel("gemini-2.0-flash-exp")
-	// model := c.client.GenerativeModel("gemma-2-27b-it")
-	// model := c.client.GenerativeModel("gemini-1.5-pro-002")
+	model := c.client.GenerativeModel(c.model)
 
 	// Some values that are recommended by aistudio
 	model.SetTemperature(1)
@@ -148,6 +168,8 @@ func toVertexAISchema(schema *Schema) (*genai.Schema, error) {
 		ret.Type = genai.TypeObject
 	case TypeString:
 		ret.Type = genai.TypeString
+	case TypeBoolean:
+		ret.Type = genai.TypeBoolean
 	default:
 		return nil, fmt.Errorf("type %q not handled by genai.Schema", schema.Type)
 	}
@@ -172,6 +194,63 @@ func toVertexAISchema(schema *Schema) (*genai.Schema, error) {
 // 	})
 // }
 
+func (c *VertexAIClient) GenerateCompletion(ctx context.Context, request *CompletionRequest) (CompletionResponse, error) {
+	log := klog.FromContext(ctx)
+
+	model := c.client.GenerativeModel(c.model)
+
+	var vertexaiParts []genai.Part
+
+	vertexaiParts = append(vertexaiParts, genai.Text(request.Prompt))
+
+	log.Info("sending GenerateContent request to vertexai", "parts", vertexaiParts)
+	vertexaiResponse, err := model.GenerateContent(ctx, vertexaiParts...)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(vertexaiResponse.Candidates) > 1 {
+		klog.Infof("only considering first candidate")
+		for i := 1; i < len(vertexaiResponse.Candidates); i++ {
+			candidate := vertexaiResponse.Candidates[i]
+			klog.Infof("ignoring candidate: %q", candidate.Content)
+		}
+	}
+	var response strings.Builder
+	candidate := vertexaiResponse.Candidates[0]
+	for _, part := range candidate.Content.Parts {
+		switch part := part.(type) {
+		case genai.Text:
+			if response.Len() != 0 {
+				response.WriteString("\n")
+			}
+			response.WriteString(string(part))
+		default:
+			return nil, fmt.Errorf("unexpected type of content part: %T", part)
+		}
+	}
+
+	return &VertexAICompletionResponse{vertexaiResponse: vertexaiResponse, text: response.String()}, nil
+}
+
+func (c *VertexAIChat) sendMessageWithRetries(ctx context.Context, geminiParts ...genai.Part) (*genai.GenerateContentResponse, error) {
+	opt := gax.WithRetry(func() gax.Retryer {
+		// https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429
+		return gax.OnCodes([]codes.Code{codes.ResourceExhausted}, gax.Backoff{
+			Initial:    5 * time.Second,
+			Max:        10 * time.Minute,
+			Multiplier: 2,
+		})
+	})
+	var resp *genai.GenerateContentResponse
+	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
+		var err error
+		resp, err = c.chat.SendMessage(ctx, geminiParts...)
+		return err
+	}, opt)
+	return resp, err
+}
+
 func (c *VertexAIChat) SendMessage(ctx context.Context, parts ...string) (Response, error) {
 	log := klog.FromContext(ctx)
 	var vertexaiParts []genai.Part
@@ -179,7 +258,7 @@ func (c *VertexAIChat) SendMessage(ctx context.Context, parts ...string) (Respon
 		vertexaiParts = append(vertexaiParts, genai.Text(part))
 	}
 	log.Info("sending LLM request", "user", parts)
-	vertexaiResponse, err := c.chat.SendMessage(ctx, vertexaiParts...)
+	vertexaiResponse, err := c.sendMessageWithRetries(ctx, vertexaiParts...)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +274,7 @@ func (c *VertexAIChat) SendFunctionResults(ctx context.Context, functionResults 
 		})
 	}
 
-	vertexaiResponse, err := c.chat.SendMessage(ctx, vertexaiFunctionResults...)
+	vertexaiResponse, err := c.sendMessageWithRetries(ctx, vertexaiFunctionResults...)
 	if err != nil {
 		return nil, err
 	}
@@ -254,4 +333,19 @@ func (p *VertexAIPart) AsFunctionCalls() ([]FunctionCall, bool) {
 		return ret, true
 	}
 	return nil, false
+}
+
+type VertexAICompletionResponse struct {
+	vertexaiResponse *genai.GenerateContentResponse
+	text             string
+}
+
+var _ CompletionResponse = &VertexAICompletionResponse{}
+
+func (r *VertexAICompletionResponse) Response() string {
+	return r.text
+}
+
+func (r *VertexAICompletionResponse) UsageMetadata() any {
+	return r.vertexaiResponse.UsageMetadata
 }

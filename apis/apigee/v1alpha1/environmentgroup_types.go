@@ -15,8 +15,9 @@
 package v1alpha1
 
 import (
-	refv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1alpha1"
+	apigeev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/apis/apigee/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/k8s/v1alpha1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,7 +25,7 @@ var ApigeeEnvgroupGVK = GroupVersion.WithKind("ApigeeEnvgroup")
 
 type Parent struct {
 	// +required
-	OrganizationRef *refv1alpha1.ApigeeOrganizationRef `json:"organizationRef"`
+	OrganizationRef *apigeev1beta1.ApigeeOrganizationRef `json:"organizationRef"`
 }
 
 // ApigeeEnvgroupSpec defines the desired state of ApigeeEnvgroup

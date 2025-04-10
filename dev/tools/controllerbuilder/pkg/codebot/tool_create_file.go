@@ -30,15 +30,16 @@ func init() {
 }
 
 type CreateFile struct {
-	Contents string `json:"contents"`
-	Filename string `json:"filename"`
+	Contents  string `json:"contents"`
+	Filename  string `json:"filename"`
+	Overwrite bool   `json:"overwrite"`
 }
 
 type CreateFileResults struct {
 	Success bool `json:"success"`
 }
 
-func (t *CreateFile) Run(ctx context.Context, c *Chat, args map[string]any) (*CreateFileResults, error) {
+func (t *CreateFile) Run(ctx context.Context, c *Chat, args map[string]any) (any, error) {
 	b, err := json.Marshal(args)
 	if err != nil {
 		return nil, fmt.Errorf("converting to json: %w", err)
@@ -54,16 +55,25 @@ func (t *CreateFile) Run(ctx context.Context, c *Chat, args map[string]any) (*Cr
 	klog.V(2).Infof("CreateFile: %+v", t)
 
 	p := filepath.Join(c.baseDir, t.Filename)
-	if _, err := os.Stat(p); err == nil {
-		return nil, fmt.Errorf("file %q already exists", t.Filename)
+	if !t.Overwrite {
+		if _, err := os.Stat(p); err == nil {
+			return nil, fmt.Errorf("file %q already exists", t.Filename)
+		}
 	}
+	err = os.MkdirAll(filepath.Dir(p), 0755)
+	if err != nil {
+		return nil, fmt.Errorf("creating dir %s: %w", filepath.Dir(p), err)
+	}
+	f, err := os.Create(p)
+	if err != nil {
+		return nil, fmt.Errorf("creating file %s: %w", p, err)
+	}
+	defer f.Close()
 
 	if t.Contents == "" {
 		return nil, fmt.Errorf("the contents argument is requiremnt")
 	}
-
-	newContents := []byte(t.Contents)
-	if err := os.WriteFile(p, newContents, 0644); err != nil {
+	if _, err := f.WriteString(t.Contents); err != nil {
 		return nil, fmt.Errorf("writing file %q: %w", p, err)
 	}
 
@@ -86,6 +96,10 @@ func (t *CreateFile) BuildFunctionDefinition() *llm.FunctionDefinition {
 				"filename": {
 					Type:        llm.TypeString,
 					Description: "The path to the file you want to create",
+				},
+				"overwrite": {
+					Type:        llm.TypeBoolean,
+					Description: "Whether to overwrite the file if it already exists",
 				},
 			},
 		},

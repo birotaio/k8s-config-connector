@@ -21,6 +21,7 @@ import (
 	"testing"
 	"unicode"
 
+	"github.com/GoogleCloudPlatform/k8s-config-connector/dev/tools/controllerbuilder/pkg/codegen"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/crd/crdloader"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test"
 	testcontroller "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/test/controller"
@@ -63,6 +64,9 @@ func TestMissingRefs(t *testing.T) {
 				if strings.HasSuffix(fieldPath, "Ref.external") {
 					return
 				}
+				if strings.HasSuffix(fieldPath, "Refs[].external") {
+					return
+				}
 				if strings.HasSuffix(fieldPath, "Ref.name") {
 					return
 				}
@@ -73,10 +77,47 @@ func TestMissingRefs(t *testing.T) {
 				if strings.Contains(desc, " projects/") {
 					isRef = true
 				}
+				if strings.Contains(desc, "projects/{") {
+					isRef = true
+				}
+				if strings.Contains(desc, "locations/{") {
+					isRef = true
+				}
+				if strings.Contains(desc, "zones/{") {
+					isRef = true
+				}
+				if strings.Contains(desc, "regions/{") {
+					isRef = true
+				}
+				if strings.Contains(desc, "organizations/{") {
+					isRef = true
+				}
+				if strings.Contains(desc, "folders/{") {
+					isRef = true
+				}
+
+				if strings.HasSuffix(fieldPath, "erviceAccount") {
+					isRef = true
+				}
+				// TODO: how to detect KMS Key
 
 				if isRef {
-					errs = append(errs, fmt.Sprintf("[refs] crd=%s version=%v: field %q should be a reference", crd.Name, version.Name, fieldPath))
+					// We don't require refs for zones or regions, nor for instanceTypes
+					switch {
+					case strings.HasSuffix(fieldPath, ".zone"):
+						// ok
+					case strings.HasSuffix(fieldPath, ".location"):
+						// ok
+					case strings.HasSuffix(fieldPath, ".machineType"):
+						// ok
+					case strings.HasSuffix(fieldPath, ".acceleratorType"):
+						// ok
+					default:
+						errs = append(errs, fmt.Sprintf("[refs] crd=%s version=%v: field %q should be a reference", crd.Name, version.Name, fieldPath))
+
+					}
 				}
+
 			})
 		}
 	}
@@ -176,55 +217,48 @@ func TestCRDsAcronyms(t *testing.T) {
 				fieldPath := field.FieldPath
 				tokens := splitCamelCase(fieldPath)
 
-				// Special cases for common acronyms
 				for i, token := range tokens {
-					isAcronym := false
+					var singular, pluralSuffix string
 
-					switch strings.ToLower(token) {
-					case "http", "https", "ssh", "tls", "udp", "tcp":
-						isAcronym = true
-					case "api":
-						isAcronym = true
-
-					case "ipv4", "ipv6", "ip", "cidr", "bgp":
-						isAcronym = true
-
-					case "id":
-						isAcronym = true
-
-					case "url", "uri":
-						isAcronym = true
-					case "cdn":
-						isAcronym = true
-					case "nat":
-						isAcronym = true
-					case "x509":
-						isAcronym = true
-					case "sso":
-						isAcronym = true
-					case "oauth2", "oidc":
-						isAcronym = true
-					case "iap":
-						isAcronym = true
-					case "os":
-						isAcronym = true
-					case "iam":
-						isAcronym = true
+					if strings.HasSuffix(token, "ies") {
+						singular = token[:len(token)-3] + "y"
+						pluralSuffix = "ies"
+					} else if strings.HasSuffix(token, "es") {
+						singular = token[:len(token)-2]
+						pluralSuffix = "es"
+					} else if strings.HasSuffix(token, "s") {
+						singular = token   // or token[:len(token)-1]
+						pluralSuffix = "s" // maybe
+					} else {
+						singular = token
+						pluralSuffix = ""
 					}
 
-					// TODO: Ips, Cidrs
-
-					// TODO: Src / Dest
-
-					if isAcronym {
-						if i == 0 {
-							tokens[i] = strings.ToLower(token)
+					for _, acronym := range codegen.Acronyms {
+						if pluralSuffix == "s" {
+							if strings.EqualFold(acronym, singular) {
+								pluralSuffix = ""
+							} else if !strings.EqualFold(acronym, singular[:len(singular)-1]) {
+								continue
+							}
 						} else {
-							tokens[i] = strings.ToUpper(token)
+							if !strings.EqualFold(acronym, singular) {
+								continue
+							}
+						}
+
+						switch pluralSuffix {
+						case "ies": // y
+							tokens[i] = acronym[:len(acronym)-1] + "ies"
+						case "es":
+							tokens[i] = acronym + "es"
+						case "s":
+							tokens[i] = acronym + "s"
+						case "":
+							tokens[i] = acronym
 						}
 					}
 				}
-
 				corrected := strings.Join(tokens, "")
 
 				if corrected != fieldPath {
@@ -343,9 +377,16 @@ func visitProps(props *apiextensions.JSONSchemaProps, fieldPath string, callback
 			}
 		}
 
-	case "string", "boolean", "integer", "number":
+	// Add handling for google.protobuf.Value
+	case "string", "boolean", "integer", "number", "":
 		// No child properties
 	default:
+		// if preserveUnknownFields is true, we don't want to check the type
+		// For recursive types, we don't want to recurse into schemaless fields
+		if props.XPreserveUnknownFields != nil && *props.XPreserveUnknownFields {
+			// We don't want to recurse into schemaless fields
+			return
+		}
 		klog.Fatalf("unhandled props.Type %q in %+v", props.Type, props)
 	}
 }
@@ -415,9 +456,9 @@ func TestCRDFieldPresenceInUnstructured(t *testing.T) {
 				continue
 			}
 
+			kind := crd.Spec.Names.Kind
 			visitCRDVersion(version, func(field *CRDField) {
 				fieldPath := field.FieldPath
-
 				// Only consider fields under `spec`
 				if !strings.HasPrefix(fieldPath, ".spec.") {
 					return
@@ -435,6 +476,9 @@ func TestCRDFieldPresenceInUnstructured(t *testing.T) {
 
 					// Check for specific related fields
 					for _, obj := range unstructs {
+						if obj.GetKind() != kind {
+							continue
+						}
 						if hasField(obj.Object, fieldPath+".external") {
 							hasExternal = true
 						}
@@ -468,6 +512,9 @@ func TestCRDFieldPresenceInUnstructured(t *testing.T) {
 				// Check if field exists in any unstructured object
 				missing := true
 				for _, obj := range unstructs {
+					if obj.GetKind() != kind {
+						continue
+					}
 					if hasField(obj.Object, fieldPath) {
 						missing = false
 						break
@@ -515,11 +562,38 @@ func bytesToUnstructured(t *testing.T, bytes []byte) *unstructured.Unstructured 
 }
 
 // hasField checks if an unstructured object contains the given field path.
+// For list fields (indicated by [] in the path), it checks if any item in the list
+// contains the specified field. If the path ends with [], checks if the field exists
+// and is a non-empty list.
 func hasField(obj map[string]interface{}, fieldPath string) bool {
 	parts := strings.Split(strings.TrimPrefix(fieldPath, "."), ".")
 	current := obj
 
-	for _, part := range parts {
+	for i, part := range parts {
+		if strings.HasSuffix(part, "[]") {
+			listName := strings.TrimSuffix(part, "[]")
+			if next, ok := current[listName]; ok {
+				if items, ok := next.([]interface{}); ok {
+					// 1. If this is the last part, return true if the list exists
+					// For example, ".spec.automatedBackupPolicy.weeklySchedule.daysOfWeek[]"
+					if i == len(parts)-1 {
+						return true
+					}
+					// 2. Otherwise check remaining path in each item
+					// For example, ".spec.automatedBackupPolicy.weeklySchedule.startTimes[].hours"
+					remainingPath := strings.Join(parts[i+1:], ".")
+					for _, item := range items {
+						if itemMap, ok := item.(map[string]interface{}); ok {
+							if hasField(itemMap, remainingPath) {
+								return true // found the field in one of the items, we can stop searching
+							}
+						}
+					}
+				}
+			}
+			return false
+		}
+
 		if next, ok := current[part]; ok {
 			if nextMap, ok := next.(map[string]interface{}); ok {
 				current = nextMap
@@ -543,4 +617,95 @@ func ToUnstruct(t *testing.T, bytes []byte) *unstructured.Unstructured {
 	}
 
 	return &unstructured.Unstructured{Object: obj}
+}
+
+// TestCRDShortNamePluralization checks for obviously incorrect pluralization in shortNames
+func TestCRDShortNamePluralization(t *testing.T) {
+	crds, err := crdloader.LoadAllCRDs()
+	if err != nil {
+		t.Fatalf("error loading CRDs: %v", err)
+	}
+
+	var errs []string
+	for _, crd := range crds {
+		// Only check CRDs with exactly 2 shortNames (likely singular and plural forms)
+		if len(crd.Spec.Names.ShortNames) != 2 {
+			continue
+		}
+
+		// Get all CRD versions
+		var versions []string
+		for _, v := range crd.Spec.Versions {
+			versions = append(versions, v.Name)
+		}
+		versionStr := strings.Join(versions, ",")
+		if versionStr == "" {
+			versionStr = "unknown"
+		}
+
+		// Sort shortNames by length to identify singular (shorter) and plural (longer)
+		shortNames := make([]string, len(crd.Spec.Names.ShortNames))
+		copy(shortNames, crd.Spec.Names.ShortNames)
+		sort.Slice(shortNames, func(i, j int) bool {
+			return len(shortNames[i]) < len(shortNames[j])
+		})
+
+		singular := shortNames[0]
+		plural := shortNames[1]
+
+		// Check if the plural form is valid according to English pluralization rules
+		if !isValidPlural(singular, plural) {
+			errs = append(errs, fmt.Sprintf("[shortname_plural] crd=%s version=%s: plural shortName %q appears to have incorrect pluralization of %q", crd.Name, versionStr, plural, singular))
+		}
+	}
+
+	sort.Strings(errs)
+	want := strings.Join(errs, "\n")
+	test.CompareGoldenFile(t, "testdata/exceptions/shortname_pluralization.txt", want)
+}
+
+// isValidPlural checks if a string is a valid pluralization of another string
+func isValidPlural(singular, plural string) bool {
+	// Special cases for words that are already plural or don't follow standard rules
+	alreadyPluralWords := []string{"settings", "metrics", "series", "data"}
+	for _, word := range alreadyPluralWords {
+		if strings.HasSuffix(singular, word) {
+			return plural == singular // Already plural words should stay the same
+		}
+	}
+
+	// Rule 1: If singular ends with 's', 'x', 'z', 'ch', 'sh', add 'es'
+	if strings.HasSuffix(singular, "s") ||
+		strings.HasSuffix(singular, "x") ||
+		strings.HasSuffix(singular, "z") ||
+		strings.HasSuffix(singular, "ch") ||
+		strings.HasSuffix(singular, "sh") {
+		return plural == singular+"es"
+	}
+
+	// Rule 2: If singular ends with 'y' preceded by a consonant, change 'y' to 'ies'
+	if strings.HasSuffix(singular, "y") && len(singular) > 1 {
+		// Check if the character before 'y' is a consonant
+		r := rune(singular[len(singular)-2])
+		if !isVowel(r) {
+			return plural == singular[:len(singular)-1]+"ies"
+		}
+	}
+
+	// Rule 3: If singular ends with 'f' or 'fe', change to 'ves'
+	if strings.HasSuffix(singular, "f") {
+		return plural == singular[:len(singular)-1]+"ves"
+	}
+	if strings.HasSuffix(singular, "fe") {
+		return plural == singular[:len(singular)-2]+"ves"
+	}
+
+	// Rule 4: Default case - just add 's'
+	return plural == singular+"s"
+}
+
+// Helper function to check if a rune is a vowel
+func isVowel(r rune) bool {
+	r = unicode.ToLower(r)
+	return r == 'a' || r == 'e' || r == 'i' || r == 'o' || r == 'u'
 }

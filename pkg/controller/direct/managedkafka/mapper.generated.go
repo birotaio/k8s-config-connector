@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +generated:mapper
+// krm.group: managedkafka.cnrm.cloud.google.com
+// krm.version: v1alpha1
+// proto.service: google.cloud.managedkafka.v1
+
 package managedkafka
 
 import (
 	pb "cloud.google.com/go/managedkafka/apiv1/managedkafkapb"
-	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/managedkafka/v1alpha1"
+	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/managedkafka/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
 )
 
@@ -59,10 +64,12 @@ func ManagedKafkaClusterObservedState_FromProto(mapCtx *direct.MapContext, in *p
 		return nil
 	}
 	out := &krm.ManagedKafkaClusterObservedState{}
-	out.Name = direct.LazyPtr(in.GetName())
+	// MISSING: Name
 	out.CreateTime = direct.StringTimestamp_FromProto(mapCtx, in.GetCreateTime())
 	out.UpdateTime = direct.StringTimestamp_FromProto(mapCtx, in.GetUpdateTime())
 	out.State = direct.Enum_FromProto(mapCtx, in.GetState())
+	// MISSING: SatisfiesPzi
+	// MISSING: SatisfiesPzs
 	return out
 }
 func ManagedKafkaClusterObservedState_ToProto(mapCtx *direct.MapContext, in *krm.ManagedKafkaClusterObservedState) *pb.Cluster {
@@ -70,10 +77,12 @@ func ManagedKafkaClusterObservedState_ToProto(mapCtx *direct.MapContext, in *krm
 		return nil
 	}
 	out := &pb.Cluster{}
-	out.Name = direct.ValueOf(in.Name)
+	// MISSING: Name
 	out.CreateTime = direct.StringTimestamp_ToProto(mapCtx, in.CreateTime)
 	out.UpdateTime = direct.StringTimestamp_ToProto(mapCtx, in.UpdateTime)
 	out.State = direct.Enum_ToProto[pb.Cluster_State](mapCtx, in.State)
+	// MISSING: SatisfiesPzi
+	// MISSING: SatisfiesPzs
 	return out
 }
 func ManagedKafkaClusterSpec_FromProto(mapCtx *direct.MapContext, in *pb.Cluster) *krm.ManagedKafkaClusterSpec {
@@ -82,9 +91,12 @@ func ManagedKafkaClusterSpec_FromProto(mapCtx *direct.MapContext, in *pb.Cluster
 	}
 	out := &krm.ManagedKafkaClusterSpec{}
 	out.GcpConfig = GcpConfig_FromProto(mapCtx, in.GetGcpConfig())
+	// MISSING: Name
 	out.Labels = in.Labels
 	out.CapacityConfig = CapacityConfig_FromProto(mapCtx, in.GetCapacityConfig())
 	out.RebalanceConfig = RebalanceConfig_FromProto(mapCtx, in.GetRebalanceConfig())
+	// MISSING: SatisfiesPzi
+	// MISSING: SatisfiesPzs
 	return out
 }
 func ManagedKafkaClusterSpec_ToProto(mapCtx *direct.MapContext, in *krm.ManagedKafkaClusterSpec) *pb.Cluster {
@@ -95,9 +107,34 @@ func ManagedKafkaClusterSpec_ToProto(mapCtx *direct.MapContext, in *krm.ManagedK
 	if oneof := GcpConfig_ToProto(mapCtx, in.GcpConfig); oneof != nil {
 		out.PlatformConfig = &pb.Cluster_GcpConfig{GcpConfig: oneof}
 	}
+	// MISSING: Name
 	out.Labels = in.Labels
 	out.CapacityConfig = CapacityConfig_ToProto(mapCtx, in.CapacityConfig)
 	out.RebalanceConfig = RebalanceConfig_ToProto(mapCtx, in.RebalanceConfig)
+	// MISSING: SatisfiesPzi
+	// MISSING: SatisfiesPzs
+	return out
+}
+func ManagedKafkaTopicSpec_FromProto(mapCtx *direct.MapContext, in *pb.Topic) *krm.ManagedKafkaTopicSpec {
+	if in == nil {
+		return nil
+	}
+	out := &krm.ManagedKafkaTopicSpec{}
+	// MISSING: Name
+	out.PartitionCount = direct.LazyPtr(in.GetPartitionCount())
+	out.ReplicationFactor = direct.LazyPtr(in.GetReplicationFactor())
+	out.Configs = in.Configs
+	return out
+}
+func ManagedKafkaTopicSpec_ToProto(mapCtx *direct.MapContext, in *krm.ManagedKafkaTopicSpec) *pb.Topic {
+	if in == nil {
+		return nil
+	}
+	out := &pb.Topic{}
+	// MISSING: Name
+	out.PartitionCount = direct.ValueOf(in.PartitionCount)
+	out.ReplicationFactor = direct.ValueOf(in.ReplicationFactor)
+	out.Configs = in.Configs
 	return out
 }
 func RebalanceConfig_FromProto(mapCtx *direct.MapContext, in *pb.RebalanceConfig) *krm.RebalanceConfig {

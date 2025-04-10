@@ -125,15 +125,9 @@ type ManagedKafkaClusterStatus struct {
 	ObservedState *ManagedKafkaClusterObservedState `json:"observedState,omitempty"`
 }
 
-// ManagedKafkaClusterSpec defines the desired state of ManagedKafkaCluster
-// +kcc:proto=google.cloud.managedkafka.v1.Cluster
 // ManagedKafkaClusterObservedState is the state of the ManagedKafkaCluster resource as most recently observed in GCP.
+// +kcc:proto=google.cloud.managedkafka.v1.Cluster
 type ManagedKafkaClusterObservedState struct {
-	// Identifier. The name of the cluster. Structured like:
-	//  projects/{project_number}/locations/{location}/clusters/{cluster_id}
-	// +kcc:proto:field=google.cloud.managedkafka.v1.Cluster.name
-	Name *string `json:"name,omitempty"`
-
 	// Output only. The time when the cluster was created.
 	// +kcc:proto:field=google.cloud.managedkafka.v1.Cluster.create_time
 	CreateTime *string `json:"createTime,omitempty"`
@@ -159,7 +153,6 @@ type ManagedKafkaClusterObservedState struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// TODO(user): make sure the pluralizaiton below is correct
 // +kubebuilder:resource:categories=gcp,shortName=gcpmanagedkafkacluster;gcpmanagedkafkaclusters
 // +kubebuilder:subresource:status
 // +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/system=true"

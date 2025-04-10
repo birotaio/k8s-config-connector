@@ -45,8 +45,24 @@ func newGCPClient(ctx context.Context, config *config.ControllerConfig) (*gcpCli
 	return gcpClient, nil
 }
 
+func (m *gcpClient) instancesClient() *api.OrganizationsInstancesService {
+	return api.NewOrganizationsInstancesService(m.service)
+}
+
+func (m *gcpClient) instancesAttachmentsClient() *api.OrganizationsInstancesAttachmentsService {
+	return api.NewOrganizationsInstancesAttachmentsService(m.service)
+}
+
+func (m *gcpClient) endpointsAttachmentsClient() *api.OrganizationsEndpointAttachmentsService {
+	return api.NewOrganizationsEndpointAttachmentsService(m.service)
+}
+
 func (m *gcpClient) envgroupsClient() *api.OrganizationsEnvgroupsService {
 	return api.NewOrganizationsEnvgroupsService(m.service)
+}
+
+func (m *gcpClient) envgroupsAttachmentsClient() *api.OrganizationsEnvgroupsAttachmentsService {
+	return api.NewOrganizationsEnvgroupsAttachmentsService(m.service)
 }
 
 func (m *gcpClient) operationsClient() *api.OrganizationsOperationsService {

@@ -18,9 +18,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/google/generative-ai-go/genai"
+	"github.com/googleapis/gax-go/v2"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc/codes"
 	"k8s.io/klog/v2"
 )
 
@@ -39,19 +42,25 @@ func BuildGeminiClient(ctx context.Context) (Client, error) {
 
 	return &GeminiClient{
 		client: client,
+		model:  "gemini-2.0-pro-exp-02-05",
 	}, nil
 }
 
 type GeminiClient struct {
 	client *genai.Client
+	model  string
 }
 
 func (c *GeminiClient) Close() error {
 	return c.client.Close()
 }
 
+func (c *GeminiClient) GenerateCompletion(ctx context.Context, request *CompletionRequest) (CompletionResponse, error) {
+	return nil, fmt.Errorf("GeminiClient::GenerateCompletion not implemented")
+}
+
 func (c *GeminiClient) StartChat(systemPrompt string) Chat {
-	model := c.client.GenerativeModel("gemini-2.0-flash-exp")
+	model := c.client.GenerativeModel(c.model)
 	// model := c.client.GenerativeModel("gemini-1.5-pro-002")
 
 	// Some values that are recommended by aistudio
@@ -120,6 +129,8 @@ func toGenaiSchema(schema *Schema) (*genai.Schema, error) {
 		ret.Type = genai.TypeObject
 	case TypeString:
 		ret.Type = genai.TypeString
+	case TypeBoolean:
+		ret.Type = genai.TypeBoolean
 	default:
 		return nil, fmt.Errorf("type %q not handled by genai.Schema", schema.Type)
 	}
@@ -136,13 +147,30 @@ func toGenaiSchema(schema *Schema) (*genai.Schema, error) {
 	return ret, nil
 }
 
-// func (c *GeminiChat) AdditionalUserInput(s string) {
-// 	// c.model.SystemInstruction.Parts = append(c.model.SystemInstruction.Parts, genai.Text(s))
-// 	c.chat.History = append(c.chat.History, &genai.Content{
-// 		Role:  "user",
-// 		Parts: []genai.Part{genai.Text(s)},
-// 	})
-// }
+//	func (c *GeminiChat) AdditionalUserInput(s string) {
+//		// c.model.SystemInstruction.Parts = append(c.model.SystemInstruction.Parts, genai.Text(s))
+//		c.chat.History = append(c.chat.History, &genai.Content{
+//			Role:  "user",
+//			Parts: []genai.Part{genai.Text(s)},
+//		})
+//	}
+func (c *GeminiChat) sendMessageWithRetries(ctx context.Context, geminiParts ...genai.Part) (*genai.GenerateContentResponse, error) {
+	opt := gax.WithRetry(func() gax.Retryer {
+		// https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429
+		return gax.OnCodes([]codes.Code{codes.ResourceExhausted}, gax.Backoff{
+			Initial:    5 * time.Second,
+			Max:        10 * time.Minute,
+			Multiplier: 2,
+		})
+	})
+	var resp *genai.GenerateContentResponse
+	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
+		var err error
+		resp, err = c.chat.SendMessage(ctx, geminiParts...)
+		return err
+	}, opt)
+	return resp, err
+}
 
 func (c *GeminiChat) SendMessage(ctx context.Context, parts ...string) (Response, error) {
 	log := klog.FromContext(ctx)
@@ -151,7 +179,8 @@ func (c *GeminiChat) SendMessage(ctx context.Context, parts ...string) (Response
 		geminiParts = append(geminiParts, genai.Text(part))
 	}
 	log.Info("sending LLM request", "user", parts)
-	geminiResponse, err := c.chat.SendMessage(ctx, geminiParts...)
+
+	geminiResponse, err := c.sendMessageWithRetries(ctx, geminiParts...)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +196,7 @@ func (c *GeminiChat) SendFunctionResults(ctx context.Context, functionResults []
 		})
 	}
 
-	geminiResponse, err := c.chat.SendMessage(ctx, geminiFunctionResults...)
+	geminiResponse, err := c.sendMessageWithRetries(ctx, geminiFunctionResults...)
 	if err != nil {
 		return nil, err
 	}

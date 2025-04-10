@@ -20,6 +20,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/GoogleCloudPlatform/k8s-config-connector/dev/tools/controllerbuilder/pkg/annotations"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/dev/tools/controllerbuilder/pkg/codegen"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/dev/tools/controllerbuilder/pkg/options"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/dev/tools/controllerbuilder/pkg/protoapi"
@@ -68,22 +69,10 @@ func BuildCommand(baseOptions *options.GenerateOptions) *cobra.Command {
 		Use:   "generate-mapper",
 		Short: "generate mapper functions for a proto service",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if opt.ServiceName == "" {
-				return fmt.Errorf("ServiceName is required")
+			if err := opt.loadAndApplyConfig(); err != nil {
+				return err
 			}
-			if opt.GenerateOptions.ProtoSourcePath == "" {
-				return fmt.Errorf("ProtoSourcePath is required")
-			}
-			if opt.APIGoPackagePath == "" {
-				return fmt.Errorf("GoPackagePath is required")
-			}
-			if opt.OutputMapperDirectory == "" {
-				return fmt.Errorf("OutputMapperDirectory is required")
-			}
-			if opt.APIVersion == "" {
-				return fmt.Errorf("APIVersion is required")
-			}
-			return nil
+			return opt.validate()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -132,7 +121,17 @@ func RunGenerateMapper(ctx context.Context, o *GenerateMapperOptions) error {
 
 		return goPackage, true
 	}
-	mapperGenerator := codegen.NewMapperGenerator(pathForMessage, o.OutputMapperDirectory)
+
+	generatedFileAnnotation := &annotations.FileAnnotation{
+		Key: "+generated:mapper",
+		Attributes: map[string][]string{
+			"proto.service": {o.ServiceName},
+			"krm.group":     {gv.Group},
+			"krm.version":   {gv.Version},
+		},
+	}
+
+	mapperGenerator := codegen.NewMapperGenerator(pathForMessage, o.OutputMapperDirectory, generatedFileAnnotation)
 
 	if err := mapperGenerator.VisitGoCode(o.APIGoPackagePath, o.APIDirectory); err != nil {
 		return err
@@ -153,4 +152,44 @@ func RunGenerateMapper(ctx context.Context, o *GenerateMapperOptions) error {
 
 	return nil
 
+}
+
+func (o *GenerateMapperOptions) loadAndApplyConfig() error {
+	if o.ConfigFilePath == "" {
+		return nil
+	}
+	config, err := codegen.LoadConfig(o.ConfigFilePath)
+	if err != nil {
+		return fmt.Errorf("loading service config: %w", err)
+	}
+	if config == nil {
+		return nil
+	}
+
+	if !config.GenerateMapper {
+		return fmt.Errorf("mapper generation is disabled for this service in config file %s", o.ConfigFilePath)
+	}
+
+	o.ServiceName = config.Service
+	o.APIVersion = config.APIVersion
+	return nil
+}
+
+func (o *GenerateMapperOptions) validate() error {
+	if o.ServiceName == "" {
+		return fmt.Errorf("ServiceName is required")
+	}
+	if o.GenerateOptions.ProtoSourcePath == "" {
+		return fmt.Errorf("ProtoSourcePath is required")
+	}
+	if o.APIGoPackagePath == "" {
+		return fmt.Errorf("GoPackagePath is required")
+	}
+	if o.OutputMapperDirectory == "" {
+		return fmt.Errorf("OutputMapperDirectory is required")
+	}
+	if o.APIVersion == "" {
+		return fmt.Errorf("APIVersion is required")
+	}
+	return nil
 }

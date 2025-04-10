@@ -25,12 +25,15 @@ var allServices = []string{
 	"anthos.googleapis.com",
 	"anthosconfigmanagement.googleapis.com",
 	"anthospolicycontroller.googleapis.com",
+	"managedkafka.googleapis.com",
 	"multiclusteringress.googleapis.com",
 	"multiclusterservicediscovery.googleapis.com",
 	"mesh.googleapis.com",
 	"servicenetworking.googleapis.com",
+	"spanner.googleapis.com",
 	"vpcaccess.googleapis.com",
 	"container.googleapis.com",
+	"workflows.googleapis.com",
 }
 
 func isKnownService(serviceName string) bool {

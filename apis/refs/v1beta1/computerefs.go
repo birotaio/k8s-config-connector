@@ -256,15 +256,6 @@ type ComputeAddressRef struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-type ComputeBackendServiceRef struct {
-	/* The ComputeBackendService selflink in the form "projects/{{project}}/global/backendServices/{{name}}" or "projects/{{project}}/regions/{{region}}/backendServices/{{name}}" when not managed by Config Connector. */
-	External string `json:"external,omitempty"`
-	/* The `name` field of a `ComputeBackendService` resource. */
-	Name string `json:"name,omitempty"`
-	/* The `namespace` field of a `ComputeBackendService` resource. */
-	Namespace string `json:"namespace,omitempty"`
-}
-
 type ComputeServiceAttachmentRef struct {
 	/* The ComputeServiceAttachment selflink in the form "projects/{{project}}/regions/{{region}}/serviceAttachments/{{name}}" when not managed by Config Connector. */
 	External string `json:"external,omitempty"`
@@ -272,6 +263,53 @@ type ComputeServiceAttachmentRef struct {
 	Name string `json:"name,omitempty"`
 	/* The `namespace` field of a `ComputeServiceAttachment` resource. */
 	Namespace string `json:"namespace,omitempty"`
+}
+
+func ResolveComputeServiceAttachment(ctx context.Context, reader client.Reader, defaultNamespace string, ref *ComputeServiceAttachmentRef) error {
+	if ref == nil {
+		return nil
+	}
+
+	if ref.External != "" {
+		return nil
+	}
+
+	if ref.Name == "" {
+		return fmt.Errorf("must specify either name or external on reference")
+	}
+
+	key := types.NamespacedName{
+		Namespace: ref.Namespace,
+		Name:      ref.Name,
+	}
+	if key.Namespace == "" {
+		key.Namespace = defaultNamespace
+	}
+
+	computeServiceAttachment := &unstructured.Unstructured{}
+	computeServiceAttachment.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "compute.cnrm.cloud.google.com",
+		Version: "v1beta1",
+		Kind:    "ComputeServiceAttachment",
+	})
+	if err := reader.Get(ctx, key, computeServiceAttachment); err != nil {
+		if apierrors.IsNotFound(err) {
+			return k8s.NewReferenceNotFoundError(computeServiceAttachment.GroupVersionKind(), key)
+		}
+		return fmt.Errorf("error reading referenced ComputeServiceAttachment %v: %w", key, err)
+	}
+
+	// Read status.selfLink to parse external reference ID. This will need to be updated once we migrate this resource
+	// to direct controller, which uses status.externalRef.
+	selfLink, _, _ := unstructured.NestedString(computeServiceAttachment.Object, "status", "selfLink")
+	if selfLink == "" {
+		return k8s.NewReferenceNotFoundError(computeServiceAttachment.GroupVersionKind(), key)
+	}
+
+	externalRef := strings.TrimPrefix(selfLink, "https://www.googleapis.com/compute/beta/")
+	ref.External = externalRef
+
+	return nil
 }
 
 type ComputeTargetGrpcProxyRef struct {
@@ -375,11 +413,19 @@ func ResolveComputeFirewallPolicy(ctx context.Context, reader client.Reader, src
 		return nil, fmt.Errorf("error reading referenced ComputeFirewallPolicy %v: %w", key, err)
 	}
 
-	resourceID, err := GetResourceID(computeFirewallPolicy)
-	if err != nil {
-		return nil, err
+	externalRef, _, _ := unstructured.NestedString(computeFirewallPolicy.Object, "status", "externalRef")
+	if externalRef != "" {
+		return &ComputeFirewallPolicyRef{
+			External: externalRef}, nil
 	}
 
+	selfLink, _, _ := unstructured.NestedString(computeFirewallPolicy.Object, "status", "selfLink")
+	if selfLink == "" {
+		return nil, k8s.NewReferenceNotFoundError(computeFirewallPolicy.GroupVersionKind(), key)
+	}
+
+	partialID := strings.TrimPrefix(selfLink, "https://www.googleapis.com/")
+	tokens := strings.Split(partialID, "/")
 	return &ComputeFirewallPolicyRef{
-		External: fmt.Sprintf("%s", resourceID)}, nil
+		External: tokens[len(tokens)-1]}, nil
 }

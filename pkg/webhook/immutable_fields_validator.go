@@ -31,6 +31,7 @@ import (
 	dclcontainer "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/extension/container"
 	dclmetadata "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/metadata"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/dcl/schema/dclschemaloader"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gvks/supportedgvks"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/krmtotf"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/servicemapping/servicemappingloader"
@@ -122,6 +123,11 @@ func (a *immutableFieldsValidatorHandler) Handle(_ context.Context, req admissio
 		return validateImmutableFieldsForLoggingLogMetricResource(oldSpec, spec)
 	case schema.GroupKind{Group: "gkehub.cnrm.cloud.google.com", Kind: "GKEHubFeatureMembership"}:
 		return validateImmutableFieldsForGKEHubFeatureMembershipResource(oldSpec, spec)
+	}
+
+	isDirect := supportedgvks.IsDirectByGVK(obj.GroupVersionKind())
+	if isDirect {
+		return allowedResponse
 	}
 
 	if dclmetadata.IsDCLBasedResourceKind(obj.GroupVersionKind(), a.serviceMetadataLoader) {
@@ -293,9 +299,6 @@ func validateImmutableFieldsForTFBasedResource(obj, oldObj *unstructured.Unstruc
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest,
 			fmt.Errorf("couldn't get ResourceConfig for kind %v: %w", obj.GetKind(), err))
-	}
-	if rc.Direct && rc.Name != "google_sql_database_instance" {
-		return allowedResponse
 	}
 
 	if err := validateContainerAnnotationsForResource(obj.GetKind(), obj.GetAnnotations(), oldObj.GetAnnotations(), rc.Containers, rc.HierarchicalReferences); err != nil {

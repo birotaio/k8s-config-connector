@@ -64,6 +64,17 @@ issues for {{product_name_short}}.
 <tr>
   <td><a href="/artifact-registry/docs/">{{ar_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/artifactregistry/artifactregistryrepository.md">ArtifactRegistryRepository</a></td>
+</tr><tr>
+  <td><a href="/apigee/docs/">{{apigee_x_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/apigee/apigeeendpointattachment.md">ApigeeEndpointAttachment</a></td>
+</tr>
+<tr>
+  <td><a href="/apigee/docs/">{{apigee_x_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/apigee/apigeeenvgroup.md">ApigeeEnvgroup</a></td>
+</tr>
+<tr>
+  <td><a href="/apigee/docs/">{{apigee_x_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/apigee/apigeeenvgroupattachment.md">ApigeeEnvgroupAttachment</a></td>
 </tr>
 <tr>
   <td><a href="/apigee/docs/">{{apigee_x_name}}</a></td>
@@ -71,7 +82,11 @@ issues for {{product_name_short}}.
 </tr>
 <tr>
   <td><a href="/apigee/docs/">{{apigee_x_name}}</a></td>
-  <td><a href="/config-connector/docs/reference/resource-docs/apigee/apigeeenvgroup.md">ApigeeEnvgroup</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/apigee/apigeeinstance.md">ApigeeInstance</a></td>
+</tr>
+<tr>
+  <td><a href="/apigee/docs/">{{apigee_x_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/apigee/apigeeinstanceattachment.md">ApigeeInstanceAttachment</a></td>
 </tr>
 <tr>
   <td><a href="/apigee/docs/">{{apigee_x_name}}</a></td>
@@ -273,10 +288,6 @@ issues for {{product_name_short}}.
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/compute/computenetworkfirewallpolicyassociation.md">ComputeNetworkFirewallPolicyAssociation</a></td>
-</tr>
-<tr>
-  <td><a href="/compute/docs/">{{compute_name}}</a></td>
-  <td><a href="/config-connector/docs/reference/resource-docs/compute/computenetworkfirewallpolicyrule.md">ComputeNetworkFirewallPolicyRule</a></td>
 </tr>
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
@@ -639,6 +650,14 @@ issues for {{product_name_short}}.
   <td><a href="/config-connector/docs/reference/resource-docs/logging/logginglogview.md">LoggingLogView</a></td>
 </tr>
 <tr>
+  <td><a href="/managed-service-for-apache-kafka/docs">{{managedkafka_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/managedkafka/managedkafkacluster.md">ManagedKafkaCluster</a></td>
+</tr>
+<tr>
+  <td><a href="/managed-service-for-apache-kafka/docs">{{managedkafka_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/managedkafka/managedkafkatopic.md">ManagedKafkaTopic</a></td>
+</tr>
+<tr>
   <td><a href="/memorystore/docs/memcached/">{{memstore_memcache_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/memcache/memcacheinstance.md">MemcacheInstance</a></td>
 </tr>
@@ -773,6 +792,14 @@ issues for {{product_name_short}}.
 <tr>
   <td><a href="/secret-manager/docs/">{{secret_manager_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/secretmanager/secretmanagersecretversion.md">SecretManagerSecretVersion</a></td>
+</tr>
+<tr>
+  <td><a href="/secure-source-manager/docs/">{{secure_source_manager_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/securesourcemanager/securesourcemanagerinstance.md">SecureSourceManagerInstance</a></td>
+</tr>
+<tr>
+  <td><a href="/secure-source-manager/docs/">{{secure_source_manager_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/securesourcemanager/securesourcemanagerrepository.md">SecureSourceManagerRepository</a></td>
 </tr>
 <tr>
   <td><a href="/service-directory/docs/">{{sd_name}}</a></td>

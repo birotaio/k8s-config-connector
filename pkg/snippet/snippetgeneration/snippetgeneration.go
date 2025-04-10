@@ -111,6 +111,7 @@ var preferredSampleForResource = map[string]string{
 	"resourcemanagerpolicy":              "organization-policy-for-project",
 	"runservice":                         "run-service-secret",
 	"secretmanagersecret":                "automatic-secret-replication",
+	"securesourcemanagerinstance":        "securesourcemanagerinstance-basic",
 	"sqlinstance":                        "mysql-sql-instance",
 	"vpcaccessconnector":                 "cidr-connector",
 	"vertexaidataset":                    "vertexai-dataset-encryptionkey",
@@ -120,6 +121,7 @@ var preferredSampleForResource = map[string]string{
 	"workstation":                        "basic-workstation",
 	"kmsautokeyconfig":                   "kmsautokeyconfig",
 	"kmskeyhandle":                       "kmskeyhandle",
+	"managedkafkacluster":                "managedkafkacluster-cmek",
 }
 
 type Snippet struct {

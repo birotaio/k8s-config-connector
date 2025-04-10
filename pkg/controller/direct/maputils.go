@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/googleapis/gax-go/v2/apierror"
+	grpcCode "google.golang.org/grpc/codes"
+	grpcStatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -267,6 +269,7 @@ func IsBadRequest(err error) bool {
 
 // HasHTTPCode returns true if the given error is an HTTP response with the given code.
 func HasHTTPCode(err error, code int) bool {
+
 	if err == nil {
 		return false
 	}
@@ -274,6 +277,12 @@ func HasHTTPCode(err error, code int) bool {
 	if errors.As(err, &apiError) {
 		if apiError.HTTPCode() == code {
 			return true
+		}
+		// Check for GRPC error code
+		if apiError.HTTPCode() == -1 {
+			if grpcStatus.Code(err) == grpcCode.NotFound {
+				return true
+			}
 		}
 	} else {
 		klog.Warningf("unexpected error type %T", err)
@@ -365,6 +374,21 @@ func Int64Value_FromProto(mapCtx *MapContext, ts *wrapperspb.Int64Value) int64 {
 }
 func Int64Value_ToProto(mapCtx *MapContext, s int64) *wrapperspb.Int64Value {
 	return wrapperspb.Int64(s)
+}
+
+func Float32ToString(mapCtx *MapContext, in float32) string {
+	return strconv.FormatFloat(float64(in), 'f', -1, 32)
+}
+
+func StringToFloat32(mapCtx *MapContext, in string) float32 {
+	if in == "" {
+		return 0.0
+	}
+	out64, err := strconv.ParseFloat(in, 32)
+	if err != nil {
+		mapCtx.Errorf("parsing float %v: %w", in, err)
+	}
+	return float32(out64)
 }
 
 func FloatValue_FromProto(mapCtx *MapContext, in *wrapperspb.FloatValue) *float32 {
@@ -460,4 +484,14 @@ func BytesValue_ToProto(mapCtx *MapContext, in []byte) *wrapperspb.BytesValue {
 		return nil
 	}
 	return wrapperspb.Bytes(in)
+}
+
+// Convert a number of milliseconds since the Unix epoch to a time.Time.
+// Treat an input of zero specially: convert it to the zero time,
+// rather than the start of the epoch.
+func UnixMillisToTime(m int64) time.Time {
+	if m == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, m*1e6)
 }

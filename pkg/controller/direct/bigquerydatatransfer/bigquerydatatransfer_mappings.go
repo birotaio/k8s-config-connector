@@ -16,6 +16,7 @@ package bigquerydatatransfer
 
 import (
 	pb "cloud.google.com/go/bigquery/datatransfer/apiv1/datatransferpb"
+	bigquery "github.com/GoogleCloudPlatform/k8s-config-connector/apis/bigquery/v1beta1"
 	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/bigquerydatatransfer/v1beta1"
 	refv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
@@ -60,7 +61,7 @@ func BigQueryDataTransferConfigSpec_FromProto(mapCtx *direct.MapContext, in *pb.
 	}
 	out := &krm.BigQueryDataTransferConfigSpec{}
 	if in.GetDestinationDatasetId() != "" {
-		out.DatasetRef = &refv1beta1.BigQueryDatasetRef{External: in.GetDestinationDatasetId()}
+		out.DatasetRef = &bigquery.DatasetRef{External: in.GetDestinationDatasetId()}
 	}
 	out.DisplayName = direct.LazyPtr(in.GetDisplayName())
 	out.DataSourceID = direct.LazyPtr(in.GetDataSourceId())
@@ -155,6 +156,8 @@ func Status_ToProto(mapCtx *direct.MapContext, in *krm.Status) *statuspb.Status 
 	out := &statuspb.Status{}
 	out.Code = direct.ValueOf(in.Code)
 	out.Message = direct.ValueOf(in.Message)
+	// NOTYET
+	// out.Details
 	return out
 }
 func Status_FromProto(mapCtx *direct.MapContext, in *statuspb.Status) *krm.Status {
@@ -164,6 +167,8 @@ func Status_FromProto(mapCtx *direct.MapContext, in *statuspb.Status) *krm.Statu
 	out := &krm.Status{}
 	out.Code = direct.LazyPtr(in.GetCode())
 	out.Message = direct.LazyPtr(in.GetMessage())
+	// NOTYET
+	// out.Details
 	return out
 }
 func EventDrivenSchedule_FromProto(mapCtx *direct.MapContext, in *pb.EventDrivenSchedule) *krm.EventDrivenSchedule {
