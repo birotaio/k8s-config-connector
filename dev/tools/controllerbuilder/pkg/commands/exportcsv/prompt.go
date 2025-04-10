@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	kccio "github.com/GoogleCloudPlatform/k8s-config-connector/dev/tools/controllerbuilder/pkg/io"
@@ -35,13 +36,24 @@ import (
 type PromptOptions struct {
 	*options.GenerateOptions
 
-	ProtoDir string
-	SrcDir   string
-	Output   string
+	ProtoDir  string
+	SrcDir    string
+	Output    string
+	InputFile string
 
 	// StrictInputColumnKeys ensures that all input datapoints have this shape.
 	// This helps detect typos in the examples.
 	StrictInputColumnKeys []string
+}
+
+func (o *PromptOptions) InitDefaults() error {
+	root, err := options.RepoRoot()
+	if err != nil {
+		return err
+	}
+	o.SrcDir = root
+	o.ProtoDir = filepath.Join(root, ".build/third_party/googleapis/google")
+	return nil
 }
 
 // BindFlags binds the flags to the command.
@@ -49,6 +61,7 @@ func (o *PromptOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.SrcDir, "src-dir", o.SrcDir, "base directory for source code")
 	cmd.Flags().StringVar(&o.ProtoDir, "proto-dir", o.ProtoDir, "base directory for checkout of proto API definitions")
 	cmd.Flags().StringVar(&o.Output, "output", o.Output, "the directory to store the prompt outcome")
+	cmd.Flags().StringVar(&o.InputFile, "input-file", o.InputFile, "the input file to get input from")
 	cmd.Flags().StringSliceVar(&o.StrictInputColumnKeys, "strict-input-columns", o.StrictInputColumnKeys, "return an error if we see an irregular datapoint for this tool")
 }
 
@@ -56,6 +69,11 @@ func (o *PromptOptions) BindFlags(cmd *cobra.Command) {
 func BuildPromptCommand(baseOptions *options.GenerateOptions) *cobra.Command {
 	opt := &PromptOptions{
 		GenerateOptions: baseOptions,
+	}
+
+	if err := opt.InitDefaults(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing defaults: %v\n", err)
+		os.Exit(1)
 	}
 
 	cmd := &cobra.Command{
@@ -92,7 +110,17 @@ func RunPrompt(ctx context.Context, o *PromptOptions) error {
 	if err != nil {
 		return err
 	}
-	x, err := toolbot.NewCSVExporter(extractor, addProtoDefinition)
+	apiDir := o.SrcDir + "/apis/"
+	addGoStruct, err := toolbot.NewEnhanceWithGoStruct(apiDir)
+	if err != nil {
+		return err
+	}
+	mapperDir := o.SrcDir + "/pkg/controller/direct/" // direct controller directory contains all mapper functions
+	addMapperFunctions, err := toolbot.NewEnhanceWithMappers(mapperDir)
+	if err != nil {
+		return err
+	}
+	x, err := toolbot.NewCSVExporter(extractor, addProtoDefinition, addGoStruct, addMapperFunctions)
 	if err != nil {
 		return err
 	}
@@ -101,15 +129,15 @@ func RunPrompt(ctx context.Context, o *PromptOptions) error {
 		x.StrictInputColumnKeys = sets.New(o.StrictInputColumnKeys...)
 	}
 
-	if o.SrcDir != "" {
-		if err := x.VisitCodeDir(ctx, o.SrcDir); err != nil {
-			return err
+	var b []byte
+	if o.InputFile == "" {
+		if b, err = io.ReadAll(os.Stdin); err != nil {
+			return fmt.Errorf("reading from stdin: %w", err)
 		}
-	}
-
-	b, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return fmt.Errorf("reading from stdin: %w", err)
+	} else {
+		if b, err = os.ReadFile(o.InputFile); err != nil {
+			return fmt.Errorf("reading from %s: %w", o.InputFile, err)
+		}
 	}
 
 	dataPoints, err := x.BuildDataPoints(ctx, "<prompt>", b)
@@ -122,13 +150,28 @@ func RunPrompt(ctx context.Context, o *PromptOptions) error {
 	}
 
 	dataPoint := dataPoints[0]
+	dataPoint.Output = ""
 
 	log.Info("built data point", "dataPoint", dataPoint)
 
-	out := &bytes.Buffer{}
-	if err := x.RunGemini(ctx, dataPoint, out); err != nil {
-		return fmt.Errorf("running LLM inference: %w", err)
+	if o.SrcDir != "" {
+		filterByType := func(p *toolbot.DataPoint) bool {
+			return p.Type == dataPoint.Type
+		}
+		if err := x.VisitCodeDir(ctx, o.SrcDir, filterByType); err != nil {
+			return err
+		}
+	}
 
+	model := os.Getenv("LLM_MODEL")
+	if model == "" {
+		model = "gemini-2.0-pro-exp-02-05"
+	}
+	log.Info("using model", "model", model)
+
+	out := &bytes.Buffer{}
+	if err := x.InferOutput_WithCompletion(ctx, model, dataPoint, out); err != nil {
+		return fmt.Errorf("running LLM inference: %w", err)
 	}
 
 	if o.Output == "" {

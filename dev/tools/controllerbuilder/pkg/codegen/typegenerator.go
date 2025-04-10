@@ -19,25 +19,28 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
+	codegenannotations "github.com/GoogleCloudPlatform/k8s-config-connector/dev/tools/controllerbuilder/pkg/annotations"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/dev/tools/controllerbuilder/pkg/protoapi"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 )
 
 type TypeGenerator struct {
 	generatorBase
-	api             *protoapi.Proto
-	goPackage       string
-	visitedMessages []protoreflect.MessageDescriptor
-	outputMessages  []*OutputMessageDetails
+	api                     *protoapi.Proto
+	goPackage               string
+	visitedMessages         []protoreflect.MessageDescriptor
+	outputMessages          []*OutputMessageDetails
+	generatedFileAnnotation *codegenannotations.FileAnnotation
 }
 
 type OutputMessageDetails struct {
@@ -51,6 +54,12 @@ func NewTypeGenerator(goPackage string, outputBaseDir string, api *protoapi.Prot
 		api:       api,
 	}
 	g.generatorBase.init(outputBaseDir)
+	return g
+}
+
+// WithGeneratedFileAnnotation sets the generated file annotation
+func (g *TypeGenerator) WithGeneratedFileAnnotation(generatedFileAnnotation *codegenannotations.FileAnnotation) *TypeGenerator {
+	g.generatedFileAnnotation = generatedFileAnnotation
 	return g
 }
 
@@ -77,7 +86,7 @@ func (g *TypeGenerator) visitMessage(message protoreflect.MessageDescriptor) err
 
 	g.visitedMessages = append(g.visitedMessages, message)
 
-	msgs, err := FindDependenciesForMessage(message)
+	msgs, err := FindDependenciesForMessage(message, nil) // TODO: explicitly set ignored fields when generating Go types
 	if err != nil {
 		return err
 	}
@@ -169,6 +178,8 @@ func (g *TypeGenerator) WriteOutputMessages() error {
 			FileName:  "types.generated.go",
 		}
 		out := g.getOutputFile(k)
+
+		out.fileAnnotation = g.generatedFileAnnotation
 
 		goTypeName := goNameForOutputProtoMessage(msg)
 		skipGenerated := true
@@ -352,6 +363,14 @@ func deduplicateAndSortOutputMessages(messages []*OutputMessageDetails) []*Outpu
 	return messages
 }
 
+// AsSnakeCase returns the given string converted to lowercase snake_case. If the input is already snake_case, no
+// change is made. Any transitions in the input from lowercase to uppercase are interpreted as camelCase-style word
+// transitions, and are replaced with an underscore.
+func AsSnakeCase(s string) string {
+	res := regexp.MustCompile("(.)([A-Z][a-z]+)").ReplaceAllString(s, "${1}_${2}")
+	return strings.ToLower(regexp.MustCompile("([a-z0-9])([A-Z])").ReplaceAllString(res, "${1}_${2}"))
+}
+
 func GoNameForProtoMessage(msg protoreflect.MessageDescriptor) string {
 	fullName := string(msg.FullName())
 
@@ -362,8 +381,22 @@ func GoNameForProtoMessage(msg protoreflect.MessageDescriptor) string {
 
 	fullName = strings.TrimPrefix(fullName, string(msg.ParentFile().FullName()))
 	fullName = strings.TrimPrefix(fullName, ".")
-	fullName = strings.ReplaceAll(fullName, ".", "_")
-	return fullName
+	// Ensure acronyms in type names are also handled.
+	parts := strings.Split(fullName, ".")
+	for i, part := range parts {
+		partInSnakeCase := AsSnakeCase(part)
+		tokens := strings.Split(partInSnakeCase, "_")
+		for j, token := range tokens {
+			if IsAcronym(token) {
+				token = strings.ToUpper(token)
+			} else {
+				token = strings.Title(token)
+			}
+			tokens[j] = token
+		}
+		parts[i] = strings.Join(tokens, "")
+	}
+	return strings.Join(parts, "_")
 }
 
 func goNameForOutputProtoMessage(msg protoreflect.MessageDescriptor) string {
@@ -445,11 +478,11 @@ func goFieldName(protoField protoreflect.FieldDescriptor) string {
 }
 
 // FindDependenciesForMessage recursively explores the dependent proto messages of the given message.
-func FindDependenciesForMessage(message protoreflect.MessageDescriptor) ([]protoreflect.MessageDescriptor, error) {
+func FindDependenciesForMessage(message protoreflect.MessageDescriptor, ignoredFields sets.String) ([]protoreflect.MessageDescriptor, error) {
 	msgs := make(map[string]protoreflect.MessageDescriptor)
 	for i := 0; i < message.Fields().Len(); i++ {
 		field := message.Fields().Get(i)
-		FindDependenciesForField(field, msgs, nil) // TODO: explicitly set ignored fields when generating Go types
+		FindDependenciesForField(field, msgs, ignoredFields)
 	}
 
 	RemoveNotMappedToGoStruct(msgs)

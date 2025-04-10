@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -32,6 +33,13 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+type Placeholders struct {
+	ProjectID        string
+	ProjectNumber    int64
+	UniqueID         string
+	BillingAccountID string
+}
+
 func TestScripts(t *testing.T) {
 	baseDir, err := filepath.Abs("..")
 	if err != nil {
@@ -41,28 +49,57 @@ func TestScripts(t *testing.T) {
 	scriptPaths := findScripts(t, baseDir)
 
 	for _, scriptPath := range scriptPaths {
+
+		// skip the crud test for vertex AI model for now due to API migration.
+		// The gcloud commands still use the legacy REST API (which is said to be deprecated since Jan 31 2025): https://cloud.google.com/ai-platform/prediction/docs/reference/rest
+		// But the mock service is implemented based on the new API: https://cloud.google.com/vertex-ai/docs/reference/rest/v1beta1/projects.locations.models
+		if scriptPath == "mockaiplatform/testdata/model/crud" {
+			continue
+		}
 		t.Run(scriptPath, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.TODO()
 			ctx, closeContext := context.WithCancel(ctx)
 			t.Cleanup(closeContext)
 
 			uniqueID := fmt.Sprintf("%x", time.Now().UnixNano())
 
-			project := GCPProject{
-				ProjectID: "testproject-1",
-			}
-
-			script := loadScript(t, filepath.Join(baseDir, scriptPath), uniqueID, project)
 			h := NewHarness(t)
-
 			h.Init()
-			h.StartProxy()
+
+			project := h.Project
+			testDir := filepath.Join(baseDir, scriptPath)
+			placeholders := Placeholders{
+				ProjectID:        project.ProjectID,
+				ProjectNumber:    project.ProjectNumber,
+				UniqueID:         uniqueID,
+				BillingAccountID: testgcp.TestBillingAccountID.Get(),
+			}
+			script := loadScript(t, testDir, placeholders)
+
+			h.StartProxy(ctx)
+
+			var httpEvents []*test.LogEntry
 
 			for _, step := range script.Steps {
-				if step.Exec != "" {
-					args := strings.Fields(step.Exec)
-
-					cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+				stepCmd := ""
+				stepType := ""
+				captureEvents := true
+				if step.Pre != "" {
+					stepCmd = step.Pre
+					stepType = "pre"
+					captureEvents = false
+				} else if step.Exec != "" {
+					stepCmd = step.Exec
+					stepType = "exec"
+				} else if step.Post != "" {
+					stepCmd = step.Post
+					stepType = "post"
+					captureEvents = false
+				}
+				if stepCmd != "" {
+					cmd := exec.CommandContext(ctx, "bash", "-c", stepCmd)
 					var stdout bytes.Buffer
 					cmd.Stdout = &stdout
 					var stderr bytes.Buffer
@@ -73,33 +110,47 @@ func TestScripts(t *testing.T) {
 					if h.gcpAccessToken != "" {
 						cmd.Env = append(cmd.Env, fmt.Sprintf("CLOUDSDK_AUTH_ACCESS_TOKEN=%v", h.gcpAccessToken))
 					}
-					gcloudConfig := h.proxy.BuildGcloudConfig(h.ProxyEndpoint, h.MockGCP)
 					cmd.Env = append(cmd.Env, "CLOUDSDK_CORE_PROJECT="+h.Project.ProjectID)
+					gcloudConfig := h.proxy.BuildGcloudConfig(h.ProxyEndpoint, h.MockGCP)
 					cmd.Env = append(cmd.Env, gcloudConfig.EnvVars...)
+					cmd.Dir = testDir
 
-					t.Logf("executing step command %q", step.Exec)
+					t.Logf("executing step type: %s  cmd: %q", stepType, stepCmd)
 					if err := cmd.Run(); err != nil {
 						t.Logf("stdout: %v", stdout.String())
 						t.Logf("stderr: %v", stderr.String())
 
-						t.Errorf("error running command %q: %v", step.Exec, err)
+						t.Errorf("error running step type: %s  cmd: %q: %v", stepType, stepCmd, err)
 					}
+
+					if captureEvents {
+						httpEvents = append(httpEvents, h.Events.HTTPEvents...)
+					}
+					h.Events.HTTPEvents = nil
 				}
 			}
 
 			{
-				httpEvents := h.Events.HTTPEvents
-
 				for _, httpEvent := range httpEvents {
 					// gcloud includes a UUID in the user-agent, along with a lot of other client info (e.g. kernel version, python version)
 					// Just remove it from the golden output.
 					httpEvent.Request.RemoveHeader("user-agent")
+
+					httpEvent.Request.RemoveHeader("X-Goog-User-Project")
+
+					// The X-Goog-User-Project header is (always) set by gcloud if a quota project is set,
+					// so this header reflects configuration not the actual protocol.
+					httpEvent.Request.RemoveHeader("X-Goog-User-Project")
+
+					// Remove the Content-Length header, as it changes with dynamic values
+					httpEvent.Request.RemoveHeader("Content-Length")
+					httpEvent.Response.RemoveHeader("Content-Length")
 				}
 
 				folderID := ""
 				organizationID := ""
 
-				e2e.NormalizeHTTPLog(t, httpEvents, testgcp.GCPProject{ProjectID: h.Project.ProjectID, ProjectNumber: h.Project.ProjectNumber}, uniqueID, folderID, organizationID)
+				e2e.NormalizeHTTPLog(t, httpEvents, h.RegisteredServices(), testgcp.GCPProject{ProjectID: h.Project.ProjectID, ProjectNumber: h.Project.ProjectNumber}, uniqueID, folderID, organizationID)
 
 				x := e2e.NewNormalizer(uniqueID, testgcp.GCPProject{ProjectID: h.Project.ProjectID, ProjectNumber: h.Project.ProjectNumber})
 
@@ -142,16 +193,18 @@ type Script struct {
 
 type Step struct {
 	Exec string `json:"exec"`
+	Pre  string `json:"pre"`
+	Post string `json:"post"`
 }
 
-func loadScript(t *testing.T, dir string, uniqueID string, project GCPProject) *Script {
+func loadScript(t *testing.T, dir string, placeholders Placeholders) *Script {
 	s := &Script{
 		Name:      dir,
 		SourceDir: dir,
 	}
 	b := test.MustReadFile(t, filepath.Join(dir, "script.yaml"))
 
-	b = ReplaceTestVars(t, b, uniqueID, project)
+	b = ReplaceTestVars(t, b, placeholders)
 
 	var steps []*Step
 	if err := yaml.Unmarshal(b, &steps); err != nil {
@@ -164,9 +217,11 @@ func loadScript(t *testing.T, dir string, uniqueID string, project GCPProject) *
 }
 
 // ReplaceTestVars replaces all occurrences of placeholder strings e.g. ${uniqueId} in a given byte slice.
-func ReplaceTestVars(t *testing.T, b []byte, uniqueID string, project GCPProject) []byte {
+func ReplaceTestVars(t *testing.T, b []byte, placeholders Placeholders) []byte {
 	s := string(b)
-	s = strings.Replace(s, "${uniqueId}", uniqueID, -1)
-	s = strings.Replace(s, "${projectId}", project.ProjectID, -1)
+	s = strings.Replace(s, "${uniqueId}", placeholders.UniqueID, -1)
+	s = strings.Replace(s, "${projectId}", placeholders.ProjectID, -1)
+	s = strings.Replace(s, "${projectNumber}", strconv.FormatInt(placeholders.ProjectNumber, 10), -1)
+	s = strings.Replace(s, "${BILLING_ACCOUNT_ID}", placeholders.BillingAccountID, -1)
 	return []byte(s)
 }

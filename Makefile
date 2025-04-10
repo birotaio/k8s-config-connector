@@ -24,7 +24,7 @@ UNMANAGED_DETECTOR_IMG ?= gcr.io/${PROJECT_ID}/cnrm/unmanageddetector:${SHORT_SH
 GOLANGCI_LINT_CACHE := /tmp/golangci-lint
 # When updating this, make sure to update the corresponding action in
 # ./github/workflows/lint.yaml
-GOLANGCI_LINT_VERSION := v1.63.4
+GOLANGCI_LINT_VERSION := v1.64.8
 
 # Use Docker BuildKit when building images to allow usage of 'setcap' in
 # multi-stage builds (https://github.com/moby/moby/issues/38132)
@@ -112,9 +112,9 @@ fmt:
 	-ignore "operator/config/gke-addon/image_configmap.yaml" \
 	-ignore "operator/config/rbac/cnrm_viewer_role.yaml" \
 	-ignore "operator/vendor/**" \
-	-ignore "**/testdata/**/_*" \
-	-ignore "**/testdata/**/script.yaml" \
+	-ignore "**/testdata/**/*" \
 	-ignore "experiments/**/testdata/**" \
+	-ignore "pkg/gcpclients/generated/**" \
 	./
 
 .PHONY: lint
@@ -254,7 +254,7 @@ run: generate fmt vet
 # Ensures dependencies are up-to-date
 .PHONY: ensure
 ensure:
-	go mod tidy -compat=1.19
+	go mod tidy -compat=1.23
 
 # Should run all needed commands before any PR is sent out.
 .PHONY: ready-pr
@@ -379,7 +379,7 @@ powertool-tests:
 
 .PHONY: e2e-scenario-tests
 e2e-scenario-tests:
-	cd scripts/github-actions/ && ./tests-e2e-scenarios.sh
+	dev/ci/presubmits/scenarios-tests
 
 # indicate which samples testcases will be run
 SAMPLE_TESTCASE ?= TestAllInSeries/samples
@@ -400,3 +400,11 @@ operator-e2e-tests:
 	export TEST_ORG_ID=${ORG_ID}
 	export TEST_BILLING_ACCOUNT_ID=${BILLING_ACCOUNT}
 	cd operator/tests/e2e/ && go test --project-id=${PROJECT_ID}
+
+# Generate Go types for direct resources specified in the config files located under `dev/tools/controllerbuilder/config`.
+.PHONY: generate-types
+generate-types:
+	cd dev/tools/controllerbuilder && \
+	./generate-proto.sh && \
+	find config -name "*.yaml" -type f | xargs -I {} go run . generate-types --config {}
+	dev/tasks/fix-gofmt 

@@ -15,9 +15,10 @@
 package v1alpha1
 
 import (
-	refsv1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1alpha1"
-	refsv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
+	apigeev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/apis/apigee/v1beta1"
+	refs "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/apis/k8s/v1alpha1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,7 +40,7 @@ type AccessLoggingConfig struct {
 type ApigeeInstanceSpec struct {
 	// Reference to parent Apigee Organization.
 	// +required
-	OrganizationRef *refsv1alpha1.ApigeeOrganizationRef `json:"organizationRef"`
+	OrganizationRef *apigeev1beta1.ApigeeOrganizationRef `json:"organizationRef"`
 
 	// The ApigeeInstance name. If not given, the metadata.name will be used.
 	ResourceID *string `json:"resourceID,omitempty"`
@@ -58,7 +59,7 @@ type ApigeeInstanceSpec struct {
 
 	// Customer Managed Encryption Key (CMEK) used for disk and volume encryption. If not specified, a Google-Managed encryption key will be used.
 	// +kcc:proto:field=mockgcp.cloud.apigee.v1.GoogleCloudApigeeV1Instance.disk_encryption_key_name
-	DiskEncryptionKMSCryptoKeyRef *refsv1beta1.KMSCryptoKeyRef `json:"diskEncryptionKMSCryptoKeyRef,omitempty"`
+	DiskEncryptionKMSCryptoKeyRef *refs.KMSCryptoKeyRef `json:"diskEncryptionKMSCryptoKeyRef,omitempty"`
 
 	// Optional. Display name for the instance.
 	// +kcc:proto:field=mockgcp.cloud.apigee.v1.GoogleCloudApigeeV1Instance.display_name

@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/managedkafka/v1alpha1"
+	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/managedkafka/v1beta1"
 	refs "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
@@ -141,7 +141,6 @@ func (a *ClusterAdapter) Create(ctx context.Context, createOp *directbase.Create
 		return mapCtx.Err()
 	}
 
-	// TODO(contributor): Complete the gcp "CREATE" or "INSERT" request.
 	req := &pb.CreateClusterRequest{
 		Parent:    a.id.Parent().String(),
 		ClusterId: a.id.ID(), // Note: this is not the fully qualified name for this resource, it is just the resource ID
@@ -162,7 +161,7 @@ func (a *ClusterAdapter) Create(ctx context.Context, createOp *directbase.Create
 	if mapCtx.Err() != nil {
 		return mapCtx.Err()
 	}
-	status.ExternalRef = &created.Name // populate externalRef
+	status.ExternalRef = direct.LazyPtr(created.Name)
 	return createOp.UpdateStatus(ctx, status, nil)
 }
 
@@ -181,6 +180,10 @@ func (a *ClusterAdapter) Update(ctx context.Context, updateOp *directbase.Update
 		return mapCtx.Err()
 	}
 
+	// Set the name field to ensure the GCP API can identity the resource during UpdateCluster().
+	// This also prevents incorrect diffs, as the name field is not populated by ManagedKafkaClusterSpec_ToProto.
+	desiredPb.Name = a.id.String()
+
 	paths, err := common.CompareProtoMessage(desiredPb, a.actual, common.BasicDiff)
 	if err != nil {
 		return err
@@ -195,13 +198,11 @@ func (a *ClusterAdapter) Update(ctx context.Context, updateOp *directbase.Update
 		}
 		return updateOp.UpdateStatus(ctx, status, nil)
 	}
-	updateMask := &fieldmaskpb.FieldMask{
-		Paths: sets.List(paths)}
 
-	desiredPb.Name = a.id.String() // populate the name field so that the GCP API can identify the resource
 	req := &pb.UpdateClusterRequest{
-		UpdateMask: updateMask,
-		Cluster:    desiredPb,
+		UpdateMask: &fieldmaskpb.FieldMask{
+			Paths: sets.List(paths)},
+		Cluster: desiredPb,
 	}
 	op, err := a.gcpClient.UpdateCluster(ctx, req)
 	if err != nil {
@@ -214,7 +215,7 @@ func (a *ClusterAdapter) Update(ctx context.Context, updateOp *directbase.Update
 	log.V(2).Info("successfully updated Cluster", "name", a.id.String())
 
 	status := &krm.ManagedKafkaClusterStatus{}
-	status.ExternalRef = &updated.Name // populate externalRef
+	status.ExternalRef = direct.LazyPtr(updated.Name)
 	status.ObservedState = ManagedKafkaClusterObservedState_FromProto(mapCtx, updated)
 	if mapCtx.Err() != nil {
 		return mapCtx.Err()

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 
+	bigquerykrmapi "github.com/GoogleCloudPlatform/k8s-config-connector/apis/bigquery/v1beta1"
 	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/bigquerydatatransfer/v1beta1"
 	refv1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
@@ -111,11 +112,18 @@ func (m *model) AdapterForObject(ctx context.Context, reader client.Reader, u *u
 
 	// Resolve BigQueryDataSet Ref
 	if obj.Spec.DatasetRef != nil {
-		dataset, err := refv1beta1.ResolveBigQueryDataset(ctx, reader, obj, obj.Spec.DatasetRef)
+		dataset, err := obj.Spec.DatasetRef.NormalizedExternal(ctx, reader, obj.GetNamespace())
 		if err != nil {
 			return nil, err
 		}
-		obj.Spec.DatasetRef.External = dataset.GetDatasetID() // the GCP API only takes datasetID
+
+		// for backwards compatibility and to satisfy the GCP API constraints, we must overrite the
+		// external reference in the payloads to just the resource ID of the dataset.
+		_, id, err := bigquerykrmapi.ParseDatasetExternal(dataset)
+		if err != nil {
+			return nil, err
+		}
+		obj.Spec.DatasetRef.External = id
 	}
 
 	// Resolve KMSCryptoKey Ref
@@ -283,7 +291,7 @@ func (a *Adapter) Update(ctx context.Context, updateOp *directbase.UpdateOperati
 	if !reflect.DeepEqual(desired.DataSourceId, a.actual.DataSourceId) {
 		return fmt.Errorf("BigQueryDataTransferConfig %s/%s data source ID cannot be changed", u.GetNamespace(), u.GetName())
 	}
-	if !reflect.DeepEqual(desired.Destination, a.actual.Destination) {
+	if desired.Destination != nil && !reflect.DeepEqual(desired.Destination, a.actual.Destination) {
 		return fmt.Errorf("BigQueryDataTransferConfig %s/%s destination dataset cannot be changed", u.GetNamespace(), u.GetName())
 	}
 

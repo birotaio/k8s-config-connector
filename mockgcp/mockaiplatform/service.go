@@ -54,6 +54,11 @@ func (s *MockService) Register(grpcServer *grpc.Server) {
 	pb.RegisterTensorboardServiceServer(grpcServer, &tensorboardService{MockService: s})
 	pb.RegisterDatasetServiceServer(grpcServer, &datasetService{MockService: s})
 	pb.RegisterEndpointServiceServer(grpcServer, &endpointService{MockService: s})
+	pb.RegisterMetadataServiceServer(grpcServer, &metadataStoreService{MockService: s})
+	pb.RegisterFeaturestoreServiceServer(grpcServer, &featurestoreService{MockService: s})
+	pb.RegisterModelServiceServer(grpcServer, &modelService{MockService: s})
+	pb.RegisterNotebookServiceServer(grpcServer, &notebookService{MockService: s})
+	pb.RegisterScheduleServiceServer(grpcServer, &scheduleService{MockService: s})
 }
 
 func (s *MockService) NewHTTPMux(ctx context.Context, conn *grpc.ClientConn) (http.Handler, error) {
@@ -61,9 +66,21 @@ func (s *MockService) NewHTTPMux(ctx context.Context, conn *grpc.ClientConn) (ht
 		pb.RegisterTensorboardServiceHandler,
 		pb.RegisterDatasetServiceHandler,
 		pb.RegisterEndpointServiceHandler,
-		s.operations.RegisterOperationsPath("/v1beta1/{prefix=**}/operations/{name}"))
+		pb.RegisterMetadataServiceHandler,
+		pb.RegisterFeaturestoreServiceHandler,
+		pb.RegisterModelServiceHandler,
+		pb.RegisterNotebookServiceHandler,
+		pb.RegisterScheduleServiceHandler,
+		s.operations.RegisterOperationsPath("/v1beta1/{prefix=**}/operations/{name}"),
+		s.operations.RegisterOperationsPath("/ui/{prefix=**}/operations/{name}"))
 	if err != nil {
 		return nil, err
+	}
+
+	mux.RewriteError = func(ctx context.Context, error *httpmux.ErrorResponse) {
+		if error.Code == 404 {
+			error.Errors = nil
+		}
 	}
 
 	return mux, nil

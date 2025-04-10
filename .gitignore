@@ -159,3 +159,10 @@ go.work.sum
 e2e.log
 testlogs/
 log
+
+# experiments/conductor
+experiments/conductor/logs
+experiments/conductor/branches.yaml
+
+# failing fuzz output
+pkg/fuzztesting/fuzztests/testdata/fuzz/FuzzAllMappers

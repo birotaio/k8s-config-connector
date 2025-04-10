@@ -20,10 +20,8 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 
 	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/apigee/v1beta1"
-	refs "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/directbase"
@@ -64,10 +62,11 @@ func (m *modelApigeeEnvgroup) AdapterForObject(ctx context.Context, reader clien
 		return nil, fmt.Errorf("error converting to %T: %w", obj, err)
 	}
 
-	id, err := krm.NewEnvironmentGroupIdentity(ctx, reader, obj)
+	i, err := obj.GetIdentity(ctx, reader)
 	if err != nil {
 		return nil, err
 	}
+	id := i.(*krm.ApigeeEnvgroupIdentity)
 
 	mapCtx := &direct.MapContext{}
 	desired := obj
@@ -75,7 +74,7 @@ func (m *modelApigeeEnvgroup) AdapterForObject(ctx context.Context, reader clien
 		return nil, mapCtx.Err()
 	}
 
-	desired.Name = id.ID()
+	desired.Name = id.ResourceID
 
 	return &Adapter{
 		id:               id,
@@ -91,7 +90,7 @@ func (m *modelApigeeEnvgroup) AdapterForURL(ctx context.Context, url string) (di
 }
 
 type Adapter struct {
-	id               *krm.EnvironmentGroupIdentity
+	id               *krm.ApigeeEnvgroupIdentity
 	desired          *krm.ApigeeEnvgroup
 	actual           *api.GoogleCloudApigeeV1EnvironmentGroup
 	envgroupsClient  *api.OrganizationsEnvgroupsService
@@ -131,12 +130,12 @@ func (a *Adapter) Create(ctx context.Context, createOp *directbase.CreateOperati
 		return mapCtx.Err()
 	}
 
-	op, err := a.envgroupsClient.Create(a.id.Parent().String(), req).Context(ctx).Do()
+	op, err := a.envgroupsClient.Create(a.id.ParentID.String(), req).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("creating ApigeeEnvgroup %s: %w", a.fullyQualifiedName(), err)
 	}
 
-	if err := a.waitForOp(ctx, op); err != nil {
+	if err := WaitForApigeeOp(ctx, a.operationsClient, op); err != nil {
 		return fmt.Errorf("waiting for ApigeeEnvgroup %s creation: %w", a.id, err)
 	}
 
@@ -189,7 +188,7 @@ func (a *Adapter) Update(ctx context.Context, updateOp *directbase.UpdateOperati
 	if err != nil {
 		return err
 	}
-	if err := a.waitForOp(ctx, op); err != nil {
+	if err := WaitForApigeeOp(ctx, a.operationsClient, op); err != nil {
 		return fmt.Errorf("waiting for ApigeeEnvgroup update %s: %w", a.id, err)
 	}
 
@@ -220,13 +219,13 @@ func (a *Adapter) Export(ctx context.Context) (*unstructured.Unstructured, error
 	if mapCtx.Err() != nil {
 		return nil, mapCtx.Err()
 	}
-	obj.Spec.Parent.OrganizationRef = &refs.ApigeeOrganizationRef{External: a.id.Parent().String()}
+	obj.Spec.Parent.OrganizationRef = &krm.ApigeeOrganizationRef{External: a.id.ParentID.String()}
 	uObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return nil, err
 	}
 
-	u.SetName(a.id.ID())
+	u.SetName(a.id.ResourceID)
 	u.SetGroupVersionKind(krm.ApigeeEnvgroupGVK)
 
 	u.Object = uObj
@@ -242,33 +241,17 @@ func (a *Adapter) Delete(ctx context.Context, deleteOp *directbase.DeleteOperati
 
 	if err != nil {
 		if direct.IsNotFound(err) {
-			// Return success if envgroup is not found (assume it was already deleted)
+			// Return success if not found (assume it was already deleted).
+			log.V(2).Info("skipping delete for non-existent ApigeeEnvgroup, assuming it was already deleted", "name", a.id.String())
 			return true, nil
 		}
 		return false, fmt.Errorf("deleting ApigeeEnvgroup %s: %w", a.id, err)
 	}
 
-	if err := a.waitForOp(ctx, op); err != nil {
+	if err := WaitForApigeeOp(ctx, a.operationsClient, op); err != nil {
 		return false, fmt.Errorf("ApigeeEnvgroup deletion failed: %w", err)
 	}
 	return true, nil
-}
-
-func (a *Adapter) waitForOp(ctx context.Context, op *api.GoogleLongrunningOperation) error {
-	for {
-		current, err := a.operationsClient.Get(op.Name).Context(ctx).Do()
-		if err != nil {
-			return fmt.Errorf("getting operation status of %q: %w", op.Name, err)
-		}
-		if current.Done {
-			if current.Error != nil {
-				return fmt.Errorf("operation %q completed with error: %v", op.Name, current.Error)
-			} else {
-				return nil
-			}
-		}
-		time.Sleep(2 * time.Second)
-	}
 }
 
 func (a *Adapter) fullyQualifiedName() string {

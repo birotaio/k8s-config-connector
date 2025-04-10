@@ -29,6 +29,7 @@ import (
 	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/compute/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/compute"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/directbase"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct/registry"
 	kccpredicate "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/predicate"
@@ -369,7 +370,10 @@ func (a *forwardingRuleAdapter) Update(ctx context.Context, updateOp *directbase
 	}
 
 	// setTarget request is sent when there are updates to target.
-	if !reflect.DeepEqual(forwardingRule.Target, a.actual.Target) {
+	// IsSelfLinkEqual is a special handling to avoid reconciliation discrepancies caused by resources and
+	// their dependencies being managed by different controllers.
+	// This can be removed once all Compute resources are migrated to direct controller.
+	if !compute.IsSelfLinkEqual(forwardingRule.Target, a.actual.Target) {
 		if a.id.location == "global" {
 			setTargetReq := &computepb.SetTargetGlobalForwardingRuleRequest{
 				ForwardingRule:          a.id.forwardingRule,
@@ -537,5 +541,121 @@ func setStatus(u *unstructured.Unstructured, typedStatus any) error {
 
 	u.Object["status"] = status
 
+	return nil
+}
+
+func resolveDependencies(ctx context.Context, reader client.Reader, obj *krm.ComputeForwardingRule) error {
+	// Get network
+	if obj.Spec.NetworkRef != nil {
+		networkRef, err := ResolveComputeNetwork(ctx, reader, obj, obj.Spec.NetworkRef)
+		if err != nil {
+			return err
+
+		}
+		obj.Spec.NetworkRef.External = networkRef.External
+	}
+
+	// Get subnetwork
+	if obj.Spec.SubnetworkRef != nil {
+		subnetworkRef, err := ResolveComputeSubnetwork(ctx, reader, obj, obj.Spec.SubnetworkRef)
+		if err != nil {
+			return err
+
+		}
+		obj.Spec.SubnetworkRef.External = subnetworkRef.External
+	}
+
+	// Get backend service
+	if obj.Spec.BackendServiceRef != nil {
+		normalizedExternal, err := obj.Spec.BackendServiceRef.NormalizedExternal(ctx, reader, obj.GetNamespace())
+		if err != nil {
+			return err
+
+		}
+		obj.Spec.BackendServiceRef.External = normalizedExternal
+	}
+
+	// Get ip address, ip address is optional
+	if obj.Spec.IpAddress != nil && obj.Spec.IpAddress.AddressRef != nil {
+		computeAddressRef, err := ResolveComputeAddress(ctx, reader, obj, obj.Spec.IpAddress.AddressRef)
+		if err != nil {
+			return err
+
+		}
+		obj.Spec.IpAddress.AddressRef.External = computeAddressRef.External
+	}
+
+	// Get target, target is optional
+	if obj.Spec.Target != nil {
+		// Get target ServiceAttachment
+		if obj.Spec.Target.ServiceAttachmentRef != nil {
+			serviceAttachmentRef, err := ResolveComputeServiceAttachment(ctx, reader, obj, obj.Spec.Target.ServiceAttachmentRef)
+			if err != nil {
+				return err
+
+			}
+			obj.Spec.Target.ServiceAttachmentRef.External = serviceAttachmentRef.External
+		}
+
+		// Get target ComputeTargetGRPCProxyRef
+		if obj.Spec.Target.TargetGRPCProxyRef != nil {
+			targetGRPCProxyRef, err := ResolveComputeTargetGrpcProxy(ctx, reader, obj, obj.Spec.Target.TargetGRPCProxyRef)
+			if err != nil {
+				return err
+
+			}
+			obj.Spec.Target.TargetGRPCProxyRef.External = targetGRPCProxyRef.External
+		}
+
+		// Get target ComputeTargetHTTPProxy
+		if obj.Spec.Target.TargetHTTPProxyRef != nil {
+			targetHTTPProxyRef, err := ResolveComputeTargetHTTPProxy(ctx, reader, obj, obj.Spec.Target.TargetHTTPProxyRef)
+			if err != nil {
+				return err
+
+			}
+			obj.Spec.Target.TargetHTTPProxyRef.External = targetHTTPProxyRef.External
+		}
+
+		// Get target ComputeTargetHTTPSProxy
+		if obj.Spec.Target.TargetHTTPSProxyRef != nil {
+			targetHTTPSProxyRef, err := ResolveComputeTargetHTTPSProxy(ctx, reader, obj, obj.Spec.Target.TargetHTTPSProxyRef)
+			if err != nil {
+				return err
+
+			}
+			obj.Spec.Target.TargetHTTPSProxyRef.External = targetHTTPSProxyRef.External
+		}
+
+		// Get target TargetVPNGateway
+		if obj.Spec.Target.TargetVPNGatewayRef != nil {
+			targetVPNGatewayRef, err := ResolveComputeTargetVPNGateway(ctx, reader, obj, obj.Spec.Target.TargetVPNGatewayRef)
+			if err != nil {
+				return err
+
+			}
+			obj.Spec.Target.TargetVPNGatewayRef.External = targetVPNGatewayRef.External
+		}
+
+		// Get target SSLProxy
+		if obj.Spec.Target.TargetSSLProxyRef != nil {
+			targetSSLProxyRef, err := ResolveComputeTargetSSLProxy(ctx, reader, obj, obj.Spec.Target.TargetSSLProxyRef)
+			if err != nil {
+				return err
+
+			}
+			obj.Spec.Target.TargetSSLProxyRef.External = targetSSLProxyRef.External
+		}
+
+		// Get target TCPProxy
+		if obj.Spec.Target.TargetTCPProxyRef != nil {
+			targetTCPProxyRef, err := ResolveComputeTargetTCPProxy(ctx, reader, obj, obj.Spec.Target.TargetTCPProxyRef)
+			if err != nil {
+				return err
+
+			}
+			obj.Spec.Target.TargetTCPProxyRef.External = targetTCPProxyRef.External
+		}
+	}
 	return nil
 }

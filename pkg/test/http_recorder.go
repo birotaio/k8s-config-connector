@@ -35,6 +35,60 @@ type LogEntry struct {
 	Error     string    `json:"error,omitempty"`
 }
 
+func (e *LogEntry) URL() string {
+	return e.Request.URL
+}
+
+func (e *LogEntry) Method() string {
+	return e.Request.Method
+}
+
+// VisitRequestStringValues calls callback for any string values in the request body
+func (e *LogEntry) VisitRequestStringValues(callback func(path, value string)) {
+	body := e.Request.Body
+	if body == "" {
+		return
+	}
+
+	obj := make(map[string]any)
+	if err := json.Unmarshal([]byte(body), &obj); err != nil {
+		klog.Fatalf("error from json.Unmarshal(%q): %v", body, err)
+		return
+	}
+	visitStringValues(obj, "", callback)
+}
+
+// VisitResponseStringValues calls callback for any string values in the response body
+func (e *LogEntry) VisitResponseStringValues(callback func(path, value string)) {
+	body := e.Response.Body
+	if body == "" {
+		return
+	}
+
+	obj := make(map[string]any)
+	if err := json.Unmarshal([]byte(body), &obj); err != nil {
+		klog.Fatalf("error from json.Unmarshal(%q): %v", body, err)
+		return
+	}
+	visitStringValues(obj, "", callback)
+}
+
+// visitStringValues walks the object, building the path for
+func visitStringValues(obj any, path string, callback func(path, value string)) {
+	switch obj := obj.(type) {
+	case map[string]any:
+		for k, v := range obj {
+			visitStringValues(v, path+"."+k, callback)
+		}
+	case []any:
+		for _, v := range obj {
+			visitStringValues(v, path+"[]", callback)
+		}
+	case string:
+		callback(path, obj)
+	}
+}
+
 type Request struct {
 	Method string `json:"method,omitempty"`
 	URL    string `json:"url,omitempty"`
@@ -210,22 +264,22 @@ func (r *Response) FormatHTTP() string {
 	return b.String()
 }
 
-type JSONMutator func(obj map[string]any)
+type JSONMutator func(url string, obj map[string]any)
 
 func (e *LogEntry) PrettifyJSON(mutators ...JSONMutator) {
 	e.Request.PrettifyJSON(mutators...)
-	e.Response.PrettifyJSON(mutators...)
+	e.Response.PrettifyJSON(e.Request.URL, mutators...)
 }
 
-func (r *Response) PrettifyJSON(mutators ...JSONMutator) {
-	r.Body = prettifyJSON(r.Body, mutators...)
+func (r *Response) PrettifyJSON(requestURL string, mutators ...JSONMutator) {
+	r.Body = prettifyJSON(r.Body, requestURL, mutators...)
 }
 
 func (r *Request) PrettifyJSON(mutators ...JSONMutator) {
-	r.Body = prettifyJSON(r.Body, mutators...)
+	r.Body = prettifyJSON(r.Body, r.URL, mutators...)
 }
 
-func prettifyJSON(s string, mutators ...JSONMutator) string {
+func prettifyJSON(s string, url string, mutators ...JSONMutator) string {
 	if s == "" {
 		return s
 	}
@@ -237,7 +291,7 @@ func prettifyJSON(s string, mutators ...JSONMutator) string {
 	}
 
 	for _, mutator := range mutators {
-		mutator(obj)
+		mutator(url, obj)
 	}
 
 	b, err := json.MarshalIndent(obj, "", "  ")
@@ -274,6 +328,22 @@ func (r *Response) RemoveHeader(key string) {
 func (r *Request) RemoveHeader(key string) {
 	key = http.CanonicalHeaderKey(key)
 	r.Header.Del(key)
+}
+
+func (s *Request) ReplaceQueryParameter(key string, value string) {
+	// Slightly hacky replacement to preserve order
+	url := s.URL
+	base, query, found := strings.Cut(url, "?")
+	if query == "" || !found {
+		return
+	}
+	parameters := strings.Split(query, "&")
+	for i, parameter := range parameters {
+		if strings.HasPrefix(parameter, key+"=") {
+			parameters[i] = key + "=" + value
+		}
+	}
+	s.URL = base + "?" + strings.Join(parameters, "&")
 }
 
 func (r *Response) ParseBody() map[string]any {

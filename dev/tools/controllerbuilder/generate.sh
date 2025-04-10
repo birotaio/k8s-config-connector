@@ -192,7 +192,8 @@ go run . generate-mapper \
 go run . generate-types \
     --service google.cloud.managedkafka.v1 \
     --api-version managedkafka.cnrm.cloud.google.com/v1alpha1 \
-    --resource ManagedKafkaCluster:Cluster
+    --resource ManagedKafkaCluster:Cluster \
+    --resource ManagedKafkaTopic:Topic
 
 go run . generate-mapper \
     --service google.cloud.managedkafka.v1 \
@@ -208,6 +209,57 @@ go run . generate-types \
     --service mockgcp.cloud.apigee.v1 \
     --api-version apigee.cnrm.cloud.google.com/v1alpha1 \
     --resource ApigeeInstance:GoogleCloudApigeeV1Instance
+
+# CloudIdentity : Group
+go run . generate-types \
+     --service google.apps.cloudidentity.groups.v1beta1 \
+     --resource CloudIdentityGroup:Group\
+     --api-version "cloudidentity.cnrm.cloud.google.com/v1beta1"
+
+go run . generate-mapper \
+     --service google.apps.cloudidentity.groups.v1beta1 \
+     --api-version cloudidentity.cnrm.cloud.google.com/v1beta1
+
+# CloudIdentity : Membership
+go run . generate-types \
+     --service mockgcp.cloud.cloudidentity.groups.v1beta1 \
+     --resource CloudIdentityMembership:Membership \
+     --api-version "cloudidentity.cnrm.cloud.google.com/v1beta1"
+
+go run . generate-mapper \
+     --service mockgcp.cloud.cloudidentity.groups.v1beta1 \
+     --api-version cloudidentity.cnrm.cloud.google.com/v1beta1
+
+# Workflow : Workflow
+go run . generate-types \
+     --service google.cloud.workflows.v1 \
+     --resource WorkflowsWorkflow:Workflow \
+     --api-version "workflows.cnrm.cloud.google.com/v1alpha1"
+
+go run . generate-mapper \
+     --service google.cloud.workflows.v1 \
+     --api-version workflows.cnrm.cloud.google.com/v1alpha1
+
+# DocumentAI
+go run . generate-types \
+    --service google.cloud.documentai.v1 \
+    --api-version documentai.cnrm.cloud.google.com/v1alpha1 \
+    --resource DocumentAIProcessor:Processor
+
+go run . generate-mapper \
+    --service google.cloud.documentai.v1 \
+    --api-version documentai.cnrm.cloud.google.com/v1alpha1
+
+# AlloyDB
+go run main.go generate-types \
+     --service google.cloud.alloydb.v1beta \
+     --api-version alloydb.cnrm.cloud.google.com/v1beta1 \
+     --resource AlloyDBCluster:Cluster \
+     --resource AlloyDBInstance:Instance
+
+go run . generate-mapper \
+   --service google.cloud.alloydb.v1beta  \
+   --api-version alloydb.cnrm.cloud.google.com/v1alpha1
 
 # Fix up formatting
 ${REPO_ROOT}/dev/tasks/fix-gofmt
