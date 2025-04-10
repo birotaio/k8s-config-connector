@@ -30,8 +30,8 @@ func CloudBuildWorkerPoolObservedState_FromProto(mapCtx *direct.MapContext, in *
 	}
 	out := &krm.CloudBuildWorkerPoolObservedState{}
 	out.ETag = direct.LazyPtr(in.Etag)
-	out.CreateTime = direct.ToOpenAPIDateTime(in.GetCreateTime())
-	out.UpdateTime = direct.ToOpenAPIDateTime(in.GetUpdateTime())
+	out.CreateTime = direct.StringTimestamp_FromProto(mapCtx, in.GetCreateTime())
+	out.UpdateTime = direct.StringTimestamp_FromProto(mapCtx, in.GetUpdateTime())
 
 	privateConfig := in.GetPrivatePoolV1Config()
 	if privateConfig != nil {
@@ -51,6 +51,18 @@ func CloudBuildWorkerPoolSpec_ToProto(mapCtx *direct.MapContext, in *krm.CloudBu
 	out.Config = &pb.WorkerPool_PrivatePoolV1Config{
 		PrivatePoolV1Config: PrivatePoolV1Config_ToProto(mapCtx, in.PrivatePoolConfig),
 	}
+	return out
+}
+
+func CloudBuildWorkerPoolSpec_FromProto(mapCtx *direct.MapContext, in *pb.WorkerPool) *krm.CloudBuildWorkerPoolSpec {
+	if in == nil {
+		return nil
+	}
+
+	out := &krm.CloudBuildWorkerPoolSpec{}
+	out.DisplayName = in.DisplayName
+	out.PrivatePoolConfig = PrivatePoolV1Config_FromProto(mapCtx, in.GetPrivatePoolV1Config())
+
 	return out
 }
 
@@ -101,6 +113,7 @@ func PrivatePoolV1Config_NetworkConfig_ToProto(mapCtx *direct.MapContext, in *kr
 	}
 	out := &pb.PrivatePoolV1Config_NetworkConfig{}
 	out.PeeredNetwork = in.PeeredNetworkRef.External
+
 	out.EgressOption = direct.Enum_ToProto[pb.PrivatePoolV1Config_NetworkConfig_EgressOption](mapCtx, in.EgressOption)
 	out.PeeredNetworkIpRange = direct.ValueOf(in.PeeredNetworkIPRange)
 	return out

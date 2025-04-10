@@ -26,7 +26,7 @@ func normalizeProjectRef(ctx context.Context, reader client.Reader, src client.O
 		return nil, nil
 	}
 
-	project, err := refs.ResolveProject(ctx, reader, src, ref)
+	project, err := refs.ResolveProject(ctx, reader, src.GetNamespace(), ref)
 	if err != nil {
 		return nil, err
 	}
@@ -53,12 +53,8 @@ func (r *refNormalizer) VisitField(path string, v any) error {
 	}
 
 	if networkRef, ok := v.(*refs.ComputeNetworkRef); ok {
-		resolved, err := refs.ResolveComputeNetwork(r.ctx, r.kube, r.src, networkRef)
-		if err != nil {
+		if err := networkRef.Normalize(r.ctx, r.kube, r.src); err != nil {
 			return err
-		}
-		*networkRef = refs.ComputeNetworkRef{
-			External: resolved.String(),
 		}
 	}
 

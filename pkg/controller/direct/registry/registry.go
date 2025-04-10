@@ -79,6 +79,7 @@ func AdapterForURL(ctx context.Context, url string) (directbase.Adapter, error) 
 	}
 	return nil, nil
 }
+
 func Init(ctx context.Context, config *config.ControllerConfig) error {
 	for _, registration := range singleton.registrations {
 		model, err := registration.factory(ctx, config)
@@ -92,13 +93,8 @@ func Init(ctx context.Context, config *config.ControllerConfig) error {
 }
 
 func RegisterModel(gvk schema.GroupVersionKind, modelFn ModelFactoryFunc) {
-	if singleton.registrations == nil {
-		singleton.registrations = make(map[schema.GroupKind]*registration)
-	}
-	singleton.registrations[gvk.GroupKind()] = &registration{
-		gvk:     gvk,
-		factory: modelFn,
-	}
+	rg := &predicate.OptInToDirectReconciliation{}
+	RegisterModelWithReconcileGate(gvk, modelFn, rg)
 }
 
 func RegisterModelWithReconcileGate(gvk schema.GroupVersionKind, modelFn ModelFactoryFunc, rg predicate.ReconcileGate) {
@@ -142,6 +138,14 @@ func SupportsIAM(groupKind schema.GroupKind) (bool, error) {
 	case schema.GroupKind{Group: "monitoring.cnrm.cloud.google.com", Kind: "MonitoringDashboard"}:
 		return false, nil
 	case schema.GroupKind{Group: "sql.cnrm.cloud.google.com", Kind: "SQLInstance"}:
+		return false, nil
+	case schema.GroupKind{Group: "cloudbuild.cnrm.cloud.google.com", Kind: "CloudBuildWorkerPool"}:
+		return false, nil
+	case schema.GroupKind{Group: "securesourcemanager.cnrm.cloud.google.com", Kind: "SecureSourceManagerInstance"}:
+		return false, nil
+	case schema.GroupKind{Group: "securesourcemanager.cnrm.cloud.google.com", Kind: "SecureSourceManagerRepository"}:
+		return false, nil
+	case schema.GroupKind{Group: "discoveryengine.cnrm.cloud.google.com", Kind: "DiscoveryEngineDataStore"}:
 		return false, nil
 	}
 	klog.Warningf("groupKind %v is not recognized as a direct kind for SupportsIAM check", groupKind)

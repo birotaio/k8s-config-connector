@@ -343,6 +343,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - discoveryengine.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - dlp.cnrm.cloud.google.com
   resources:
   - '*'
@@ -511,7 +519,23 @@ rules:
   - list
   - watch
 - apiGroups:
+  - managedkafka.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - memcache.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - memorystore.cnrm.cloud.google.com
   resources:
   - '*'
   verbs:
@@ -607,6 +631,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - privilegedaccessmanager.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - pubsub.cnrm.cloud.google.com
   resources:
   - '*'
@@ -656,6 +688,14 @@ rules:
   - watch
 - apiGroups:
   - secretmanager.cnrm.cloud.google.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - securesourcemanager.cnrm.cloud.google.com
   resources:
   - '*'
   verbs:

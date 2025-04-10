@@ -15,16 +15,16 @@
 PROJECT_ID ?= $(shell gcloud config get-value project)
 SHORT_SHA := $(shell git rev-parse --short=7 HEAD)
 BUILDER_IMG ?= gcr.io/${PROJECT_ID}/builder:${SHORT_SHA}
-CONTROLLER_IMG ?= gcr.io/${PROJECT_ID}/controller:${SHORT_SHA}
-RECORDER_IMG ?= gcr.io/${PROJECT_ID}/recorder:${SHORT_SHA}
-WEBHOOK_IMG ?= gcr.io/${PROJECT_ID}/webhook:${SHORT_SHA}
-DELETION_DEFENDER_IMG ?= gcr.io/${PROJECT_ID}/deletiondefender:${SHORT_SHA}
-UNMANAGED_DETECTOR_IMG ?= gcr.io/${PROJECT_ID}/unmanageddetector:${SHORT_SHA}
+CONTROLLER_IMG ?= gcr.io/${PROJECT_ID}/cnrm/controller:${SHORT_SHA}
+RECORDER_IMG ?= gcr.io/${PROJECT_ID}/cnrm/recorder:${SHORT_SHA}
+WEBHOOK_IMG ?= gcr.io/${PROJECT_ID}/cnrm/webhook:${SHORT_SHA}
+DELETION_DEFENDER_IMG ?= gcr.io/${PROJECT_ID}/cnrm/deletiondefender:${SHORT_SHA}
+UNMANAGED_DETECTOR_IMG ?= gcr.io/${PROJECT_ID}/cnrm/unmanageddetector:${SHORT_SHA}
 # Detects the location of the user golangci-lint cache.
 GOLANGCI_LINT_CACHE := /tmp/golangci-lint
 # When updating this, make sure to update the corresponding action in
 # ./github/workflows/lint.yaml
-GOLANGCI_LINT_VERSION := v1.59.1
+GOLANGCI_LINT_VERSION := v1.63.4
 
 # Use Docker BuildKit when building images to allow usage of 'setcap' in
 # multi-stage builds (https://github.com/moby/moby/issues/38132)
@@ -63,6 +63,11 @@ operator:
 manager: generate fmt vet
 	go build -o bin/manager github.com/GoogleCloudPlatform/k8s-config-connector/cmd/manager
 
+# Generate CRDs for direct controllers.
+.PHONY: generate-crds
+generate-crds:
+	./dev/tasks/generate-crds
+
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
 manifests: generate
@@ -70,7 +75,6 @@ manifests: generate
 	rm -rf config/crds/resources
 	rm -rf config/crds/tmp_resources
 	go build -o bin/generate-crds ./scripts/generate-crds && ./bin/generate-crds -output-dir=config/crds/tmp_resources
-	go run ./scripts/generate-cnrm-cluster-roles/main.go
 	# add kustomize patches on all CRDs
 	mkdir config/crds/resources
 	cp config/crds/kustomization.yaml kustomization.yaml
@@ -81,6 +85,14 @@ manifests: generate
 
 	# for direct controllers
 	dev/tasks/generate-crds
+
+	# Generating cnrm cluster roles is dependent on the existence of directory
+	# config/crds/resources with all the freshly generated CRDs.
+	go run ./scripts/generate-cnrm-cluster-roles/main.go
+
+	# Generating list of all supported GVKs is dependent on the existence of directory
+	# config/crds/resources with all the freshly generated CRDs.
+	go run ./scripts/generate-gvks/main.go -input-dir=config/crds/resources -output-file=pkg/gvks/supportedgvks/gvks_generated.go
 
 # Format code
 .PHONY: fmt
@@ -101,11 +113,13 @@ fmt:
 	-ignore "operator/config/rbac/cnrm_viewer_role.yaml" \
 	-ignore "operator/vendor/**" \
 	-ignore "**/testdata/**/_*" \
+	-ignore "**/testdata/**/script.yaml" \
 	-ignore "experiments/**/testdata/**" \
 	./
 
 .PHONY: lint
 lint:
+	mkdir -p ${GOLANGCI_LINT_CACHE}
 	docker run --rm -v $(shell pwd):/app \
 		-v ${GOLANGCI_LINT_CACHE}:/root/.cache/golangci-lint \
 		-w /app golangci/golangci-lint:${GOLANGCI_LINT_VERSION}-alpine \
@@ -117,15 +131,21 @@ vet:
 	make -C operator vet
 	go vet -tags integration ./pkg/... ./cmd/... ./config/tests/...
 
-# Generate code
-.PHONY: generate
-generate:
-	# Don't run go generate on `pkg/clients/generated` in the normal development flow due to high latency.
-	# This path will be covered by `generate-go-client` target specifically.
+# Generate code including the dcl (legacy)
+.PHONY: generate-including-dcl
+generate-including-dcl:
 	go work vendor -o temp-vendor # So we can load DCL resources
 	go generate ./pkg/dcl/schema/...
 	rm -rf temp-vendor
 	go generate ./pkg/apis/...
+	make -C operator generate
+	make fmt
+
+# Generate code
+.PHONY: generate
+generate:
+	go generate ./pkg/apis/...
+	make -C operator generate
 	make fmt
 
 # Build the docker images
@@ -209,6 +229,12 @@ install: manifests
 deploy-controller: docker-build docker-push
 	kustomize build config/installbundle/releases/scopes/cluster/withworkloadidentity | sed -e 's/$${PROJECT_ID?}/${PROJECT_ID}/g'| kubectl apply -f - ${CONTEXT_FLAG}
 
+# Deploy controller only, this will skip CRD install in the configured K8s and usually runs much
+# faster than "make deploy". It is useful if you only want to quickly apply code change in controller
+.PHONY: deploy-controller-autopilot
+deploy-controller-autopilot: docker-build docker-push
+	kustomize build config/installbundle/releases/scopes/cluster/autopilot-withworkloadidentity | sed -e 's/$${PROJECT_ID?}/${PROJECT_ID}/g'| kubectl apply -f - ${CONTEXT_FLAG}
+
 # Generate CRD go clients
 .PHONY: generate-go-client
 generate-go-client:
@@ -232,7 +258,7 @@ ensure:
 
 # Should run all needed commands before any PR is sent out.
 .PHONY: ready-pr
-ready-pr: lint manifests resource-docs generate-go-client
+ready-pr: lint manifests resource-docs ensure fmt
 
 # Upgrades dcl dependencies
 .PHONY: upgrade-dcl
@@ -286,7 +312,7 @@ operator-manager-bin:
 
 # Build kcc manifests for both standard and autopilot clusters
 .PHONY: all-manifests
-all-manifests: crd-manifests rbac-manifests manager-manifests
+all-manifests: crd-manifests rbac-manifests build-operator-manifests
 	cp config/installbundle/release-manifests/crds.yaml config/installbundle/release-manifests/standard/crds.yaml
 	cp config/installbundle/release-manifests/rbac.yaml config/installbundle/release-manifests/standard/rbac.yaml
 	kustomize build config/installbundle/release-manifests/standard -o config/installbundle/release-manifests/standard/manifests.yaml
@@ -297,52 +323,58 @@ all-manifests: crd-manifests rbac-manifests manager-manifests
 
 # Build kcc manifests for standard GKE clusters
 .PHONY: config-connector-manifests-standard
-config-connector-manifests-standard: crd-manifests rbac-manifests manager-manifests
+config-connector-manifests-standard: build-crd-manifests build-rbac-manifests build-operator-manifests
 	cp config/installbundle/release-manifests/crds.yaml config/installbundle/release-manifests/standard/crds.yaml
 	cp config/installbundle/release-manifests/rbac.yaml config/installbundle/release-manifests/standard/rbac.yaml
 	kustomize build config/installbundle/release-manifests/standard -o config/installbundle/release-manifests/standard/manifests.yaml
 
 # Build kcc manifests for autopilot clusters
 .PHONY: config-connector-manifests-autopilot
-config-connector-manifests-autopilot: crd-manifests rbac-manifests manager-manifests
+config-connector-manifests-autopilot: build-crd-manifests build-rbac-manifests build-operator-manifests
 	cp config/installbundle/release-manifests/crds.yaml config/installbundle/release-manifests/autopilot/crds.yaml
 	cp config/installbundle/release-manifests/rbac.yaml config/installbundle/release-manifests/autopilot/rbac.yaml
 	kustomize build config/installbundle/release-manifests/autopilot -o config/installbundle/release-manifests/autopilot/manifests.yaml
 
-.PHONY: crd-manifests
-crd-manifests:
+.PHONY: build-crd-manifests
+build-crd-manifests:
 	go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 crd paths="./operator/pkg/apis/..." output:crd:artifacts:config=operator/config/crd/bases
 	kustomize build operator/config/crd -o config/installbundle/release-manifests/crds.yaml
 
-.PHONY: rbac-manifests
-rbac-manifests:
+.PHONY: build-rbac-manifests
+build-rbac-manifests:
 	kustomize build operator/config/rbac -o config/installbundle/release-manifests/rbac.yaml
 
-.PHONY: manager-manifests
-manager-manifests:
+.PHONY: build-operator-manifests
+build-operator-manifests:
 	make -C operator docker-build
 	kustomize build operator/config/autopilot-manager -o config/installbundle/release-manifests/autopilot/manager.yaml
 	kustomize build operator/config/manager -o config/installbundle/release-manifests/standard/manager.yaml
 
-.PHONY: clean-release-manifests
+.PHONY: push-operator-manifest
+push-operator-manifest:
+	make -C operator docker-push
+
+.PHONY: clean-operator-manifests
 clean-release-manifests:
 	rm config/installbundle/release-manifests/crds.yaml
 	rm config/installbundle/release-manifests/rbac.yaml
-	rm config/installbundle/release-manifests/manager.yaml
-	rm config/installbundle/release-manifests/manifests.yaml
+	rm config/installbundle/release-manifests/standard/manager.yaml
+	rm config/installbundle/release-manifests/autopilot/manager.yaml
+	rm config/installbundle/release-manifests/standard/manifests.yaml
+	rm config/installbundle/release-manifests/autopilot/manifests.yaml
 
-# deploy config connector manifests to a k8s cluster
-# make sure to connect to a k8s cluster first
-.PHONY: deploy-kcc-manifests-standard
-deploy-kcc-manifests-standard: config-connector-manifests-standard
-	kubectl apply -f config/installbundle/release-manifests/standard/manifests.yaml 
+.PHONY: deploy-kcc-standard
+deploy-kcc-standard: docker-build docker-push config-connector-manifests-standard push-operator-manifest 
+	kubectl apply -f config/installbundle/release-manifests/standard/manifests.yaml ${CONTEXT_FLAG}
+	kustomize build config/installbundle/releases/scopes/cluster/withworkloadidentity | sed -e 's/$${PROJECT_ID?}/${PROJECT_ID}/g'| kubectl apply -f - ${CONTEXT_FLAG}
 
-.PHONY: deploy-kcc-manifests-autopilot
-deploy-kcc-manifests-autopilot: config-connector-manifests-autopilot
-	kubectl apply -f config/installbundle/release-manifests/autopilot/manifests.yaml 
+.PHONY: deploy-kcc-autopilot
+deploy-kcc-autopilot: docker-build docker-push config-connector-manifests-autopilot push-operator-manifest
+	kubectl apply -f config/installbundle/release-manifests/autopilot/manifests.yaml ${CONTEXT_FLAG}
+	kustomize build config/installbundle/releases/scopes/cluster/autopilot-withworkloadidentity | sed -e 's/$${PROJECT_ID?}/${PROJECT_ID}/g'| kubectl apply -f - ${CONTEXT_FLAG}
 
 .PHONY: powertool-tests
-powertool-tests:	
+powertool-tests:
 	cd scripts/github-actions/ && ./powertool-test.sh
 
 .PHONY: e2e-scenario-tests
@@ -356,7 +388,7 @@ TEST_TARGET ?= mock
 
 .PHONY: e2e-sample-tests
 e2e-sample-tests:
-	RUN_E2E=1 E2E_KUBE_TARGET=envtest E2E_GCP_TARGET=${TEST_TARGET} KCC_USE_DIRECT_RECONCILERS="SQLInstance,ComputeForwardingRule" \ go test -test.count=1 -timeout 3600s -v ./tests/e2e -run ${SAMPLE_TESTCASE}
+	RUN_E2E=1 E2E_KUBE_TARGET=envtest E2E_GCP_TARGET=${TEST_TARGET} KCC_USE_DIRECT_RECONCILERS="ComputeForwardingRule" \ go test -test.count=1 -timeout 3600s -v ./tests/e2e -run ${SAMPLE_TESTCASE}
 
 # orgnization ID for google.com
 ORG_ID ?= 433637338589

@@ -15,6 +15,8 @@
 apiVersion: alloydb.cnrm.cloud.google.com/v1beta1
 kind: AlloyDBInstance
 metadata:
+  annotations:
+    alpha.cnrm.cloud.google.com/reconciler: "direct"
   name: alloydbinstance-${uniqueId}
 spec:
   clusterRef: 
@@ -28,4 +30,5 @@ spec:
   resourceID: alloydbinstance${uniqueId}
   networkConfig:
     enablePublicIp: false
+    enableOutboundPublicIp: false
     authorizedExternalNetworks: []

@@ -1,6 +1,6 @@
 POST https://monitoring.googleapis.com/v3/projects/${projectId}/groups?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 {
   "displayName": "sample-group",
@@ -30,7 +30,7 @@ X-Xss-Protection: 0
 
 GET https://monitoring.googleapis.com/v3/projects/${projectId}/groups/${groupID}?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 200 OK
 Cache-Control: private
@@ -54,7 +54,7 @@ X-Xss-Protection: 0
 
 POST https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 {
   "displayName": "tcp-uptime-check",
@@ -83,7 +83,7 @@ X-Xss-Protection: 0
 {
   "checkerType": "STATIC_IP_CHECKERS",
   "displayName": "tcp-uptime-check",
-  "name": "projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}",
+  "name": "projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}",
   "period": "60s",
   "resourceGroup": {
     "groupId": "${groupID}",
@@ -97,9 +97,9 @@ X-Xss-Protection: 0
 
 ---
 
-GET https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}?alt=json
+GET https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 200 OK
 Cache-Control: private
@@ -115,7 +115,7 @@ X-Xss-Protection: 0
 {
   "checkerType": "STATIC_IP_CHECKERS",
   "displayName": "tcp-uptime-check",
-  "name": "projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}",
+  "name": "projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}",
   "period": "60s",
   "resourceGroup": {
     "groupId": "${groupID}",
@@ -129,13 +129,13 @@ X-Xss-Protection: 0
 
 ---
 
-PATCH https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}?alt=json&updateMask=displayName%2Ctimeout
+PATCH https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}?alt=json&updateMask=displayName%2Ctimeout
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 {
   "displayName": "updated-tcp-uptime-check",
-  "name": "projects/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}",
+  "name": "projects/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}",
   "period": "60s",
   "tcpCheck": {
     "port": 80
@@ -157,7 +157,7 @@ X-Xss-Protection: 0
 {
   "checkerType": "STATIC_IP_CHECKERS",
   "displayName": "updated-tcp-uptime-check",
-  "name": "projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}",
+  "name": "projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}",
   "period": "60s",
   "resourceGroup": {
     "groupId": "${groupID}",
@@ -171,9 +171,9 @@ X-Xss-Protection: 0
 
 ---
 
-GET https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}?alt=json
+GET https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 200 OK
 Cache-Control: private
@@ -189,7 +189,7 @@ X-Xss-Protection: 0
 {
   "checkerType": "STATIC_IP_CHECKERS",
   "displayName": "updated-tcp-uptime-check",
-  "name": "projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}",
+  "name": "projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}",
   "period": "60s",
   "resourceGroup": {
     "groupId": "${groupID}",
@@ -203,9 +203,9 @@ X-Xss-Protection: 0
 
 ---
 
-DELETE https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}?alt=json
+DELETE https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 200 OK
 Cache-Control: private
@@ -222,9 +222,9 @@ X-Xss-Protection: 0
 
 ---
 
-GET https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigId}?alt=json
+GET https://monitoring.googleapis.com/v3/projects/${projectId}/uptimeCheckConfigs/${uptimeCheckConfigID}?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 404 Not Found
 Cache-Control: private
@@ -240,7 +240,7 @@ X-Xss-Protection: 0
 {
   "error": {
     "code": 404,
-    "message": "Config not found for check ${uptimeCheckConfigId} in project ${projectId}",
+    "message": "Config not found for check ${uptimeCheckConfigID} in project ${projectId}",
     "status": "NOT_FOUND"
   }
 }
@@ -249,7 +249,7 @@ X-Xss-Protection: 0
 
 GET https://monitoring.googleapis.com/v3/projects/${projectId}/groups/${groupID}?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 200 OK
 Cache-Control: private
@@ -273,7 +273,7 @@ X-Xss-Protection: 0
 
 DELETE https://monitoring.googleapis.com/v3/projects/${projectId}/groups/${groupID}?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 200 OK
 Cache-Control: private
@@ -292,7 +292,7 @@ X-Xss-Protection: 0
 
 GET https://monitoring.googleapis.com/v3/projects/${projectId}/groups/${groupID}?alt=json
 Content-Type: application/json
-User-Agent: kcc/controller-manager DeclarativeClientLib/0.0.1
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion} DeclarativeClientLib/0.0.1
 
 404 Not Found
 Cache-Control: private

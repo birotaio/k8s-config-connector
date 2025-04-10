@@ -99,7 +99,7 @@ func LogBucketRef_ConvertToExternal(ctx context.Context, reader client.Reader, s
 		Namespace: obj.Spec.ProjectRef.Namespace,
 		External:  obj.Spec.ProjectRef.External,
 	}
-	project, err := refs.ResolveProject(ctx, reader, loggingLogBucket, projectRef)
+	project, err := refs.ResolveProject(ctx, reader, loggingLogBucket.GetNamespace(), projectRef)
 	if err != nil {
 		return fmt.Errorf("cannot get project for referenced LoggingLogBucket %v: %w", key, err)
 	}
@@ -125,7 +125,7 @@ func LogBucketRef_ConvertToExternal(ctx context.Context, reader client.Reader, s
 func LogBucketRef_Parse(ctx context.Context, external string) (*LogBucket, error) {
 	bucketName := external
 
-	// validate the the bucket ref external is well formatted
+	// validate the bucket ref external is well formatted
 	// eg: projects/my-project/locations/global/buckets/my-bucket
 	parts := strings.Split(bucketName, "/")
 	if len(parts) != 6 || parts[0] != "projects" || parts[2] != "locations" || parts[4] != "buckets" {

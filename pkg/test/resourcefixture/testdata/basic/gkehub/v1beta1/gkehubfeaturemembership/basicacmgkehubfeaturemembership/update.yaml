@@ -20,7 +20,7 @@ spec:
   projectRef:
     name: gkehubfm-${uniqueId}
   location: global
-  membershipLocation: global
+  membershipLocation: us-central1
   membershipRef:
     name: gkehubmembership-basic-acm-${uniqueId}
   featureRef:
@@ -28,6 +28,7 @@ spec:
   configmanagement:
     configSync:
       sourceFormat: hierarchy
+      stopSyncing: true
       git:
         gcpServiceAccountRef:
           name: sa-${uniqueId} 
@@ -38,8 +39,5 @@ spec:
         syncWaitSecs: "20"
         syncRev: "HEAD"
         secretType: "none"
-    hierarchyController:
-      enabled: true
-      enablePodTreeLabels: true
-      enableHierarchicalResourceQuota: true
-    version: "1.18.1"
+    version: "1.20.0"
+

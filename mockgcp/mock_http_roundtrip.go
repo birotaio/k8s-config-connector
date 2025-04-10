@@ -36,23 +36,30 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/common/workflows"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockaiplatform"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockalloydb"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockapigee"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockapikeys"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockartifactregistry"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockbigquery"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockbigqueryanalyticshub"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockbigqueryconnection"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockbigquerydatatransfer"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockbigqueryreservation"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockbigtable"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockbilling"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockcertificatemanager"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockcloudbuild"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockcloudfunctions"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockcloudidentity"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockcloudids"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockcompute"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockcontainer"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockcontaineranalysis"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockdataflow"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockdataform"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockdiscoveryengine"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockedgecontainer"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockedgenetwork"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockfirestore"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockgkehub"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockgkemulticloud"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockiam"
@@ -68,11 +75,15 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockredis"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockresourcemanager"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mocksecretmanager"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mocksecuresourcemanager"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockservicedirectory"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockservicenetworking"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockserviceusage"
 	mockspanner "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockspanner/admin"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mocksql"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockstorage"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockvpcaccess"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/mockworkstations"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/pkg/storage"
 )
 
@@ -83,6 +94,8 @@ type mockRoundTripper struct {
 	iamPolicies *mockIAMPolicies
 
 	services []registeredService
+
+	server *grpc.Server
 }
 
 type registeredService struct {
@@ -120,6 +133,9 @@ type Interface interface {
 	// NewGRPCConnection returns a grpc connection to our mock implementation
 	NewGRPCConnection(ctx context.Context) *grpc.ClientConn
 
+	// Run starts the grpc service, until ctx is closed
+	Run(ctx context.Context) error
+
 	// We can dispatch test commands
 	SupportsTestCommands
 }
@@ -130,9 +146,7 @@ type SupportsTestCommands interface {
 	RunTestCommand(ctx context.Context, service string, command string) error
 }
 
-func NewMockRoundTripper(t *testing.T, k8sClient client.Client, storage storage.Storage) Interface {
-	ctx := context.Background()
-
+func NewMockRoundTripper(ctx context.Context, k8sClient client.Client, storage storage.Storage) (Interface, error) {
 	mockRoundTripper := &mockRoundTripper{}
 	mockHTTPClient := &http.Client{
 		Transport: mockRoundTripper,
@@ -143,7 +157,7 @@ func NewMockRoundTripper(t *testing.T, k8sClient client.Client, storage storage.
 
 	workflowEngine, err := workflows.NewEngine(mockHTTPClient)
 	if err != nil {
-		t.Fatalf("building workflow engine: %v", err)
+		return nil, fmt.Errorf("building workflow engine: %w", err)
 	}
 	env.Workflows = workflowEngine
 
@@ -161,10 +175,13 @@ func NewMockRoundTripper(t *testing.T, k8sClient client.Client, storage storage.
 	services = append(services, mockbigquery.New(env, storage))
 	services = append(services, mockbigtable.New(env, storage))
 	services = append(services, mockbilling.New(env, storage))
+	services = append(services, mockcloudidentity.New(env, storage))
 	services = append(services, mockcontainer.New(env, storage))
 	services = append(services, mockcertificatemanager.New(env, storage))
 	services = append(services, mockcompute.New(env, storage))
 	services = append(services, mockdataflow.New(env, storage))
+	services = append(services, mockdiscoveryengine.New(env, storage))
+	services = append(services, mockfirestore.New(env, storage))
 	services = append(services, mockgkemulticloud.New(env, storage))
 	services = append(services, mockiam.New(env, storage))
 	services = append(services, mockkms.New(env, storage))
@@ -179,6 +196,7 @@ func NewMockRoundTripper(t *testing.T, k8sClient client.Client, storage storage.
 	services = append(services, mockprivilegedaccessmanager.New(env, storage))
 	services = append(services, mockpubsub.New(env, storage))
 	services = append(services, mockredis.New(env, storage))
+	services = append(services, mocksecuresourcemanager.New(env, storage))
 	services = append(services, mockservicenetworking.New(env, storage))
 	services = append(services, mockserviceusage.New(env, storage))
 	services = append(services, mocksql.New(env, storage))
@@ -194,26 +212,25 @@ func NewMockRoundTripper(t *testing.T, k8sClient client.Client, storage storage.
 	services = append(services, mockcontaineranalysis.New(env, storage))
 	services = append(services, mockdataform.New(env, storage))
 	services = append(services, mockbigqueryconnection.New(env, storage))
+	services = append(services, mockservicedirectory.New(env, storage))
+	services = append(services, mockworkstations.New(env, storage))
+	services = append(services, mockbigquerydatatransfer.New(env, storage))
+	services = append(services, mockbigqueryanalyticshub.New(env, storage))
+	services = append(services, mockvpcaccess.New(env, storage))
+	services = append(services, mockapigee.New(env, storage))
+	services = append(services, mockbigqueryreservation.New(env, storage))
 
 	for _, service := range services {
 		service.Register(server)
 	}
 
+	mockRoundTripper.server = server
+
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Fatalf("net.Listen failed: %v", err)
+		return nil, fmt.Errorf("net.Listen failed: %w", err)
 	}
 	mockRoundTripper.grpcListener = listener
-
-	go func() {
-		if err := server.Serve(listener); err != nil {
-			t.Errorf("error from grpc server: %v", err)
-		}
-	}()
-
-	t.Cleanup(func() {
-		server.Stop()
-	})
 
 	endpoint := listener.Addr().String()
 
@@ -221,14 +238,14 @@ func NewMockRoundTripper(t *testing.T, k8sClient client.Client, storage storage.
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
-		t.Fatalf("error dialing grpc endpoint %q: %v", endpoint, err)
+		return nil, fmt.Errorf("error dialing grpc endpoint %q: %v", endpoint, err)
 	}
 	mockRoundTripper.grpcConnection = conn
 
 	for _, service := range services {
 		mux, err := service.NewHTTPMux(ctx, conn)
 		if err != nil {
-			t.Fatalf("error building mux: %v", err)
+			return nil, fmt.Errorf("error building mux: %v", err)
 		}
 		var hostRegexes []*regexp.Regexp
 		for _, host := range service.ExpectedHosts() {
@@ -243,7 +260,35 @@ func NewMockRoundTripper(t *testing.T, k8sClient client.Client, storage storage.
 
 	mockRoundTripper.iamPolicies = newMockIAMPolicies()
 
+	return mockRoundTripper, nil
+}
+
+func NewMockRoundTripperForTest(t *testing.T, k8sClient client.Client, storage storage.Storage) Interface {
+	ctx := context.Background()
+
+	ctx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
+
+	mockRoundTripper, err := NewMockRoundTripper(ctx, k8sClient, storage)
+	if err != nil {
+		t.Fatalf("building mockgcp: %v", err)
+	}
+
+	go func() {
+		if err := mockRoundTripper.Run(ctx); err != nil {
+			t.Errorf("error from grpc server: %v", err)
+		}
+	}()
+
 	return mockRoundTripper
+}
+
+func (m *mockRoundTripper) Run(ctx context.Context) error {
+	go func() {
+		<-ctx.Done()
+		m.server.Stop()
+	}()
+	return m.server.Serve(m.grpcListener)
 }
 
 func (m *mockRoundTripper) RunTestCommand(ctx context.Context, serviceName string, command string) error {
@@ -314,6 +359,14 @@ func (m *mockRoundTripper) prefilterRequest(req *http.Request) error {
 
 			req.Body = io.NopCloser(bytes.NewBuffer(b))
 		}
+	} else {
+		// When sending a delete request for a ComputeFirewallPolicyRule resource,
+		// The request URL looks like POST https://compute.googleapis.com/compute/v1/locations/global/firewallPolicies/${firewallPolicyID}/removeRule.
+		// It's uncommon to use POST requests for delete operations, and a nil request body for POST method is unexpected,
+		// I got the "missing form body" error. Ref: https://go.dev/src/net/http/request.go?s=41070:41129 line 1340
+		// So instead of sending a nil request body, send an empty request body to ensure successful processing of the remove rule request.
+		body := &bytes.Buffer{}
+		req.Body = io.NopCloser(body)
 	}
 	return nil
 }
@@ -446,6 +499,7 @@ func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 		if w.statusCode == 0 {
 			w.statusCode = 200
 		}
+		klog.Infof("mockgcp response: %v %v => %d", req.Method, req.URL, w.statusCode)
 		response.Status = fmt.Sprintf("%d %s", w.statusCode, http.StatusText(w.statusCode))
 		response.StatusCode = w.statusCode
 		return response, nil

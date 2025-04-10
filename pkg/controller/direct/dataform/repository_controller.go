@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"reflect"
 
-	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/dataform/v1alpha1"
+	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/dataform/v1beta1"
 	apirefs "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/config"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const ctrlName = "dataform-controller"
+const ctrlName = "dataform-repository-controller"
 
 func init() {
 	registry.RegisterModel(krm.DataformRepositoryGVK, NewModel)
@@ -80,7 +80,7 @@ func (m *model) AdapterForObject(ctx context.Context, reader client.Reader, u *u
 		return nil, fmt.Errorf("cannot resolve resource ID")
 	}
 
-	projectRef, err := apirefs.ResolveProject(ctx, reader, obj, obj.Spec.ProjectRef)
+	projectRef, err := apirefs.ResolveProject(ctx, reader, obj.GetNamespace(), obj.Spec.ProjectRef)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +95,30 @@ func (m *model) AdapterForObject(ctx context.Context, reader client.Reader, u *u
 		return nil, fmt.Errorf("cannot resolve location")
 	}
 
+	var id *DataformRepositoryIdentity
+	externalRef := direct.ValueOf(obj.Status.ExternalRef)
+	if externalRef == "" {
+		id = BuildID(projectID, location, resourceID)
+	} else {
+		id, err = asID(externalRef)
+		if err != nil {
+			return nil, err
+		}
+
+		if id.project != projectID {
+			return nil, fmt.Errorf("DataformRepository %s/%s has spec.projectRef changed, expect %s, got %s",
+				u.GetNamespace(), u.GetName(), id.project, projectID)
+		}
+		if id.location != location {
+			return nil, fmt.Errorf("DataformRepository %s/%s has spec.location changed, expect %s, got %s",
+				u.GetNamespace(), u.GetName(), id.location, location)
+		}
+		if id.dataform != resourceID {
+			return nil, fmt.Errorf("DataformRepository  %s/%s has metadata.name or spec.resourceID changed, expect %s, got %s",
+				u.GetNamespace(), u.GetName(), id.dataform, resourceID)
+		}
+	}
+
 	if err := resolveOptionalRefs(ctx, reader, obj); err != nil {
 		return nil, fmt.Errorf("failed to resolve resource references %w", err)
 	}
@@ -104,11 +128,9 @@ func (m *model) AdapterForObject(ctx context.Context, reader client.Reader, u *u
 		return nil, err
 	}
 	return &Adapter{
-		resourceID: resourceID,
-		projectID:  projectID,
-		gcpClient:  gcpClient,
-		location:   location,
-		desired:    obj,
+		id:        id,
+		gcpClient: gcpClient,
+		desired:   obj,
 	}, nil
 }
 
@@ -150,28 +172,26 @@ func (m *model) AdapterForURL(ctx context.Context, url string) (directbase.Adapt
 }
 
 type Adapter struct {
-	resourceID string
-	projectID  string
-	location   string
-	gcpClient  *gcp.Client
-	desired    *krm.DataformRepository
-	actual     *dataformpb.Repository
+	id        *DataformRepositoryIdentity
+	gcpClient *gcp.Client
+	desired   *krm.DataformRepository
+	actual    *dataformpb.Repository
 }
 
 var _ directbase.Adapter = &Adapter{}
 
 func (a *Adapter) Find(ctx context.Context) (bool, error) {
-	if a.resourceID == "" {
+	if a.id.dataform == "" {
 		return false, nil
 	}
 
-	req := &dataformpb.GetRepositoryRequest{Name: a.fullyQualifiedName()}
+	req := &dataformpb.GetRepositoryRequest{Name: a.id.FullyQualifiedName()}
 	actual, err := a.gcpClient.GetRepository(ctx, req)
 	if err != nil {
 		if direct.IsNotFound(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("getting DataformRepository %q: %w", a.fullyQualifiedName(), err)
+		return false, fmt.Errorf("getting DataformRepository %q: %w", a.id.FullyQualifiedName(), err)
 	}
 
 	a.actual = actual
@@ -184,14 +204,6 @@ func (a *Adapter) Create(ctx context.Context, createOp *directbase.CreateOperati
 	log := klog.FromContext(ctx).WithName(ctrlName)
 	log.V(2).Info("creating object", "u", u)
 
-	projectID := a.projectID
-	if projectID == "" {
-		return fmt.Errorf("project is empty")
-	}
-	if a.resourceID == "" {
-		return fmt.Errorf("resourceID is empty")
-	}
-
 	desired := a.desired.DeepCopy()
 	mapCtx := &direct.MapContext{}
 	resource := DataformRepositorySpec_ToProto(mapCtx, &desired.Spec)
@@ -200,9 +212,9 @@ func (a *Adapter) Create(ctx context.Context, createOp *directbase.CreateOperati
 	}
 
 	req := &dataformpb.CreateRepositoryRequest{
-		Parent:       a.getParent(),
+		Parent:       a.id.Parent(),
 		Repository:   resource,
-		RepositoryId: a.resourceID,
+		RepositoryId: a.id.dataform,
 	}
 	_, err := a.gcpClient.CreateRepository(ctx, req)
 	if err != nil {
@@ -210,7 +222,7 @@ func (a *Adapter) Create(ctx context.Context, createOp *directbase.CreateOperati
 	}
 
 	status := &krm.DataformRepositoryStatus{}
-	status.ExternalRef = direct.LazyPtr(a.fullyQualifiedName())
+	status.ExternalRef = a.id.AsExternalRef()
 
 	// TODO(acpana): add observed state
 	return setStatus(u, status)
@@ -237,7 +249,7 @@ func (a *Adapter) Update(ctx context.Context, updateOp *directbase.UpdateOperati
 		mapCtx := &direct.MapContext{}
 		protoDesired := RepositoryWorkspaceCompilationOverrides_ToProto(mapCtx, a.desired.Spec.WorkspaceCompilationOverrides)
 		if mapCtx.Err() != nil {
-			return fmt.Errorf("converting WorkspaceCompilaitonOverrides to api: %w", mapCtx.Err())
+			return fmt.Errorf("converting WorkspaceCompilationOverrides to api: %w", mapCtx.Err())
 		}
 
 		if !reflect.DeepEqual(protoDesired, a.actual.WorkspaceCompilationOverrides) {
@@ -262,7 +274,7 @@ func (a *Adapter) Update(ctx context.Context, updateOp *directbase.UpdateOperati
 		return fmt.Errorf("converting DataformRepository spec to api: %w", mapCtx.Err())
 	}
 
-	resource.Name = a.fullyQualifiedName()
+	resource.Name = a.id.FullyQualifiedName()
 	req := &dataformpb.UpdateRepositoryRequest{UpdateMask: updateMask, Repository: resource}
 	_, err := a.gcpClient.UpdateRepository(ctx, req)
 	if err != nil {
@@ -270,37 +282,42 @@ func (a *Adapter) Update(ctx context.Context, updateOp *directbase.UpdateOperati
 	}
 
 	status := &krm.DataformRepositoryStatus{}
-	status.ExternalRef = direct.LazyPtr(a.fullyQualifiedName())
 
 	// TODO(acpana): add observed state
 	return setStatus(u, status)
 }
 
 func (a *Adapter) Export(ctx context.Context) (*unstructured.Unstructured, error) {
-	// TODO(kcc)
-	return nil, nil
+	if a.actual == nil {
+		return nil, fmt.Errorf("Find() not called")
+	}
+	u := &unstructured.Unstructured{}
+
+	obj := &krm.DataformRepository{}
+	mapCtx := &direct.MapContext{}
+	obj.Spec = direct.ValueOf(DataformRepositorySpec_FromProto(mapCtx, a.actual))
+	if mapCtx.Err() != nil {
+		return nil, mapCtx.Err()
+	}
+
+	obj.Spec.ProjectRef = &apirefs.ProjectRef{Name: a.id.project}
+	obj.Spec.Region = a.id.location
+	uObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+	u.Object = uObj
+	return u, nil
 }
 
 // Delete implements the Adapter interface.
 func (a *Adapter) Delete(ctx context.Context, deleteOp *directbase.DeleteOperation) (bool, error) {
-	if a.resourceID == "" {
-		return false, nil
-	}
-
-	req := &dataformpb.DeleteRepositoryRequest{Name: a.fullyQualifiedName()}
+	req := &dataformpb.DeleteRepositoryRequest{Name: a.id.FullyQualifiedName()}
 	if err := a.gcpClient.DeleteRepository(ctx, req); err != nil {
-		return false, fmt.Errorf("deleting DataformRepository %s: %w", a.fullyQualifiedName(), err)
+		return false, fmt.Errorf("deleting DataformRepository %s: %w", a.id.FullyQualifiedName(), err)
 	}
 
 	return true, nil
-}
-
-func (a *Adapter) fullyQualifiedName() string {
-	return fmt.Sprintf("projects/%s/locations/%s/repositories/%s", a.projectID, a.location, a.resourceID)
-}
-
-func (a *Adapter) getParent() string {
-	return fmt.Sprintf("projects/%s/locations/%s", a.projectID, a.location)
 }
 
 func setStatus(u *unstructured.Unstructured, typedStatus any) error {
@@ -313,6 +330,7 @@ func setStatus(u *unstructured.Unstructured, typedStatus any) error {
 	if old != nil {
 		status["conditions"] = old["conditions"]
 		status["observedGeneration"] = old["observedGeneration"]
+		status["externalRef"] = old["externalRef"]
 	}
 
 	u.Object["status"] = status

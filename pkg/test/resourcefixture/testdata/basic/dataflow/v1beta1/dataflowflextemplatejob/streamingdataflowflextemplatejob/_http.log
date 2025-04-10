@@ -1,6 +1,6 @@
 GET https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/${datasetID}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 404 Not Found
 Cache-Control: private
@@ -32,7 +32,7 @@ X-Xss-Protection: 0
 
 POST https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 {
   "datasetReference": {
@@ -42,7 +42,7 @@ User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 t
     "cnrm-test": "true",
     "managed-by-cnrm": "true"
   },
-  "location": "US"
+  "location": "us-central1"
 }
 
 200 OK
@@ -59,10 +59,6 @@ X-Xss-Protection: 0
 {
   "access": [
     {
-      "role": "WRITER",
-      "specialGroup": "projectWriters"
-    },
-    {
       "role": "OWNER",
       "specialGroup": "projectOwners"
     },
@@ -73,6 +69,10 @@ X-Xss-Protection: 0
     {
       "role": "READER",
       "specialGroup": "projectReaders"
+    },
+    {
+      "role": "WRITER",
+      "specialGroup": "projectWriters"
     }
   ],
   "creationTime": "123456789",
@@ -88,7 +88,7 @@ X-Xss-Protection: 0
     "managed-by-cnrm": "true"
   },
   "lastModifiedTime": "123456789",
-  "location": "US",
+  "location": "us-central1",
   "selfLink": "https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/bigquerydataset${uniqueId}",
   "type": "DEFAULT"
 }
@@ -97,7 +97,7 @@ X-Xss-Protection: 0
 
 GET https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/${datasetID}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -113,10 +113,6 @@ X-Xss-Protection: 0
 {
   "access": [
     {
-      "role": "WRITER",
-      "specialGroup": "projectWriters"
-    },
-    {
       "role": "OWNER",
       "specialGroup": "projectOwners"
     },
@@ -127,6 +123,10 @@ X-Xss-Protection: 0
     {
       "role": "READER",
       "specialGroup": "projectReaders"
+    },
+    {
+      "role": "WRITER",
+      "specialGroup": "projectWriters"
     }
   ],
   "creationTime": "123456789",
@@ -142,7 +142,8 @@ X-Xss-Protection: 0
     "managed-by-cnrm": "true"
   },
   "lastModifiedTime": "123456789",
-  "location": "US",
+  "location": "us-central1",
+  "maxTimeTravelHours": "168",
   "selfLink": "https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/bigquerydataset${uniqueId}",
   "type": "DEFAULT"
 }
@@ -150,7 +151,7 @@ X-Xss-Protection: 0
 ---
 
 GET https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/${datasetID}/tables/bigquerytable${uniqueId}?alt=json&prettyPrint=false
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 404 Not Found
 Cache-Control: private
@@ -182,7 +183,7 @@ X-Xss-Protection: 0
 
 POST https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/${datasetID}/tables?alt=json&prettyPrint=false
 Content-Type: application/json
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 {
   "labels": {
@@ -237,7 +238,7 @@ X-Xss-Protection: 0
 ---
 
 GET https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/${datasetID}/tables/bigquerytable${uniqueId}?alt=json&prettyPrint=false
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -280,7 +281,7 @@ X-Xss-Protection: 0
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic0-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 404 Not Found
 Cache-Control: private
@@ -305,7 +306,7 @@ X-Xss-Protection: 0
 
 PUT https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic0-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 {
   "labels": {
@@ -337,7 +338,7 @@ X-Xss-Protection: 0
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic0-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -362,7 +363,7 @@ X-Xss-Protection: 0
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic1-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 404 Not Found
 Cache-Control: private
@@ -387,7 +388,7 @@ X-Xss-Protection: 0
 
 PUT https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic1-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 {
   "labels": {
@@ -419,7 +420,7 @@ X-Xss-Protection: 0
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic1-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -444,7 +445,7 @@ X-Xss-Protection: 0
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 404 Not Found
 Cache-Control: private
@@ -469,7 +470,7 @@ X-Xss-Protection: 0
 
 PUT https://pubsub.googleapis.com/v1/projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 {
   "deadLetterPolicy": null,
@@ -494,6 +495,7 @@ X-Frame-Options: SAMEORIGIN
 X-Xss-Protection: 0
 
 {
+  "ackDeadlineSeconds": 10,
   "expirationPolicy": {
     "ttl": "2678400s"
   },
@@ -512,7 +514,7 @@ X-Xss-Protection: 0
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 404 Not Found
 Cache-Control: private
@@ -537,7 +539,7 @@ X-Xss-Protection: 0
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -551,6 +553,7 @@ X-Frame-Options: SAMEORIGIN
 X-Xss-Protection: 0
 
 {
+  "ackDeadlineSeconds": 10,
   "expirationPolicy": {
     "ttl": "2678400s"
   },
@@ -569,7 +572,7 @@ X-Xss-Protection: 0
 
 POST https://dataflow.googleapis.com/v1b3/projects/${projectId}/locations/us-central1/flexTemplates:launch?alt=json&prettyPrint=false
 Content-Type: application/json
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 {
   "launchParameter": {
@@ -580,7 +583,7 @@ User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terr
       "createDisposition": "CREATE_NEVER",
       "inputSubscription": "projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}",
       "outputTableSpec": "${projectId}:bigquerydataset${uniqueId}.bigquerytable${uniqueId}",
-      "outputTopic": "projects/${projectId}/topics/pubsubtopic1-${uniqueId}",
+      "outputTopic": "projects/${projectId}/topics/pubsubtopic0-${uniqueId}",
       "schemaPath": "gs://config-connector-samples/dataflowflextemplate/numbers.avsc"
     }
   }
@@ -612,7 +615,7 @@ X-Xss-Protection: 0
 ---
 
 GET https://dataflow.googleapis.com/v1b3/projects/${projectId}/locations/us-central1/jobs/${jobID}?alt=json&prettyPrint=false&view=JOB_VIEW_ALL
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -632,16 +635,11 @@ X-Xss-Protection: 0
   "environment": {
     "dataset": "bigquery.googleapis.com/cloud_dataflow",
     "experiments": [
-      "auto_google_template_runner_v2",
-      "auto_high_core_runner_v2",
-      "auto_runner_v2_min_sdk=2.54.0",
-      "configure_shuffle_service_addresses_in_control_plane",
-      "delayed_launch",
+      "autoscale_windmill_service_by_default",
       "disable_baggins_exp",
-      "disable_primeflex",
+      "disable_prime_streaming_engine",
       "disable_runner_v2_reason=java_job_google_template",
       "ek_regions=",
-      "enable_always_on_exception_sampling",
       "enable_always_on_exception_sampling",
       "enable_async_job_creation",
       "enable_billing_v_1_5",
@@ -649,115 +647,118 @@ X-Xss-Protection: 0
       "enable_cmek_org_policy_check",
       "enable_compute_default_service_account_org_policy",
       "enable_data_sampling_telemetry",
-      "enable_dataprep_new_billing",
       "enable_fnapi_multimap_side_input_bulk_read",
+      "enable_kms_on_streaming_engine",
+      "enable_lightweight_streaming_update",
+      "enable_lightweight_streaming_update_worker_utilization_hint",
       "enable_memory_sampler",
       "enable_oom_sampler",
       "enable_recommendations",
       "enable_remote_image_ping",
       "enable_secure_boot",
+      "enable_streaming_java_vmr",
+      "enable_streaming_pubsub_io_stackdriver_metrics",
+      "enable_streaming_scaling",
+      "enable_streaming_service_billing",
       "enable_throttled_based_rescaling",
       "enable_worker_cloud_monitoring_exporter",
       "enable_worker_disk_cloud_monitoring",
       "enable_worker_memory_cloud_monitoring",
       "enable_zonal_outage_aware_routing",
-      "limit_preemptible_worker_pct",
-      "limit_resizing_by_cpu_util",
-      "min_sdk_version_to_reject_worker_in_different_region_than_service=2.44.0",
+      "force_zone_isolation=zi-fail-open",
       "override_controller_service_account",
       "primeflex_slow_start_pct=5",
       "primeflex_slow_start_seconds=3600",
-      "regional_physical_zone_separation_enabled",
-      "shuffle_mode=auto",
-      "shuffle_service_address_type=DIRECTPATH_WITH_CFE_FALLBACK",
-      "sideinput_io_metrics",
+      "streaming_engine_isolation_mode=PER_JOB",
       "use_dataflow_service_account_in_igm",
       "use_e2_for_default_machine_type_worker_regions=africa-south1,europe-north2,europe-southwest1,europe-west10,europe-west12,europe-west8,europe-west9,me-central1,me-central2,me-west1,northamerica-south1,southamerica-west1,us-east10,us-east5,us-east7,us-south1,us-west8",
       "use_job_admission_controller",
       "use_multi_hop_delegation",
+      "use_ppm_for_windmill",
       "use_templates_regional_bucket",
-      "use_worker_zone_chooser_by_default"
+      "use_timer_backlog_in_streaming_autoscaling",
+      "use_worker_zone_chooser_by_default",
+      "use_workflow_job_manager_components_for_streaming",
+      "use_workflow_job_manager_components_for_streaming_reload"
     ],
     "sdkPipelineOptions": {
       "display_data": [],
       "options": {
+        "HTTPWriteTimeout": 0,
         "apiRootUrl": "https://dataflow.googleapis.com/",
-        "appName": "FileFormatConversion",
+        "appName": "PubsubAvroToBigQuery",
         "autoscalingAlgorithm": null,
-        "containsHeaders": false,
+        "createDisposition": "CREATE_NEVER",
         "credentialFactoryClass": "org.apache.beam.sdk.extensions.gcp.auth.GcpCredentialFactory",
-        "csvFileEncoding": "UTF-8",
-        "csvFormat": "Default",
         "dataflowEndpoint": "",
         "dataflowKmsKey": null,
-        "dataflowServiceOptions": null,
         "dataflowWorkerJar": null,
         "defaultEnvironmentConfig": null,
         "defaultEnvironmentType": null,
-        "delimiter": ",",
         "diskSizeGb": 0,
         "enableCloudDebugger": false,
         "enableStreamingEngine": false,
-        "environmentOptions": null,
         "experiments": [
           "disable_runner_v2_reason=java_job_google_template",
-          "enable_always_on_exception_sampling"
+          "enable_always_on_exception_sampling",
+          "enable_streaming_java_vmr"
         ],
         "filesToStage": [
-          "/template/file-format-conversion/file-format-conversion.jar"
+          "/usr/local/jre1.8.0-latest/lib/ext/cldrdata.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/jaccess.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/dnsns.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/nashorn.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/localedata.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/jfxrt.jar",
+          "/template/pubsub-avro-to-bigquery/pubsub-avro-to-bigquery.jar"
         ],
         "gcpTempLocation": "gs://dataflow-staging-us-central1-${projectNumber}/tmp",
         "gcsPerformanceMetrics": false,
         "gcsUploadBufferSizeBytes": null,
         "googleApiTrace": null,
-        "hotKeyLoggingEnabled": false,
-        "inputFileFormat": "csv",
-        "inputFileSpec": "gs://config-connector-samples/dataflowflextemplate/numbertest.csv",
+        "inputSubscription": "projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}",
         "jobName": "dataflowflextemplatejob-${uniqueId}",
         "labels": {
-          "goog-dataflow-provided-template-name": "file_format_conversion",
+          "goog-dataflow-provided-template-name": "pubsub_avro_to_bigquery",
           "goog-dataflow-provided-template-type": "flex"
         },
-        "logDetailedCsvConversionErrors": false,
         "maxNumWorkers": 0,
+        "maxStreamingBatchSize": 65536,
+        "maxStreamingRowsToBatch": 500,
         "network": null,
-        "numShards": 0,
+        "numStreamingKeys": 50,
         "numWorkers": 0,
         "numberOfWorkerHarnessThreads": 0,
         "optionsId": 0,
-        "outputBucket": "gs://storagebucket-${uniqueId}",
-        "outputFileFormat": "avro",
-        "outputFilePrefix": "output",
+        "outputTableSpec": "${projectId}:bigquerydataset${uniqueId}.bigquerytable${uniqueId}",
+        "outputTopic": "projects/${projectId}/topics/pubsubtopic1-${uniqueId}",
         "overrideWindmillBinary": null,
         "pathValidatorClass": "org.apache.beam.sdk.extensions.gcp.storage.GcsPathValidator",
-        "pipelineUrl": "gs://dataflow-staging-us-central1-${projectNumber}/staging/pipeline-ehKedGonx8czD0ig9N0xE85y-KvEho1OrQ2jYCtevqg.pb",
+        "pipelineUrl": "${pipelineUrl}",
         "project": "${projectId}",
-        "recordJfrOnGcThrashing": false,
         "region": "us-central1",
-        "resourceHints": [],
         "runner": "org.apache.beam.runners.dataflow.DataflowRunner",
         "saveProfilesToGcs": null,
-        "schema": "gs://config-connector-samples/dataflowflextemplate/numbers.avsc",
-        "sdkContainerImage": null,
-        "sdkHarnessContainerImageOverrides": null,
+        "schemaPath": "gs://config-connector-samples/dataflowflextemplate/numbers.avsc",
         "serviceAccount": "${projectNumber}-compute@developer.gserviceaccount.com",
         "stableUniqueNames": "WARNING",
         "stagerClass": "org.apache.beam.runners.dataflow.util.GcsStager",
         "stagingLocation": "gs://dataflow-staging-us-central1-${projectNumber}/staging",
-        "streaming": false,
+        "streaming": true,
         "subnetwork": null,
         "tempLocation": "gs://dataflow-staging-us-central1-${projectNumber}/tmp",
         "templateLocation": "gs://dataflow-staging-us-central1-${projectNumber}/staging/template_launches/${jobID}/job_object",
-        "userAgent": "Apache_Beam_SDK_for_Java/2.41.0(JRE_11_environment)",
+        "useGrpcForGcs": false,
+        "userAgent": "Apache_Beam_SDK_for_Java/2.20.0(JRE_8_environment)",
         "workerDiskType": null,
-        "workerHarnessContainerImage": null,
+        "workerHarnessContainerImage": "gcr.io/cloud-dataflow/v1beta3/IMAGE:beam-2.20.0",
         "workerMachineType": null,
         "workerRegion": null,
+        "writeDisposition": "WRITE_APPEND",
         "zone": null
       }
     },
     "serviceAccountEmail": "${projectNumber}-compute@developer.gserviceaccount.com",
-    "shuffleMode": "SERVICE_BASED",
     "tempStoragePrefix": "storage.googleapis.com/dataflow-staging-us-central1-${projectNumber}/tmp",
     "userAgent": {
       "removed": "simplicity"
@@ -772,7 +773,7 @@ X-Xss-Protection: 0
     "removed": "simplicity"
   },
   "labels": {
-    "goog-dataflow-provided-template-name": "file_format_conversion",
+    "goog-dataflow-provided-template-name": "pubsub_avro_to_bigquery",
     "goog-dataflow-provided-template-type": "flex"
   },
   "location": "us-central1",
@@ -784,14 +785,14 @@ X-Xss-Protection: 0
   "stageStates": [],
   "startTime": "2024-04-01T12:34:56.123456Z",
   "steps": [],
-  "type": "JOB_TYPE_BATCH"
+  "type": "JOB_TYPE_STREAMING"
 }
 
 ---
 
 PUT https://dataflow.googleapis.com/v1b3/projects/${projectId}/locations/us-central1/jobs/${jobID}?alt=json&prettyPrint=false
 Content-Type: application/json
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 {
   "requestedState": "JOB_STATE_CANCELLED"
@@ -815,7 +816,7 @@ X-Xss-Protection: 0
 ---
 
 GET https://dataflow.googleapis.com/v1b3/projects/${projectId}/locations/us-central1/jobs/${jobID}?alt=json&prettyPrint=false&view=JOB_VIEW_ALL
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -835,16 +836,11 @@ X-Xss-Protection: 0
   "environment": {
     "dataset": "bigquery.googleapis.com/cloud_dataflow",
     "experiments": [
-      "auto_google_template_runner_v2",
-      "auto_high_core_runner_v2",
-      "auto_runner_v2_min_sdk=2.54.0",
-      "configure_shuffle_service_addresses_in_control_plane",
-      "delayed_launch",
+      "autoscale_windmill_service_by_default",
       "disable_baggins_exp",
-      "disable_primeflex",
+      "disable_prime_streaming_engine",
       "disable_runner_v2_reason=java_job_google_template",
       "ek_regions=",
-      "enable_always_on_exception_sampling",
       "enable_always_on_exception_sampling",
       "enable_async_job_creation",
       "enable_billing_v_1_5",
@@ -852,115 +848,118 @@ X-Xss-Protection: 0
       "enable_cmek_org_policy_check",
       "enable_compute_default_service_account_org_policy",
       "enable_data_sampling_telemetry",
-      "enable_dataprep_new_billing",
       "enable_fnapi_multimap_side_input_bulk_read",
+      "enable_kms_on_streaming_engine",
+      "enable_lightweight_streaming_update",
+      "enable_lightweight_streaming_update_worker_utilization_hint",
       "enable_memory_sampler",
       "enable_oom_sampler",
       "enable_recommendations",
       "enable_remote_image_ping",
       "enable_secure_boot",
+      "enable_streaming_java_vmr",
+      "enable_streaming_pubsub_io_stackdriver_metrics",
+      "enable_streaming_scaling",
+      "enable_streaming_service_billing",
       "enable_throttled_based_rescaling",
       "enable_worker_cloud_monitoring_exporter",
       "enable_worker_disk_cloud_monitoring",
       "enable_worker_memory_cloud_monitoring",
       "enable_zonal_outage_aware_routing",
-      "limit_preemptible_worker_pct",
-      "limit_resizing_by_cpu_util",
-      "min_sdk_version_to_reject_worker_in_different_region_than_service=2.44.0",
+      "force_zone_isolation=zi-fail-open",
       "override_controller_service_account",
       "primeflex_slow_start_pct=5",
       "primeflex_slow_start_seconds=3600",
-      "regional_physical_zone_separation_enabled",
-      "shuffle_mode=auto",
-      "shuffle_service_address_type=DIRECTPATH_WITH_CFE_FALLBACK",
-      "sideinput_io_metrics",
+      "streaming_engine_isolation_mode=PER_JOB",
       "use_dataflow_service_account_in_igm",
       "use_e2_for_default_machine_type_worker_regions=africa-south1,europe-north2,europe-southwest1,europe-west10,europe-west12,europe-west8,europe-west9,me-central1,me-central2,me-west1,northamerica-south1,southamerica-west1,us-east10,us-east5,us-east7,us-south1,us-west8",
       "use_job_admission_controller",
       "use_multi_hop_delegation",
+      "use_ppm_for_windmill",
       "use_templates_regional_bucket",
-      "use_worker_zone_chooser_by_default"
+      "use_timer_backlog_in_streaming_autoscaling",
+      "use_worker_zone_chooser_by_default",
+      "use_workflow_job_manager_components_for_streaming",
+      "use_workflow_job_manager_components_for_streaming_reload"
     ],
     "sdkPipelineOptions": {
       "display_data": [],
       "options": {
+        "HTTPWriteTimeout": 0,
         "apiRootUrl": "https://dataflow.googleapis.com/",
-        "appName": "FileFormatConversion",
+        "appName": "PubsubAvroToBigQuery",
         "autoscalingAlgorithm": null,
-        "containsHeaders": false,
+        "createDisposition": "CREATE_NEVER",
         "credentialFactoryClass": "org.apache.beam.sdk.extensions.gcp.auth.GcpCredentialFactory",
-        "csvFileEncoding": "UTF-8",
-        "csvFormat": "Default",
         "dataflowEndpoint": "",
         "dataflowKmsKey": null,
-        "dataflowServiceOptions": null,
         "dataflowWorkerJar": null,
         "defaultEnvironmentConfig": null,
         "defaultEnvironmentType": null,
-        "delimiter": ",",
         "diskSizeGb": 0,
         "enableCloudDebugger": false,
         "enableStreamingEngine": false,
-        "environmentOptions": null,
         "experiments": [
           "disable_runner_v2_reason=java_job_google_template",
-          "enable_always_on_exception_sampling"
+          "enable_always_on_exception_sampling",
+          "enable_streaming_java_vmr"
         ],
         "filesToStage": [
-          "/template/file-format-conversion/file-format-conversion.jar"
+          "/usr/local/jre1.8.0-latest/lib/ext/cldrdata.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/jaccess.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/dnsns.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/nashorn.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/localedata.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/jfxrt.jar",
+          "/template/pubsub-avro-to-bigquery/pubsub-avro-to-bigquery.jar"
         ],
         "gcpTempLocation": "gs://dataflow-staging-us-central1-${projectNumber}/tmp",
         "gcsPerformanceMetrics": false,
         "gcsUploadBufferSizeBytes": null,
         "googleApiTrace": null,
-        "hotKeyLoggingEnabled": false,
-        "inputFileFormat": "csv",
-        "inputFileSpec": "gs://config-connector-samples/dataflowflextemplate/numbertest.csv",
+        "inputSubscription": "projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}",
         "jobName": "dataflowflextemplatejob-${uniqueId}",
         "labels": {
-          "goog-dataflow-provided-template-name": "file_format_conversion",
+          "goog-dataflow-provided-template-name": "pubsub_avro_to_bigquery",
           "goog-dataflow-provided-template-type": "flex"
         },
-        "logDetailedCsvConversionErrors": false,
         "maxNumWorkers": 0,
+        "maxStreamingBatchSize": 65536,
+        "maxStreamingRowsToBatch": 500,
         "network": null,
-        "numShards": 0,
+        "numStreamingKeys": 50,
         "numWorkers": 0,
         "numberOfWorkerHarnessThreads": 0,
         "optionsId": 0,
-        "outputBucket": "gs://storagebucket-${uniqueId}",
-        "outputFileFormat": "avro",
-        "outputFilePrefix": "output",
+        "outputTableSpec": "${projectId}:bigquerydataset${uniqueId}.bigquerytable${uniqueId}",
+        "outputTopic": "projects/${projectId}/topics/pubsubtopic1-${uniqueId}",
         "overrideWindmillBinary": null,
         "pathValidatorClass": "org.apache.beam.sdk.extensions.gcp.storage.GcsPathValidator",
-        "pipelineUrl": "gs://dataflow-staging-us-central1-${projectNumber}/staging/pipeline-ehKedGonx8czD0ig9N0xE85y-KvEho1OrQ2jYCtevqg.pb",
+        "pipelineUrl": "${pipelineUrl}",
         "project": "${projectId}",
-        "recordJfrOnGcThrashing": false,
         "region": "us-central1",
-        "resourceHints": [],
         "runner": "org.apache.beam.runners.dataflow.DataflowRunner",
         "saveProfilesToGcs": null,
-        "schema": "gs://config-connector-samples/dataflowflextemplate/numbers.avsc",
-        "sdkContainerImage": null,
-        "sdkHarnessContainerImageOverrides": null,
+        "schemaPath": "gs://config-connector-samples/dataflowflextemplate/numbers.avsc",
         "serviceAccount": "${projectNumber}-compute@developer.gserviceaccount.com",
         "stableUniqueNames": "WARNING",
         "stagerClass": "org.apache.beam.runners.dataflow.util.GcsStager",
         "stagingLocation": "gs://dataflow-staging-us-central1-${projectNumber}/staging",
-        "streaming": false,
+        "streaming": true,
         "subnetwork": null,
         "tempLocation": "gs://dataflow-staging-us-central1-${projectNumber}/tmp",
         "templateLocation": "gs://dataflow-staging-us-central1-${projectNumber}/staging/template_launches/${jobID}/job_object",
-        "userAgent": "Apache_Beam_SDK_for_Java/2.41.0(JRE_11_environment)",
+        "useGrpcForGcs": false,
+        "userAgent": "Apache_Beam_SDK_for_Java/2.20.0(JRE_8_environment)",
         "workerDiskType": null,
-        "workerHarnessContainerImage": null,
+        "workerHarnessContainerImage": "gcr.io/cloud-dataflow/v1beta3/IMAGE:beam-2.20.0",
         "workerMachineType": null,
         "workerRegion": null,
+        "writeDisposition": "WRITE_APPEND",
         "zone": null
       }
     },
     "serviceAccountEmail": "${projectNumber}-compute@developer.gserviceaccount.com",
-    "shuffleMode": "SERVICE_BASED",
     "tempStoragePrefix": "storage.googleapis.com/dataflow-staging-us-central1-${projectNumber}/tmp",
     "userAgent": {
       "removed": "simplicity"
@@ -975,7 +974,7 @@ X-Xss-Protection: 0
     "removed": "simplicity"
   },
   "labels": {
-    "goog-dataflow-provided-template-name": "file_format_conversion",
+    "goog-dataflow-provided-template-name": "pubsub_avro_to_bigquery",
     "goog-dataflow-provided-template-type": "flex"
   },
   "location": "us-central1",
@@ -988,13 +987,13 @@ X-Xss-Protection: 0
   "stageStates": [],
   "startTime": "2024-04-01T12:34:56.123456Z",
   "steps": [],
-  "type": "JOB_TYPE_BATCH"
+  "type": "JOB_TYPE_STREAMING"
 }
 
 ---
 
 GET https://dataflow.googleapis.com/v1b3/projects/${projectId}/locations/us-central1/jobs/${jobID}?alt=json&prettyPrint=false&view=JOB_VIEW_ALL
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -1014,16 +1013,11 @@ X-Xss-Protection: 0
   "environment": {
     "dataset": "bigquery.googleapis.com/cloud_dataflow",
     "experiments": [
-      "auto_google_template_runner_v2",
-      "auto_high_core_runner_v2",
-      "auto_runner_v2_min_sdk=2.54.0",
-      "configure_shuffle_service_addresses_in_control_plane",
-      "delayed_launch",
+      "autoscale_windmill_service_by_default",
       "disable_baggins_exp",
-      "disable_primeflex",
+      "disable_prime_streaming_engine",
       "disable_runner_v2_reason=java_job_google_template",
       "ek_regions=",
-      "enable_always_on_exception_sampling",
       "enable_always_on_exception_sampling",
       "enable_async_job_creation",
       "enable_billing_v_1_5",
@@ -1031,115 +1025,118 @@ X-Xss-Protection: 0
       "enable_cmek_org_policy_check",
       "enable_compute_default_service_account_org_policy",
       "enable_data_sampling_telemetry",
-      "enable_dataprep_new_billing",
       "enable_fnapi_multimap_side_input_bulk_read",
+      "enable_kms_on_streaming_engine",
+      "enable_lightweight_streaming_update",
+      "enable_lightweight_streaming_update_worker_utilization_hint",
       "enable_memory_sampler",
       "enable_oom_sampler",
       "enable_recommendations",
       "enable_remote_image_ping",
       "enable_secure_boot",
+      "enable_streaming_java_vmr",
+      "enable_streaming_pubsub_io_stackdriver_metrics",
+      "enable_streaming_scaling",
+      "enable_streaming_service_billing",
       "enable_throttled_based_rescaling",
       "enable_worker_cloud_monitoring_exporter",
       "enable_worker_disk_cloud_monitoring",
       "enable_worker_memory_cloud_monitoring",
       "enable_zonal_outage_aware_routing",
-      "limit_preemptible_worker_pct",
-      "limit_resizing_by_cpu_util",
-      "min_sdk_version_to_reject_worker_in_different_region_than_service=2.44.0",
+      "force_zone_isolation=zi-fail-open",
       "override_controller_service_account",
       "primeflex_slow_start_pct=5",
       "primeflex_slow_start_seconds=3600",
-      "regional_physical_zone_separation_enabled",
-      "shuffle_mode=auto",
-      "shuffle_service_address_type=DIRECTPATH_WITH_CFE_FALLBACK",
-      "sideinput_io_metrics",
+      "streaming_engine_isolation_mode=PER_JOB",
       "use_dataflow_service_account_in_igm",
       "use_e2_for_default_machine_type_worker_regions=africa-south1,europe-north2,europe-southwest1,europe-west10,europe-west12,europe-west8,europe-west9,me-central1,me-central2,me-west1,northamerica-south1,southamerica-west1,us-east10,us-east5,us-east7,us-south1,us-west8",
       "use_job_admission_controller",
       "use_multi_hop_delegation",
+      "use_ppm_for_windmill",
       "use_templates_regional_bucket",
-      "use_worker_zone_chooser_by_default"
+      "use_timer_backlog_in_streaming_autoscaling",
+      "use_worker_zone_chooser_by_default",
+      "use_workflow_job_manager_components_for_streaming",
+      "use_workflow_job_manager_components_for_streaming_reload"
     ],
     "sdkPipelineOptions": {
       "display_data": [],
       "options": {
+        "HTTPWriteTimeout": 0,
         "apiRootUrl": "https://dataflow.googleapis.com/",
-        "appName": "FileFormatConversion",
+        "appName": "PubsubAvroToBigQuery",
         "autoscalingAlgorithm": null,
-        "containsHeaders": false,
+        "createDisposition": "CREATE_NEVER",
         "credentialFactoryClass": "org.apache.beam.sdk.extensions.gcp.auth.GcpCredentialFactory",
-        "csvFileEncoding": "UTF-8",
-        "csvFormat": "Default",
         "dataflowEndpoint": "",
         "dataflowKmsKey": null,
-        "dataflowServiceOptions": null,
         "dataflowWorkerJar": null,
         "defaultEnvironmentConfig": null,
         "defaultEnvironmentType": null,
-        "delimiter": ",",
         "diskSizeGb": 0,
         "enableCloudDebugger": false,
         "enableStreamingEngine": false,
-        "environmentOptions": null,
         "experiments": [
           "disable_runner_v2_reason=java_job_google_template",
-          "enable_always_on_exception_sampling"
+          "enable_always_on_exception_sampling",
+          "enable_streaming_java_vmr"
         ],
         "filesToStage": [
-          "/template/file-format-conversion/file-format-conversion.jar"
+          "/usr/local/jre1.8.0-latest/lib/ext/cldrdata.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/jaccess.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/dnsns.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/nashorn.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/localedata.jar",
+          "/usr/local/jre1.8.0-latest/lib/ext/jfxrt.jar",
+          "/template/pubsub-avro-to-bigquery/pubsub-avro-to-bigquery.jar"
         ],
         "gcpTempLocation": "gs://dataflow-staging-us-central1-${projectNumber}/tmp",
         "gcsPerformanceMetrics": false,
         "gcsUploadBufferSizeBytes": null,
         "googleApiTrace": null,
-        "hotKeyLoggingEnabled": false,
-        "inputFileFormat": "csv",
-        "inputFileSpec": "gs://config-connector-samples/dataflowflextemplate/numbertest.csv",
+        "inputSubscription": "projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}",
         "jobName": "dataflowflextemplatejob-${uniqueId}",
         "labels": {
-          "goog-dataflow-provided-template-name": "file_format_conversion",
+          "goog-dataflow-provided-template-name": "pubsub_avro_to_bigquery",
           "goog-dataflow-provided-template-type": "flex"
         },
-        "logDetailedCsvConversionErrors": false,
         "maxNumWorkers": 0,
+        "maxStreamingBatchSize": 65536,
+        "maxStreamingRowsToBatch": 500,
         "network": null,
-        "numShards": 0,
+        "numStreamingKeys": 50,
         "numWorkers": 0,
         "numberOfWorkerHarnessThreads": 0,
         "optionsId": 0,
-        "outputBucket": "gs://storagebucket-${uniqueId}",
-        "outputFileFormat": "avro",
-        "outputFilePrefix": "output",
+        "outputTableSpec": "${projectId}:bigquerydataset${uniqueId}.bigquerytable${uniqueId}",
+        "outputTopic": "projects/${projectId}/topics/pubsubtopic1-${uniqueId}",
         "overrideWindmillBinary": null,
         "pathValidatorClass": "org.apache.beam.sdk.extensions.gcp.storage.GcsPathValidator",
-        "pipelineUrl": "gs://dataflow-staging-us-central1-${projectNumber}/staging/pipeline-ehKedGonx8czD0ig9N0xE85y-KvEho1OrQ2jYCtevqg.pb",
+        "pipelineUrl": "${pipelineUrl}",
         "project": "${projectId}",
-        "recordJfrOnGcThrashing": false,
         "region": "us-central1",
-        "resourceHints": [],
         "runner": "org.apache.beam.runners.dataflow.DataflowRunner",
         "saveProfilesToGcs": null,
-        "schema": "gs://config-connector-samples/dataflowflextemplate/numbers.avsc",
-        "sdkContainerImage": null,
-        "sdkHarnessContainerImageOverrides": null,
+        "schemaPath": "gs://config-connector-samples/dataflowflextemplate/numbers.avsc",
         "serviceAccount": "${projectNumber}-compute@developer.gserviceaccount.com",
         "stableUniqueNames": "WARNING",
         "stagerClass": "org.apache.beam.runners.dataflow.util.GcsStager",
         "stagingLocation": "gs://dataflow-staging-us-central1-${projectNumber}/staging",
-        "streaming": false,
+        "streaming": true,
         "subnetwork": null,
         "tempLocation": "gs://dataflow-staging-us-central1-${projectNumber}/tmp",
         "templateLocation": "gs://dataflow-staging-us-central1-${projectNumber}/staging/template_launches/${jobID}/job_object",
-        "userAgent": "Apache_Beam_SDK_for_Java/2.41.0(JRE_11_environment)",
+        "useGrpcForGcs": false,
+        "userAgent": "Apache_Beam_SDK_for_Java/2.20.0(JRE_8_environment)",
         "workerDiskType": null,
-        "workerHarnessContainerImage": null,
+        "workerHarnessContainerImage": "gcr.io/cloud-dataflow/v1beta3/IMAGE:beam-2.20.0",
         "workerMachineType": null,
         "workerRegion": null,
+        "writeDisposition": "WRITE_APPEND",
         "zone": null
       }
     },
     "serviceAccountEmail": "${projectNumber}-compute@developer.gserviceaccount.com",
-    "shuffleMode": "SERVICE_BASED",
     "tempStoragePrefix": "storage.googleapis.com/dataflow-staging-us-central1-${projectNumber}/tmp",
     "userAgent": {
       "removed": "simplicity"
@@ -1154,7 +1151,7 @@ X-Xss-Protection: 0
     "removed": "simplicity"
   },
   "labels": {
-    "goog-dataflow-provided-template-name": "file_format_conversion",
+    "goog-dataflow-provided-template-name": "pubsub_avro_to_bigquery",
     "goog-dataflow-provided-template-type": "flex"
   },
   "location": "us-central1",
@@ -1166,14 +1163,14 @@ X-Xss-Protection: 0
   "stageStates": [],
   "startTime": "2024-04-01T12:34:56.123456Z",
   "steps": [],
-  "type": "JOB_TYPE_BATCH"
+  "type": "JOB_TYPE_STREAMING"
 }
 
 ---
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -1187,6 +1184,7 @@ X-Frame-Options: SAMEORIGIN
 X-Xss-Protection: 0
 
 {
+  "ackDeadlineSeconds": 10,
   "expirationPolicy": {
     "ttl": "2678400s"
   },
@@ -1205,7 +1203,7 @@ X-Xss-Protection: 0
 
 DELETE https://pubsub.googleapis.com/v1/projects/${projectId}/subscriptions/pubsubsubscription-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -1224,7 +1222,7 @@ X-Xss-Protection: 0
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic1-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -1249,7 +1247,7 @@ X-Xss-Protection: 0
 
 DELETE https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic1-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -1268,7 +1266,7 @@ X-Xss-Protection: 0
 
 GET https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic0-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -1293,7 +1291,7 @@ X-Xss-Protection: 0
 
 DELETE https://pubsub.googleapis.com/v1/projects/${projectId}/topics/pubsubtopic0-${uniqueId}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -1311,7 +1309,7 @@ X-Xss-Protection: 0
 ---
 
 GET https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/${datasetID}/tables/bigquerytable${uniqueId}?alt=json&prettyPrint=false
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -1353,7 +1351,7 @@ X-Xss-Protection: 0
 ---
 
 DELETE https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/${datasetID}/tables/bigquerytable${uniqueId}?alt=json&prettyPrint=false
-User-Agent: google-api-go-client/0.5 Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: google-api-go-client/0.5 kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 204 No Content
 Content-Type: application/json; charset=UTF-8
@@ -1370,7 +1368,7 @@ X-Xss-Protection: 0
 
 GET https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/${datasetID}?alt=json
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 200 OK
 Cache-Control: private
@@ -1386,10 +1384,6 @@ X-Xss-Protection: 0
 {
   "access": [
     {
-      "role": "WRITER",
-      "specialGroup": "projectWriters"
-    },
-    {
       "role": "OWNER",
       "specialGroup": "projectOwners"
     },
@@ -1400,6 +1394,10 @@ X-Xss-Protection: 0
     {
       "role": "READER",
       "specialGroup": "projectReaders"
+    },
+    {
+      "role": "WRITER",
+      "specialGroup": "projectWriters"
     }
   ],
   "creationTime": "123456789",
@@ -1415,7 +1413,8 @@ X-Xss-Protection: 0
     "managed-by-cnrm": "true"
   },
   "lastModifiedTime": "123456789",
-  "location": "US",
+  "location": "us-central1",
+  "maxTimeTravelHours": "168",
   "selfLink": "https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/bigquerydataset${uniqueId}",
   "type": "DEFAULT"
 }
@@ -1424,7 +1423,7 @@ X-Xss-Protection: 0
 
 DELETE https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets/${datasetID}?alt=json&deleteContents=false
 Content-Type: application/json
-User-Agent: Terraform/ (+https://www.terraform.io) Terraform-Plugin-SDK/2.10.1 terraform-provider-google-beta/kcc/controller-manager
+User-Agent: kcc/${kccVersion} (+https://github.com/GoogleCloudPlatform/k8s-config-connector) kcc/controller-manager/${kccVersion}
 
 204 No Content
 Content-Type: application/json; charset=UTF-8

@@ -71,9 +71,25 @@ issues for {{product_name_short}}.
 </tr>
 <tr>
   <td><a href="/apigee/docs/">{{apigee_x_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/apigee/apigeeenvgroup.md">ApigeeEnvgroup</a></td>
+</tr>
+<tr>
+  <td><a href="/apigee/docs/">{{apigee_x_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/apigee/apigeeorganization.md">ApigeeOrganization</a></td>
 </tr>
 <tr>
+  <td><a href="/bigquery/docs/query-overview">{{analytics_hub_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/bigqueryanalyticshub/bigqueryanalyticshubdataexchange.md">BigQueryAnalyticsHubDataExchange</a></td>
+</tr>
+<tr>
+  <td><a href="/bigquery/docs/query-overview">{{analytics_hub_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/bigqueryanalyticshub/bigqueryanalyticshublisting.md">BigQueryAnalyticsHubListing</a></td>
+</tr>
+<tr>
+<tr>
+  <td><a href="/bigquery/docs/">{{bigquery_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/bigqueryconnection/bigqueryconnectionconnection.md">BigqueryConnectionConnection</a></td>
+</tr>
   <td><a href="/bigquery/docs/">{{bigquery_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/bigquery/bigquerydataset.md">BigQueryDataset</a></td>
 </tr>
@@ -84,6 +100,10 @@ issues for {{product_name_short}}.
 <tr>
   <td><a href="/bigquery/docs/">{{bigquery_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/bigquery/bigquerytable.md">BigQueryTable</a></td>
+</tr>
+<tr>
+  <td><a href="/bigquery/docs/">{{bigquery_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/bigquerydatatransfer/bigquerydatatransferconfig.md">BigQueryDataTransferConfig</a></td>
 </tr>
 <tr>
   <td><a href="/bigtable/docs/">{{bigtable_name}}</a></td>
@@ -189,6 +209,10 @@ issues for {{product_name_short}}.
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/compute/computefirewallpolicyassociation.md">ComputeFirewallPolicyAssociation</a></td>
+</tr>
+<tr>
+  <td><a href="/compute/docs/">{{compute_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/compute/computefirewallpolicyrule.md">ComputeFirewallPolicyRule</a></td>
 </tr>
 <tr>
   <td><a href="/compute/docs/">{{compute_name}}</a></td>
@@ -399,6 +423,10 @@ issues for {{product_name_short}}.
   <td><a href="/config-connector/docs/reference/resource-docs/dataflow/dataflowflextemplatejob.md">DataflowFlexTemplateJob</a></td>
 </tr>
 <tr>
+  <td><a href="/dataform/docs/">{{dataform_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/dataform/dataformrepository.md">DataformRepository</a></td>
+</tr>
+<tr>
   <td><a href="/data-fusion/docs/">{{data_fusion_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/datafusion/datafusioninstance.md">DatafusionInstance</a></td>
 </tr>
@@ -473,6 +501,10 @@ issues for {{product_name_short}}.
 <tr>
   <td><a href="/filestore/docs/">{{filestore_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/filestore/filestoreinstance.md">FilestoreInstance</a></td>
+</tr>
+<tr>
+  <td><a href="/firestore/docs/">{{firestore_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/firestore/firestoredatabase.md">FirestoreDatabase</a></td>
 </tr>
 <tr>
   <td><a href="/firestore/docs/">{{firestore_name}}</a></td>
@@ -579,6 +611,14 @@ issues for {{product_name_short}}.
   <td><a href="/config-connector/docs/reference/resource-docs/kms/kmskeyring.md">KMSKeyRing</a></td>
 </tr>
 <tr>
+  <td><a href="/kms/docs/">{{kms_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/kms/kmsautokeyconfig.md">KMSAutokeyConfig</a></td>
+</tr>
+<tr>
+  <td><a href="/kms/docs/">{{kms_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/kms/kmskeyhandle.md">KMSKeyHandle</a></td>
+</tr>
+<tr>
   <td><a href="/logging/docs/">{{logging_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/logging/logginglogbucket.md">LoggingLogBucket</a></td>
 </tr>
@@ -671,6 +711,10 @@ issues for {{product_name_short}}.
   <td><a href="/config-connector/docs/reference/resource-docs/privateca/privatecacertificatetemplate.md">PrivateCACertificateTemplate</a></td>
 </tr>
 <tr>
+  <td><a href="/iam/docs/pam-overview">{{pam_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/privilegedaccessmanager/privilegedaccessmanagerentitlement.md">PrivilegedAccessManagerEntitlement</a></td>
+</tr>
+<tr>
   <td><a href="/pubsub/docs/">{{pubsub_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/pubsub/pubsubschema.md">PubSubSchema</a></td>
 </tr>
@@ -685,6 +729,10 @@ issues for {{product_name_short}}.
 <tr>
   <td><a href="/pubsub/lite/docs/">{{pubsub_lite_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/pubsublite/pubsublitereservation.md">PubSubLiteReservation</a></td>
+</tr>
+<tr>
+  <td><a href="/memorystore/docs/">{{memorystore_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/redis/rediscluster.md">RedisCluster</a></td>
 </tr>
 <tr>
   <td><a href="/memorystore/docs/">{{memorystore_name}}</a></td>
@@ -853,6 +901,18 @@ issues for {{product_name_short}}.
 <tr>
   <td><a href="/vpc/docs/">{{serverless_vpc_access_name}}</a></td>
   <td><a href="/config-connector/docs/reference/resource-docs/vpcaccess/vpcaccessconnector.md">VPCAccessConnector</a></td>
+</tr>
+<tr>
+  <td><a href="/workstations/docs/">{{workstations_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/workstations/workstationcluster.md">WorkstationCluster</a></td>
+</tr>
+<tr>
+  <td><a href="/workstations/docs/">{{workstations_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/workstations/workstationconfig.md">WorkstationConfig</a></td>
+</tr>
+<tr>
+  <td><a href="/workstations/docs/">{{workstations_name}}</a></td>
+  <td><a href="/config-connector/docs/reference/resource-docs/workstations/workstation.md">Workstation</a></td>
 </tr>
 </tbody>
 </table>

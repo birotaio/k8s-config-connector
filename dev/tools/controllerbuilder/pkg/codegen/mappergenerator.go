@@ -48,6 +48,8 @@ func NewMapperGenerator(goPathForMessage OutputFunc, outputBaseDir string) *Mapp
 	return g
 }
 
+type OutputFunc func(msg protoreflect.MessageDescriptor) (goPath string, shouldWrite bool)
+
 func (v *MapperGenerator) VisitGoCode(goPackage string, basePath string) error {
 	packages, err := gocode.LoadPackageTree(goPackage, basePath)
 	if err != nil {
@@ -130,6 +132,8 @@ func (v *MapperGenerator) visitMessage(msg protoreflect.MessageDescriptor) {
 	switch protoGoPackage {
 	case "cloud.google.com/go/networkconnectivity/apiv1/networkconnectivitypb":
 		protoGoPackage = "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/generated/mockgcp/cloud/networkconnectivity/v1"
+	case "cloud.google.com/go/bigquery/apiv2/bigquerypb":
+		protoGoPackage = "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/generated/mockgcp/cloud/bigquery/v2"
 	}
 
 	for _, goType := range goTypes {
@@ -172,7 +176,9 @@ func (v *MapperGenerator) GenerateMappers() error {
 			FileName:  "mapper.generated.go",
 		}
 		out := v.getOutputFile(k)
-		if out.contents.Len() == 0 {
+		out.packageName = lastGoComponent(goPackage)
+
+		{
 			pbPackage := pair.ProtoGoPackage
 			krmPackage := pair.KRMType.GoPackage
 
@@ -182,21 +188,20 @@ func (v *MapperGenerator) GenerateMappers() error {
 				pbPackage = "google.golang.org/genproto/googleapis/bigtable/admin/v2"
 			}
 
-			out.contents.WriteString(fmt.Sprintf("package %s\n\n", lastGoComponent(goPackage)))
-			out.contents.WriteString("import (\n")
-			out.contents.WriteString(fmt.Sprintf("\tpb %q\n", pbPackage))
-			out.contents.WriteString(fmt.Sprintf("\tkrm %q\n", krmPackage))
-			out.contents.WriteString(fmt.Sprintf("\t%q\n", "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"))
-			out.contents.WriteString(")\n")
+			out.addImport("refs", "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1")
+			out.addImport("pb", pbPackage)
+			out.addImport("krm", krmPackage)
+			out.addImport("", "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct")
 		}
 
-		v.writeMapFunctionsForPair(&out.contents, out.OutputDir(), &pair)
+		v.writeMapFunctionsForPair(&out.body, out.OutputDir(), &pair)
 	}
 
 	return nil
 }
 
 func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string, pair *typePair) {
+	klog.V(2).InfoS("writeMapFunctionsForPair", "pair.Proto.FullName", pair.Proto.FullName(), "pair.KRMType.Name", pair.KRMType.Name)
 	msg := pair.Proto
 	pbTypeName := protoNameForType(msg)
 
@@ -216,19 +221,35 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 		fmt.Fprintf(out, "\tout := &krm.%s{}\n", goTypeName)
 		for i := 0; i < msg.Fields().Len(); i++ {
 			protoField := msg.Fields().Get(i)
-			protoFieldName := strings.Title(protoField.JSONName())
+			protoFieldName := protoNameForField(protoField)
 			protoAccessor := "Get" + protoFieldName + "()"
 
 			krmFieldName := goFieldName(protoField)
 			krmField := goFields[krmFieldName]
 			if krmField == nil {
-				fmt.Fprintf(out, "\t// MISSING: %s\n", krmFieldName)
+				// Support refs
+				krmFieldRef := goFields[krmFieldName+"Ref"]
+				if krmFieldRef != nil {
+					fmt.Fprintf(out, "\tif in.%s != \"\" {\n", protoAccessor)
+					fmt.Fprintf(out, "\t	out.%v = &refs.%v{External: in.%v}\n", krmFieldRef.Name, strings.TrimPrefix(krmFieldRef.Type, "*refs."), protoAccessor)
+					fmt.Fprintf(out, "\t}\n")
+					continue
+				}
+
+				if !v.fieldExistInCounterpartStruct(goType, krmFieldName) && !v.fieldExistInCounterpartStruct(goType, krmFieldName+"Ref") { // special handling for Spec and ObservedState structs which map to the same proto message.
+					fmt.Fprintf(out, "\t// MISSING: %s\n", krmFieldName)
+					for k := range goFields {
+						if strings.EqualFold(k, krmFieldName) {
+							fmt.Fprintf(out, "\t// (near miss): %q vs %q\n", krmFieldName, k)
+						}
+					}
+				}
 				continue
 			}
 
 			if protoField.Cardinality() == protoreflect.Repeated {
 				useSliceFromProtoFunction := ""
-				useCustomMethod := false
+				useCustomMethod := ""
 
 				switch protoField.Kind() {
 				case protoreflect.MessageKind:
@@ -240,19 +261,14 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 					useSliceFromProtoFunction = functionName
 				case protoreflect.StringKind:
 					if krmField.Type != "[]string" {
-						useCustomMethod = true
-						// useSliceFromProto = fmt.Sprintf("%s_%s_FromProto", goTypeName, protoFieldName)
+						useCustomMethod = fmt.Sprintf("%s_%s_FromProto", goTypeName, protoFieldName)
 					}
 				case protoreflect.EnumKind:
 					krmElemTypeName := krmField.Type
 					krmElemTypeName = strings.TrimPrefix(krmElemTypeName, "*")
 					krmElemTypeName = strings.TrimPrefix(krmElemTypeName, "[]")
 
-					functionName := "Enum_FromProto"
-					useSliceFromProtoFunction = fmt.Sprintf("%s(mapCtx, in.%s)",
-						functionName,
-						krmFieldName,
-					)
+					useCustomMethod = "direct.EnumSlice_FromProto"
 
 				case
 					protoreflect.FloatKind,
@@ -288,17 +304,16 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 						krmFieldName,
 						useSliceFromProtoFunction,
 					)
-				} else if useCustomMethod {
-					methodName := fmt.Sprintf("%s_%s_FromProto", goTypeName, protoFieldName)
+				} else if useCustomMethod != "" {
 					fmt.Fprintf(out, "\tout.%s = %s(mapCtx, in.%s)\n",
 						krmFieldName,
-						methodName,
-						krmFieldName,
+						useCustomMethod,
+						protoFieldName,
 					)
 				} else {
 					fmt.Fprintf(out, "\tout.%s = in.%s\n",
 						krmFieldName,
-						krmFieldName,
+						protoFieldName,
 					)
 				}
 				continue
@@ -313,6 +328,11 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 				switch krmTypeName {
 				case "string":
 					functionName = string(msg.Name()) + "_" + krmFieldName + "_FromProto"
+				}
+
+				// special handling for proto messages that mapped to KRM string
+				if _, ok := protoMessagesNotMappedToGoStruct[string(protoField.Message().FullName())]; ok {
+					functionName = krmFromProtoFunctionName(protoField, krmField.Name)
 				}
 
 				fmt.Fprintf(out, "\tout.%s = %s(mapCtx, in.%s)\n",
@@ -375,19 +395,34 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 		fmt.Fprintf(out, "\tout := &pb.%s{}\n", pbTypeName)
 		for i := 0; i < msg.Fields().Len(); i++ {
 			protoField := msg.Fields().Get(i)
+			protoFieldName := protoNameForField(protoField)
 
 			krmFieldName := goFieldName(protoField)
 			krmField := goFields[krmFieldName]
 			if krmField == nil {
-				fmt.Fprintf(out, "\t// MISSING: %s\n", krmFieldName)
+				// Support refs
+				krmFieldRef := goFields[krmFieldName+"Ref"]
+				if krmFieldRef != nil {
+					fmt.Fprintf(out, "\tif in.%s != nil {\n", krmFieldRef.Name)
+					fmt.Fprintf(out, "\t	out.%v = in.%v.External\n", protoFieldName, krmFieldRef.Name)
+					fmt.Fprintf(out, "\t}\n")
+					continue
+				}
+
+				if !v.fieldExistInCounterpartStruct(goType, krmFieldName) && !v.fieldExistInCounterpartStruct(goType, krmFieldName+"Ref") { // special handling for spec and observedState structs which map to the same proto message.
+					fmt.Fprintf(out, "\t// MISSING: %s\n", krmFieldName)
+					for k := range goFields {
+						if strings.EqualFold(k, krmFieldName) {
+							fmt.Fprintf(out, "\t// (near miss): %q vs %q\n", krmFieldName, k)
+						}
+					}
+				}
 				continue
 			}
 
-			protoFieldName := strings.Title(protoField.JSONName())
-
 			if protoField.Cardinality() == protoreflect.Repeated {
 				useSliceToProtoFunction := ""
-				useCustomMethod := false
+				useCustomMethod := ""
 
 				switch protoField.Kind() {
 				case protoreflect.MessageKind:
@@ -400,8 +435,7 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 
 				case protoreflect.StringKind:
 					if krmField.Type != "[]string" {
-						useCustomMethod = true
-						//useSliceToProtoFunction = fmt.Sprintf("%s_%s_ToProto", goTypeName, protoFieldName)
+						useCustomMethod = fmt.Sprintf("%s_%s_ToProto", goTypeName, protoFieldName)
 					}
 
 				case protoreflect.EnumKind:
@@ -410,12 +444,7 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 					krmElemTypeName = strings.TrimPrefix(krmElemTypeName, "[]")
 
 					protoTypeName := "pb." + protoNameForEnum(protoField.Enum())
-					functionName := "direct.Enum_ToProto"
-					useSliceToProtoFunction = fmt.Sprintf("%s[%s](mapCtx, in.%s)",
-						functionName,
-						protoTypeName,
-						krmFieldName,
-					)
+					useCustomMethod = fmt.Sprintf("direct.EnumSlice_ToProto[%s]", protoTypeName)
 
 				case protoreflect.FloatKind,
 					protoreflect.DoubleKind,
@@ -451,11 +480,10 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 						krmFieldName,
 						useSliceToProtoFunction,
 					)
-				} else if useCustomMethod {
-					methodName := fmt.Sprintf("%s_%s_ToProto", goTypeName, protoFieldName)
+				} else if useCustomMethod != "" {
 					fmt.Fprintf(out, "\tout.%s = %s(mapCtx, in.%s)\n",
 						krmFieldName,
-						methodName,
+						useCustomMethod,
 						krmFieldName,
 					)
 				} else {
@@ -476,6 +504,11 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 				switch krmTypeName {
 				case "string":
 					functionName = string(msg.Name()) + "_" + krmFieldName + "_ToProto"
+				}
+
+				// special handling for proto messages that mapped to KRM string
+				if _, ok := protoMessagesNotMappedToGoStruct[string(protoField.Message().FullName())]; ok {
+					functionName = krmToProtoFunctionName(protoField, krmField.Name)
 				}
 
 				oneof := protoField.ContainingOneof()
@@ -543,12 +576,12 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 				protoreflect.Fixed64Kind,
 				protoreflect.BytesKind:
 
-				useCustomMethod := false
+				useCustomMethod := ""
 
 				switch protoField.Kind() {
 				case protoreflect.StringKind:
 					if krmField.Type != "*string" {
-						useCustomMethod = true
+						useCustomMethod = fmt.Sprintf("%s_%s_ToProto", goTypeName, protoFieldName)
 					}
 				}
 
@@ -570,11 +603,10 @@ func (v *MapperGenerator) writeMapFunctionsForPair(out io.Writer, srcDir string,
 					fmt.Fprintf(out, "\t\tout.%s = oneof\n",
 						oneofFieldName)
 					fmt.Fprintf(out, "\t}\n")
-				} else if useCustomMethod {
-					methodName := fmt.Sprintf("%s_%s_ToProto", goTypeName, protoFieldName)
+				} else if useCustomMethod != "" {
 					fmt.Fprintf(out, "\tout.%s = %s(mapCtx, in.%s)\n",
 						krmFieldName,
-						methodName,
+						useCustomMethod,
 						krmFieldName,
 					)
 				} else if protoField.Kind() == protoreflect.BytesKind {
@@ -637,6 +669,11 @@ func protoNameForOneOf(field protoreflect.FieldDescriptor) string {
 	return name
 }
 
+func protoNameForField(protoField protoreflect.FieldDescriptor) string {
+	s := strings.Title(protoField.JSONName())
+	return s
+}
+
 func ToGoFieldName(name protoreflect.Name) string {
 	tokens := strings.Split(string(name), "_")
 	for i, token := range tokens {
@@ -683,4 +720,103 @@ func sortIntoMessageSlice(messages protoreflect.MessageDescriptors) []protorefle
 		return out[i].FullName() < out[j].FullName()
 	})
 	return out
+}
+
+func krmFromProtoFunctionName(protoField protoreflect.FieldDescriptor, krmFieldName string) string {
+	fullname := string(protoField.Message().FullName())
+	switch fullname {
+	case "google.protobuf.Timestamp":
+		return "direct.StringTimestamp_FromProto"
+	case "google.protobuf.Struct":
+		return krmFieldName + "_FromProto"
+	case "google.protobuf.Duration":
+		return "direct.StringDuration_FromProto"
+	case "google.protobuf.Int64Value":
+		return "direct.Int64Value_FromProto"
+	case "google.protobuf.StringValue":
+		return "direct.StringValue_FromProto"
+	case "google.protobuf.BoolValue":
+		return "direct.BoolValue_FromProto"
+	case "google.protobuf.FloatValue":
+		return "direct.FloatValue_FromProto"
+	case "google.protobuf.DoubleValue":
+		return "direct.DoubleValue_FromProto"
+	case "google.protobuf.Int32Value":
+		return "direct.Int32Value_FromProto"
+	case "google.protobuf.UInt32Value":
+		return "direct.UInt32Value_FromProto"
+	case "google.protobuf.UInt64Value":
+		return "direct.UInt64Value_FromProto"
+	case "google.protobuf.BytesValue":
+		return "direct.BytesValue_FromProto"
+	}
+	klog.Fatalf("unhandled case in krmFromProtoFunctionName for proto field %s", fullname)
+	return ""
+}
+
+func krmToProtoFunctionName(protoField protoreflect.FieldDescriptor, krmFieldName string) string {
+	fullname := string(protoField.Message().FullName())
+	switch fullname {
+	case "google.protobuf.Timestamp":
+		return "direct.StringTimestamp_ToProto"
+	case "google.protobuf.Struct":
+		return krmFieldName + "_ToProto"
+	case "google.protobuf.Duration":
+		return "direct.StringDuration_ToProto"
+	case "google.protobuf.Int64Value":
+		return "direct.Int64Value_ToProto"
+	case "google.protobuf.StringValue":
+		return "direct.StringValue_ToProto"
+	case "google.protobuf.BoolValue":
+		return "direct.BoolValue_ToProto"
+	case "google.protobuf.FloatValue":
+		return "direct.FloatValue_ToProto"
+	case "google.protobuf.DoubleValue":
+		return "direct.DoubleValue_ToProto"
+	case "google.protobuf.Int32Value":
+		return "direct.Int32Value_ToProto"
+	case "google.protobuf.UInt32Value":
+		return "direct.UInt32Value_ToProto"
+	case "google.protobuf.UInt64Value":
+		return "direct.UInt64Value_ToProto"
+	case "google.protobuf.BytesValue":
+		return "direct.BytesValue_ToProto"
+	}
+	klog.Fatalf("unhandled case in krmToProtoFunctionName for proto field %s", fullname)
+	return ""
+}
+
+func (v *MapperGenerator) fieldExistInCounterpartStruct(goType *gocode.GoStruct, krmFieldName string) bool {
+	counterpartTypeName := getCounterpartTypeName(goType.Name)
+	if counterpartTypeName == "" {
+		return false
+	}
+
+	for _, pair := range v.typePairs {
+		if pair.KRMType.Name == counterpartTypeName {
+			return fieldExistInStruct(pair.KRMType, krmFieldName)
+		}
+	}
+
+	return false
+}
+
+func getCounterpartTypeName(goTypeName string) string {
+	switch {
+	case strings.HasSuffix(goTypeName, "Spec"):
+		return strings.TrimSuffix(goTypeName, "Spec") + "ObservedState"
+	case strings.HasSuffix(goTypeName, "ObservedState"):
+		return strings.TrimSuffix(goTypeName, "ObservedState") + "Spec"
+	default:
+		return ""
+	}
+}
+
+func fieldExistInStruct(goType *gocode.GoStruct, fieldName string) bool {
+	for _, field := range goType.Fields {
+		if field.Name == fieldName {
+			return true
+		}
+	}
+	return false
 }

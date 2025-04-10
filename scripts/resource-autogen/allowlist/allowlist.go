@@ -40,7 +40,6 @@ var (
 		"api_gateway/google_api_gateway_gateway",
 		"apigee/google_apigee_addons_config",
 		"apigee/google_apigee_endpoint_attachment",
-		"apigee/google_apigee_envgroup",
 		"apigee/google_apigee_envgroup_attachment",
 		"apigee/google_apigee_instance",
 		"apigee/google_apigee_instance_attachment",
@@ -55,10 +54,6 @@ var (
 		"beyondcorp/google_beyondcorp_app_connector",
 		"beyondcorp/google_beyondcorp_app_gateway",
 		"bigquery/google_bigquery_dataset_access",
-		"bigquery_analytics_hub/google_bigquery_analytics_hub_data_exchange",
-		"bigquery_analytics_hub/google_bigquery_analytics_hub_listing",
-		"bigquery_connection/google_bigquery_connection",
-		"bigquery_data_transfer/google_bigquery_data_transfer_config",
 		"bigquery_datapolicy/google_bigquery_datapolicy_data_policy",
 		"bigquery_reservation/google_bigquery_capacity_commitment",
 		"bigquery_reservation/google_bigquery_reservation",
@@ -170,7 +165,6 @@ var (
 		"vertex_ai/google_vertex_ai_metadata_store",
 		"vertex_ai/google_vertex_ai_tensorboard",
 		"workflows/google_workflows_workflow",
-		"workstations/google_workstations_workstation_cluster",
 	}
 	// betaAllowlist holds the list of the resources to be allowlisted as
 	// v1beta1 CRDs. The format is '[terraform_product_name]/[terraform_type_name]'.

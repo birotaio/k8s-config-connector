@@ -1547,6 +1547,144 @@ func local_request_BucketsServer_PatchBucket_0(ctx context.Context, marshaler ru
 
 }
 
+func request_BucketsServer_RelocateBucket_0(ctx context.Context, marshaler runtime.Marshaler, client BucketsServerClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq RelocateBucketServiceRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	}
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq.Bucket); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
+	msg, err := client.RelocateBucket(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_BucketsServer_RelocateBucket_0(ctx context.Context, marshaler runtime.Marshaler, server BucketsServerServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq RelocateBucketServiceRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	}
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq.Bucket); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
+	msg, err := server.RelocateBucket(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
+var (
+	filter_BucketsServer_RestoreBucket_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+)
+
+func request_BucketsServer_RestoreBucket_0(ctx context.Context, marshaler runtime.Marshaler, client BucketsServerClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq RestoreBucketRequest
+	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_BucketsServer_RestoreBucket_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.RestoreBucket(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_BucketsServer_RestoreBucket_0(ctx context.Context, marshaler runtime.Marshaler, server BucketsServerServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq RestoreBucketRequest
+	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_BucketsServer_RestoreBucket_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := server.RestoreBucket(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
 var (
 	filter_BucketsServer_UpdateBucket_0 = &utilities.DoubleArray{Encoding: map[string]int{"bucket": 0, "name": 1}, Base: []int{1, 1, 2, 0, 0}, Check: []int{0, 1, 1, 2, 3}}
 )
@@ -4640,6 +4778,116 @@ func local_request_ObjectsServer_ListObjects_0(ctx context.Context, marshaler ru
 }
 
 var (
+	filter_ObjectsServer_MoveObject_0 = &utilities.DoubleArray{Encoding: map[string]int{"bucket": 0, "source_object": 1, "destination_object": 2}, Base: []int{1, 1, 2, 3, 0, 0, 0}, Check: []int{0, 1, 1, 1, 2, 3, 4}}
+)
+
+func request_ObjectsServer_MoveObject_0(ctx context.Context, marshaler runtime.Marshaler, client ObjectsServerClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq MoveObjectRequest
+	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["bucket"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "bucket")
+	}
+
+	protoReq.Bucket, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "bucket", err)
+	}
+
+	val, ok = pathParams["source_object"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "source_object")
+	}
+
+	protoReq.SourceObject, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "source_object", err)
+	}
+
+	val, ok = pathParams["destination_object"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "destination_object")
+	}
+
+	protoReq.DestinationObject, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "destination_object", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ObjectsServer_MoveObject_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.MoveObject(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_ObjectsServer_MoveObject_0(ctx context.Context, marshaler runtime.Marshaler, server ObjectsServerServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq MoveObjectRequest
+	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["bucket"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "bucket")
+	}
+
+	protoReq.Bucket, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "bucket", err)
+	}
+
+	val, ok = pathParams["source_object"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "source_object")
+	}
+
+	protoReq.SourceObject, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "source_object", err)
+	}
+
+	val, ok = pathParams["destination_object"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "destination_object")
+	}
+
+	protoReq.DestinationObject, err = runtime.StringP(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "destination_object", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ObjectsServer_MoveObject_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := server.MoveObject(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
+var (
 	filter_ObjectsServer_PatchObject_0 = &utilities.DoubleArray{Encoding: map[string]int{"object": 0, "bucket": 1, "name": 2}, Base: []int{1, 1, 2, 3, 0, 0, 0}, Check: []int{0, 1, 1, 1, 2, 3, 4}}
 )
 
@@ -5683,7 +5931,7 @@ func RegisterAnywhereCachesServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/DisableAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/disable"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/DisableAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/disable"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5708,7 +5956,7 @@ func RegisterAnywhereCachesServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/GetAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/GetAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5733,7 +5981,7 @@ func RegisterAnywhereCachesServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/InsertAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/InsertAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5758,7 +6006,7 @@ func RegisterAnywhereCachesServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/ListAnywhereCaches", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/ListAnywhereCaches", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5783,7 +6031,7 @@ func RegisterAnywhereCachesServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/PauseAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/pause"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/PauseAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/pause"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5808,7 +6056,7 @@ func RegisterAnywhereCachesServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/ResumeAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/resume"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/ResumeAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/resume"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5833,7 +6081,7 @@ func RegisterAnywhereCachesServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/UpdateAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/UpdateAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5867,7 +6115,7 @@ func RegisterBucketAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/DeleteBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/DeleteBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5892,7 +6140,7 @@ func RegisterBucketAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/GetBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/GetBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5917,7 +6165,7 @@ func RegisterBucketAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/InsertBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/InsertBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5942,7 +6190,7 @@ func RegisterBucketAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/ListBucketAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/ListBucketAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5967,7 +6215,7 @@ func RegisterBucketAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/PatchBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/PatchBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -5992,7 +6240,7 @@ func RegisterBucketAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/UpdateBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/UpdateBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6026,7 +6274,7 @@ func RegisterBucketsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/DeleteBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/DeleteBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6051,7 +6299,7 @@ func RegisterBucketsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/GetBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/GetBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6076,7 +6324,7 @@ func RegisterBucketsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/GetStorageLayoutBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/storageLayout"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/GetStorageLayoutBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/storageLayout"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6101,7 +6349,7 @@ func RegisterBucketsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/InsertBucket", runtime.WithHTTPPathPattern("/storage/v1/b"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/InsertBucket", runtime.WithHTTPPathPattern("/storage/v1/b"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6126,7 +6374,7 @@ func RegisterBucketsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/ListBuckets", runtime.WithHTTPPathPattern("/storage/v1/b"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/ListBuckets", runtime.WithHTTPPathPattern("/storage/v1/b"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6151,7 +6399,7 @@ func RegisterBucketsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/LockRetentionPolicyBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/lockRetentionPolicy"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/LockRetentionPolicyBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/lockRetentionPolicy"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6176,7 +6424,7 @@ func RegisterBucketsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/PatchBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/PatchBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6193,6 +6441,56 @@ func RegisterBucketsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 
 	})
 
+	mux.Handle("POST", pattern_BucketsServer_RelocateBucket_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/RelocateBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/relocate"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_BucketsServer_RelocateBucket_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_BucketsServer_RelocateBucket_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_BucketsServer_RestoreBucket_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/RestoreBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/restore"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_BucketsServer_RestoreBucket_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_BucketsServer_RestoreBucket_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("PUT", pattern_BucketsServer_UpdateBucket_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -6201,7 +6499,7 @@ func RegisterBucketsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/UpdateBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/UpdateBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6235,7 +6533,7 @@ func RegisterChannelsServerHandlerServer(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ChannelsServer/StopChannel", runtime.WithHTTPPathPattern("/storage/v1/channels/stop"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ChannelsServer/StopChannel", runtime.WithHTTPPathPattern("/storage/v1/channels/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6269,7 +6567,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerServer(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/DeleteDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/DeleteDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6294,7 +6592,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerServer(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/GetDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/GetDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6319,7 +6617,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerServer(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/InsertDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/InsertDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6344,7 +6642,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerServer(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/ListDefaultObjectAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/ListDefaultObjectAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6369,7 +6667,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerServer(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/PatchDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/PatchDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6394,7 +6692,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerServer(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/UpdateDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/UpdateDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6428,7 +6726,7 @@ func RegisterFoldersServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/DeleteFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/DeleteFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6453,7 +6751,7 @@ func RegisterFoldersServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/GetFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/GetFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6478,7 +6776,7 @@ func RegisterFoldersServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/InsertFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/InsertFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6503,7 +6801,7 @@ func RegisterFoldersServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/ListFolders", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/ListFolders", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6528,7 +6826,7 @@ func RegisterFoldersServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/RenameFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{source_folder}/renameTo/folders/{destination_folder}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/RenameFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{source_folder}/renameTo/folders/{destination_folder}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6562,7 +6860,7 @@ func RegisterManagedFoldersServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ManagedFoldersServer/DeleteManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ManagedFoldersServer/DeleteManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6587,7 +6885,7 @@ func RegisterManagedFoldersServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ManagedFoldersServer/GetManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ManagedFoldersServer/GetManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6612,7 +6910,7 @@ func RegisterManagedFoldersServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ManagedFoldersServer/InsertManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ManagedFoldersServer/InsertManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6637,7 +6935,7 @@ func RegisterManagedFoldersServerHandlerServer(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ManagedFoldersServer/ListManagedFolders", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ManagedFoldersServer/ListManagedFolders", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6671,7 +6969,7 @@ func RegisterNotificationsServerHandlerServer(ctx context.Context, mux *runtime.
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.NotificationsServer/DeleteNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.NotificationsServer/DeleteNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6696,7 +6994,7 @@ func RegisterNotificationsServerHandlerServer(ctx context.Context, mux *runtime.
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.NotificationsServer/GetNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.NotificationsServer/GetNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6721,7 +7019,7 @@ func RegisterNotificationsServerHandlerServer(ctx context.Context, mux *runtime.
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.NotificationsServer/InsertNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.NotificationsServer/InsertNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6746,7 +7044,7 @@ func RegisterNotificationsServerHandlerServer(ctx context.Context, mux *runtime.
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.NotificationsServer/ListNotifications", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.NotificationsServer/ListNotifications", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6780,7 +7078,7 @@ func RegisterObjectAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/DeleteObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/DeleteObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6805,7 +7103,7 @@ func RegisterObjectAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/GetObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/GetObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6830,7 +7128,7 @@ func RegisterObjectAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/InsertObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/InsertObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6855,7 +7153,7 @@ func RegisterObjectAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/ListObjectAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/ListObjectAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6880,7 +7178,7 @@ func RegisterObjectAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/PatchObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/PatchObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6905,7 +7203,7 @@ func RegisterObjectAccessControlsServerHandlerServer(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/UpdateObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/UpdateObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6939,7 +7237,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/BulkRestoreObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/bulkRestore"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/BulkRestoreObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/bulkRestore"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6964,7 +7262,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/ComposeObject", runtime.WithHTTPPathPattern("/storage/v1/b/{destination_bucket}/o/{destination_object}/compose"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/ComposeObject", runtime.WithHTTPPathPattern("/storage/v1/b/{destination_bucket}/o/{destination_object}/compose"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -6989,7 +7287,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/CopyObject", runtime.WithHTTPPathPattern("/storage/v1/b/{source_bucket}/o/{source_object}/copyTo/b/{destination_bucket}/o/{destination_object}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/CopyObject", runtime.WithHTTPPathPattern("/storage/v1/b/{source_bucket}/o/{source_object}/copyTo/b/{destination_bucket}/o/{destination_object}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7014,7 +7312,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/DeleteObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/DeleteObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7039,7 +7337,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/GetObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/GetObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7064,7 +7362,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/InsertObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/InsertObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7089,7 +7387,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/ListObjects", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/ListObjects", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7106,6 +7404,31 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 
 	})
 
+	mux.Handle("POST", pattern_ObjectsServer_MoveObject_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/MoveObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{source_object}/moveTo/o/{destination_object}"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_ObjectsServer_MoveObject_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_ObjectsServer_MoveObject_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("PATCH", pattern_ObjectsServer_PatchObject_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -7114,7 +7437,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/PatchObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/PatchObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7139,7 +7462,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/RestoreObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}/restore"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/RestoreObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}/restore"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7164,7 +7487,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/RewriteObject", runtime.WithHTTPPathPattern("/storage/v1/b/{source_bucket}/o/{source_object}/rewriteTo/b/{destination_bucket}/o/{destination_object}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/RewriteObject", runtime.WithHTTPPathPattern("/storage/v1/b/{source_bucket}/o/{source_object}/rewriteTo/b/{destination_bucket}/o/{destination_object}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7189,7 +7512,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/UpdateObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/UpdateObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7214,7 +7537,7 @@ func RegisterObjectsServerHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/WatchAllObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/watch"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/WatchAllObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/watch"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7248,7 +7571,7 @@ func RegisterProjectsHmacKeysServerHandlerServer(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/CreateProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/CreateProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7273,7 +7596,7 @@ func RegisterProjectsHmacKeysServerHandlerServer(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/DeleteProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/DeleteProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7298,7 +7621,7 @@ func RegisterProjectsHmacKeysServerHandlerServer(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/GetProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/GetProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7323,7 +7646,7 @@ func RegisterProjectsHmacKeysServerHandlerServer(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/ListProjectsHmacKeys", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/ListProjectsHmacKeys", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7348,7 +7671,7 @@ func RegisterProjectsHmacKeysServerHandlerServer(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/UpdateProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/UpdateProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7382,7 +7705,7 @@ func RegisterProjectsServiceAccountServerHandlerServer(ctx context.Context, mux 
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsServiceAccountServer/GetProjectsServiceAccount", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/serviceAccount"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsServiceAccountServer/GetProjectsServiceAccount", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/serviceAccount"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7446,7 +7769,7 @@ func RegisterAnywhereCachesServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/DisableAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/disable"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/DisableAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/disable"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7468,7 +7791,7 @@ func RegisterAnywhereCachesServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/GetAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/GetAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7490,7 +7813,7 @@ func RegisterAnywhereCachesServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/InsertAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/InsertAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7512,7 +7835,7 @@ func RegisterAnywhereCachesServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/ListAnywhereCaches", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/ListAnywhereCaches", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7534,7 +7857,7 @@ func RegisterAnywhereCachesServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/PauseAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/pause"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/PauseAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/pause"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7556,7 +7879,7 @@ func RegisterAnywhereCachesServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/ResumeAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/resume"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/ResumeAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}/resume"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7578,7 +7901,7 @@ func RegisterAnywhereCachesServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.AnywhereCachesServer/UpdateAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.AnywhereCachesServer/UpdateAnywhereCache", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/anywhereCaches/{anywhere_cache_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7673,7 +7996,7 @@ func RegisterBucketAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/DeleteBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/DeleteBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7695,7 +8018,7 @@ func RegisterBucketAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/GetBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/GetBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7717,7 +8040,7 @@ func RegisterBucketAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/InsertBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/InsertBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7739,7 +8062,7 @@ func RegisterBucketAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/ListBucketAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/ListBucketAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7761,7 +8084,7 @@ func RegisterBucketAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/PatchBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/PatchBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7783,7 +8106,7 @@ func RegisterBucketAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketAccessControlsServer/UpdateBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketAccessControlsServer/UpdateBucketAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7874,7 +8197,7 @@ func RegisterBucketsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/DeleteBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/DeleteBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7896,7 +8219,7 @@ func RegisterBucketsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/GetBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/GetBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7918,7 +8241,7 @@ func RegisterBucketsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/GetStorageLayoutBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/storageLayout"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/GetStorageLayoutBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/storageLayout"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7940,7 +8263,7 @@ func RegisterBucketsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/InsertBucket", runtime.WithHTTPPathPattern("/storage/v1/b"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/InsertBucket", runtime.WithHTTPPathPattern("/storage/v1/b"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7962,7 +8285,7 @@ func RegisterBucketsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/ListBuckets", runtime.WithHTTPPathPattern("/storage/v1/b"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/ListBuckets", runtime.WithHTTPPathPattern("/storage/v1/b"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7984,7 +8307,7 @@ func RegisterBucketsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/LockRetentionPolicyBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/lockRetentionPolicy"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/LockRetentionPolicyBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/lockRetentionPolicy"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8006,7 +8329,7 @@ func RegisterBucketsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/PatchBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/PatchBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8022,13 +8345,57 @@ func RegisterBucketsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 
 	})
 
+	mux.Handle("POST", pattern_BucketsServer_RelocateBucket_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/RelocateBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/relocate"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_BucketsServer_RelocateBucket_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_BucketsServer_RelocateBucket_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_BucketsServer_RestoreBucket_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/RestoreBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}/restore"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_BucketsServer_RestoreBucket_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_BucketsServer_RestoreBucket_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("PUT", pattern_BucketsServer_UpdateBucket_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.BucketsServer/UpdateBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.BucketsServer/UpdateBucket", runtime.WithHTTPPathPattern("/storage/v1/b/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8062,6 +8429,10 @@ var (
 
 	pattern_BucketsServer_PatchBucket_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"storage", "v1", "b", "name"}, ""))
 
+	pattern_BucketsServer_RelocateBucket_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"storage", "v1", "b", "name", "relocate"}, ""))
+
+	pattern_BucketsServer_RestoreBucket_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"storage", "v1", "b", "name", "restore"}, ""))
+
 	pattern_BucketsServer_UpdateBucket_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"storage", "v1", "b", "name"}, ""))
 )
 
@@ -8079,6 +8450,10 @@ var (
 	forward_BucketsServer_LockRetentionPolicyBucket_0 = runtime.ForwardResponseMessage
 
 	forward_BucketsServer_PatchBucket_0 = runtime.ForwardResponseMessage
+
+	forward_BucketsServer_RelocateBucket_0 = runtime.ForwardResponseMessage
+
+	forward_BucketsServer_RestoreBucket_0 = runtime.ForwardResponseMessage
 
 	forward_BucketsServer_UpdateBucket_0 = runtime.ForwardResponseMessage
 )
@@ -8127,7 +8502,7 @@ func RegisterChannelsServerHandlerClient(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ChannelsServer/StopChannel", runtime.WithHTTPPathPattern("/storage/v1/channels/stop"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ChannelsServer/StopChannel", runtime.WithHTTPPathPattern("/storage/v1/channels/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8198,7 +8573,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerClient(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/DeleteDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/DeleteDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8220,7 +8595,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerClient(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/GetDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/GetDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8242,7 +8617,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerClient(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/InsertDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/InsertDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8264,7 +8639,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerClient(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/ListDefaultObjectAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/ListDefaultObjectAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8286,7 +8661,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerClient(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/PatchDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/PatchDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8308,7 +8683,7 @@ func RegisterDefaultObjectAccessControlsServerHandlerClient(ctx context.Context,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.DefaultObjectAccessControlsServer/UpdateDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.DefaultObjectAccessControlsServer/UpdateDefaultObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/defaultObjectAcl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8399,7 +8774,7 @@ func RegisterFoldersServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/DeleteFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/DeleteFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8421,7 +8796,7 @@ func RegisterFoldersServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/GetFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/GetFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8443,7 +8818,7 @@ func RegisterFoldersServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/InsertFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/InsertFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8465,7 +8840,7 @@ func RegisterFoldersServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/ListFolders", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/ListFolders", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8487,7 +8862,7 @@ func RegisterFoldersServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.FoldersServer/RenameFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{source_folder}/renameTo/folders/{destination_folder}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.FoldersServer/RenameFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/folders/{source_folder}/renameTo/folders/{destination_folder}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8574,7 +8949,7 @@ func RegisterManagedFoldersServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ManagedFoldersServer/DeleteManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ManagedFoldersServer/DeleteManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8596,7 +8971,7 @@ func RegisterManagedFoldersServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ManagedFoldersServer/GetManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ManagedFoldersServer/GetManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8618,7 +8993,7 @@ func RegisterManagedFoldersServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ManagedFoldersServer/InsertManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ManagedFoldersServer/InsertManagedFolder", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8640,7 +9015,7 @@ func RegisterManagedFoldersServerHandlerClient(ctx context.Context, mux *runtime
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ManagedFoldersServer/ListManagedFolders", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ManagedFoldersServer/ListManagedFolders", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/managedFolders"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8723,7 +9098,7 @@ func RegisterNotificationsServerHandlerClient(ctx context.Context, mux *runtime.
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.NotificationsServer/DeleteNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.NotificationsServer/DeleteNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8745,7 +9120,7 @@ func RegisterNotificationsServerHandlerClient(ctx context.Context, mux *runtime.
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.NotificationsServer/GetNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.NotificationsServer/GetNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8767,7 +9142,7 @@ func RegisterNotificationsServerHandlerClient(ctx context.Context, mux *runtime.
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.NotificationsServer/InsertNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.NotificationsServer/InsertNotification", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8789,7 +9164,7 @@ func RegisterNotificationsServerHandlerClient(ctx context.Context, mux *runtime.
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.NotificationsServer/ListNotifications", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.NotificationsServer/ListNotifications", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/notificationConfigs"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8872,7 +9247,7 @@ func RegisterObjectAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/DeleteObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/DeleteObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8894,7 +9269,7 @@ func RegisterObjectAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/GetObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/GetObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8916,7 +9291,7 @@ func RegisterObjectAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/InsertObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/InsertObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8938,7 +9313,7 @@ func RegisterObjectAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/ListObjectAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/ListObjectAccessControls", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8960,7 +9335,7 @@ func RegisterObjectAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/PatchObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/PatchObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -8982,7 +9357,7 @@ func RegisterObjectAccessControlsServerHandlerClient(ctx context.Context, mux *r
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectAccessControlsServer/UpdateObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectAccessControlsServer/UpdateObjectAccessControl", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{object}/acl/{entity}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9073,7 +9448,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/BulkRestoreObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/bulkRestore"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/BulkRestoreObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/bulkRestore"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9095,7 +9470,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/ComposeObject", runtime.WithHTTPPathPattern("/storage/v1/b/{destination_bucket}/o/{destination_object}/compose"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/ComposeObject", runtime.WithHTTPPathPattern("/storage/v1/b/{destination_bucket}/o/{destination_object}/compose"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9117,7 +9492,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/CopyObject", runtime.WithHTTPPathPattern("/storage/v1/b/{source_bucket}/o/{source_object}/copyTo/b/{destination_bucket}/o/{destination_object}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/CopyObject", runtime.WithHTTPPathPattern("/storage/v1/b/{source_bucket}/o/{source_object}/copyTo/b/{destination_bucket}/o/{destination_object}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9139,7 +9514,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/DeleteObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/DeleteObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9161,7 +9536,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/GetObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/GetObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9183,7 +9558,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/InsertObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/InsertObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9205,7 +9580,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/ListObjects", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/ListObjects", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9221,13 +9596,35 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 
 	})
 
+	mux.Handle("POST", pattern_ObjectsServer_MoveObject_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/MoveObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{source_object}/moveTo/o/{destination_object}"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_ObjectsServer_MoveObject_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_ObjectsServer_MoveObject_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("PATCH", pattern_ObjectsServer_PatchObject_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/PatchObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/PatchObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9249,7 +9646,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/RestoreObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}/restore"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/RestoreObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}/restore"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9271,7 +9668,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/RewriteObject", runtime.WithHTTPPathPattern("/storage/v1/b/{source_bucket}/o/{source_object}/rewriteTo/b/{destination_bucket}/o/{destination_object}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/RewriteObject", runtime.WithHTTPPathPattern("/storage/v1/b/{source_bucket}/o/{source_object}/rewriteTo/b/{destination_bucket}/o/{destination_object}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9293,7 +9690,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/UpdateObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/UpdateObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/{name}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9315,7 +9712,7 @@ func RegisterObjectsServerHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ObjectsServer/WatchAllObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/watch"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ObjectsServer/WatchAllObject", runtime.WithHTTPPathPattern("/storage/v1/b/{bucket}/o/watch"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9349,6 +9746,8 @@ var (
 
 	pattern_ObjectsServer_ListObjects_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"storage", "v1", "b", "bucket", "o"}, ""))
 
+	pattern_ObjectsServer_MoveObject_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6, 2, 4, 1, 0, 4, 1, 5, 7}, []string{"storage", "v1", "b", "bucket", "o", "source_object", "moveTo", "destination_object"}, ""))
+
 	pattern_ObjectsServer_PatchObject_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"storage", "v1", "b", "bucket", "o", "name"}, ""))
 
 	pattern_ObjectsServer_RestoreObject_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"storage", "v1", "b", "bucket", "o", "name", "restore"}, ""))
@@ -9374,6 +9773,8 @@ var (
 	forward_ObjectsServer_InsertObject_0 = runtime.ForwardResponseMessage
 
 	forward_ObjectsServer_ListObjects_0 = runtime.ForwardResponseMessage
+
+	forward_ObjectsServer_MoveObject_0 = runtime.ForwardResponseMessage
 
 	forward_ObjectsServer_PatchObject_0 = runtime.ForwardResponseMessage
 
@@ -9430,7 +9831,7 @@ func RegisterProjectsHmacKeysServerHandlerClient(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/CreateProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/CreateProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9452,7 +9853,7 @@ func RegisterProjectsHmacKeysServerHandlerClient(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/DeleteProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/DeleteProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9474,7 +9875,7 @@ func RegisterProjectsHmacKeysServerHandlerClient(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/GetProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/GetProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9496,7 +9897,7 @@ func RegisterProjectsHmacKeysServerHandlerClient(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/ListProjectsHmacKeys", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/ListProjectsHmacKeys", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9518,7 +9919,7 @@ func RegisterProjectsHmacKeysServerHandlerClient(ctx context.Context, mux *runti
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsHmacKeysServer/UpdateProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsHmacKeysServer/UpdateProjectsHmacKey", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/hmacKeys/{access_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -9605,7 +10006,7 @@ func RegisterProjectsServiceAccountServerHandlerClient(ctx context.Context, mux 
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/google.cloud.storage.v1.ProjectsServiceAccountServer/GetProjectsServiceAccount", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/serviceAccount"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/mockgcp.storage.v1.ProjectsServiceAccountServer/GetProjectsServiceAccount", runtime.WithHTTPPathPattern("/storage/v1/projects/{project_id}/serviceAccount"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return

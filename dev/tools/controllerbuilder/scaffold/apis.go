@@ -35,8 +35,98 @@ type APIScaffolder struct {
 	PackageProtoTag string
 }
 
-func (a *APIScaffolder) TypeFileNotExist(kind string) bool {
-	typeFilePath := a.GetTypeFile(kind)
+func (a *APIScaffolder) RefsFileExist(kind, resourceProtoName string) bool {
+	refsFilePath := a.PathToRefsFile(kind, resourceProtoName)
+	_, err := os.Stat(refsFilePath)
+	if err == nil {
+		return true
+	}
+	return !errors.Is(err, os.ErrNotExist)
+}
+
+func (a *APIScaffolder) PathToRefsFile(kind, resourceProtoName string) string {
+	fileName := strings.ToLower(resourceProtoName) + "_reference.go"
+	return filepath.Join(a.BaseDir, a.GoPackage, fileName)
+}
+
+func (a *APIScaffolder) AddRefsFile(kind, resourceProtoName string) error {
+	refsFilePath := a.PathToRefsFile(kind, resourceProtoName)
+	cArgs := &apis.APIArgs{
+		Group:           a.Group,
+		Version:         a.Version,
+		Kind:            kind,
+		PackageProtoTag: a.PackageProtoTag,
+		KindProtoTag:    a.PackageProtoTag + "." + resourceProtoName,
+		ProtoResource:   resourceProtoName,
+	}
+	return scaffoldRefsFile(refsFilePath, cArgs)
+}
+
+func scaffoldIdentityFile(path string, cArgs *apis.APIArgs) error {
+	tmpl, err := template.New(cArgs.Kind).Funcs(funcMap).Parse(apis.IdentityTemplate)
+	if err != nil {
+		return fmt.Errorf("parse %s_identity.go template: %w", strings.ToLower(cArgs.ProtoResource), err)
+	}
+	// Apply the APIArgs args to the template
+	out := &bytes.Buffer{}
+	if err := tmpl.Execute(out, cArgs); err != nil {
+		return err
+	}
+	// Write the generated <kind>_types.go
+	if err := WriteToFile(path, out.Bytes()); err != nil {
+		return err
+	}
+	color.HiGreen("New identity file added %s\nPlease EDIT it!\n", path)
+	return nil
+}
+
+func (a *APIScaffolder) IdentityFileExist(kind, resourceProtoName string) bool {
+	refsFilePath := a.PathToIdentityFile(kind, resourceProtoName)
+	_, err := os.Stat(refsFilePath)
+	if err == nil {
+		return true
+	}
+	return !errors.Is(err, os.ErrNotExist)
+}
+
+func (a *APIScaffolder) PathToIdentityFile(kind, resourceProtoName string) string {
+	fileName := strings.ToLower(resourceProtoName) + "_identity.go"
+	return filepath.Join(a.BaseDir, a.GoPackage, fileName)
+}
+
+func (a *APIScaffolder) AddIdentityFile(kind, resourceProtoName string) error {
+	refsFilePath := a.PathToIdentityFile(kind, resourceProtoName)
+	cArgs := &apis.APIArgs{
+		Group:           a.Group,
+		Version:         a.Version,
+		Kind:            kind,
+		PackageProtoTag: a.PackageProtoTag,
+		KindProtoTag:    a.PackageProtoTag + "." + resourceProtoName,
+		ProtoResource:   resourceProtoName,
+	}
+	return scaffoldIdentityFile(refsFilePath, cArgs)
+}
+
+func scaffoldRefsFile(path string, cArgs *apis.APIArgs) error {
+	tmpl, err := template.New(cArgs.Kind).Funcs(funcMap).Parse(apis.RefsHeaderTemplate)
+	if err != nil {
+		return fmt.Errorf("parse %s_reference.go template: %w", strings.ToLower(cArgs.ProtoResource), err)
+	}
+	// Apply the APIArgs args to the template
+	out := &bytes.Buffer{}
+	if err := tmpl.Execute(out, cArgs); err != nil {
+		return err
+	}
+	// Write the generated <kind>_types.go
+	if err := WriteToFile(path, out.Bytes()); err != nil {
+		return err
+	}
+	color.HiGreen("New reference file added %s\nPlease EDIT it!\n", path)
+	return nil
+}
+
+func (a *APIScaffolder) TypeFileNotExist(resourceProtoName string) bool {
+	typeFilePath := a.PathToTypeFile(resourceProtoName)
 	_, err := os.Stat(typeFilePath)
 	if err == nil {
 		return false
@@ -44,28 +134,28 @@ func (a *APIScaffolder) TypeFileNotExist(kind string) bool {
 	return errors.Is(err, os.ErrNotExist)
 }
 
-func (a *APIScaffolder) GetTypeFile(kind string) string {
-	fileName := strings.ToLower(kind) + "_types.go"
+func (a *APIScaffolder) PathToTypeFile(resourceProtoName string) string {
+	fileName := strings.ToLower(resourceProtoName) + "_types.go"
 	return filepath.Join(a.BaseDir, a.GoPackage, fileName)
 }
 
-func (a *APIScaffolder) AddTypeFile(kind, proto string) error {
-	typeFilePath := a.GetTypeFile(kind)
+func (a *APIScaffolder) AddTypeFile(resourceProtoName, kind string) error {
+	typeFilePath := a.PathToTypeFile(resourceProtoName)
 	cArgs := &apis.APIArgs{
 		Group:           a.Group,
 		Version:         a.Version,
 		Kind:            kind,
 		PackageProtoTag: a.PackageProtoTag,
-		KindProtoTag:    a.PackageProtoTag + "." + proto,
-		GcpResource:     proto,
+		KindProtoTag:    a.PackageProtoTag + "." + resourceProtoName,
+		ProtoResource:   resourceProtoName,
 	}
 	return scaffoldTypeFile(typeFilePath, cArgs)
 }
 
 func scaffoldTypeFile(path string, cArgs *apis.APIArgs) error {
-	tmpl, err := template.New(cArgs.Kind).Parse(apis.TypesTemplate)
+	tmpl, err := template.New(cArgs.Kind).Funcs(funcMap).Parse(apis.TypesTemplate)
 	if err != nil {
-		return fmt.Errorf("parse %s_types.go template: %w", strings.ToLower(cArgs.Kind), err)
+		return fmt.Errorf("parse %s_types.go template: %w", strings.ToLower(cArgs.ProtoResource), err)
 	}
 	// Apply the APIArgs args to the template
 	out := &bytes.Buffer{}
@@ -100,7 +190,7 @@ func (a *APIScaffolder) AddGroupVersionFile() error {
 		Version:         a.Version,
 		PackageProtoTag: a.PackageProtoTag,
 	}
-	return scaffoldGropuVersionFile(docFilePath, cArgs)
+	return scaffoldGroupVersionFile(docFilePath, cArgs)
 }
 
 func (a *APIScaffolder) DocFileNotExist() bool {
@@ -138,7 +228,7 @@ func scaffoldDocFile(path string, cArgs *apis.APIArgs) error {
 	return nil
 }
 
-func scaffoldGropuVersionFile(path string, cArgs *apis.APIArgs) error {
+func scaffoldGroupVersionFile(path string, cArgs *apis.APIArgs) error {
 	tmpl, err := template.New("groupversioninfo.go").Parse(apis.GroupVersionInfoTemplate)
 	if err != nil {
 		return fmt.Errorf("parse groupversion_info.go template: %w", err)

@@ -30,24 +30,6 @@ type Instance_HostConfig struct {
 	GitSSH *string `json:"gitSSH,omitempty"`
 }
 
-// +kcc:proto=google.cloud.securesourcemanager.v1.Instance.PrivateConfig
-type Instance_PrivateConfig struct {
-	// Required. Immutable. Indicate if it's private instance.
-	IsPrivate *bool `json:"isPrivate,omitempty"`
-
-	// Required. Immutable. CA pool resource, resource must in the format of
-	//  `projects/{project}/locations/{location}/caPools/{ca_pool}`.
-	CaPool *string `json:"caPool,omitempty"`
-
-	// Output only. Service Attachment for HTTP, resource is in the format of
-	//  `projects/{project}/regions/{region}/serviceAttachments/{service_attachment}`.
-	HTTPServiceAttachment *string `json:"httpServiceAttachment,omitempty"`
-
-	// Output only. Service Attachment for SSH, resource is in the format of
-	//  `projects/{project}/regions/{region}/serviceAttachments/{service_attachment}`.
-	SSHServiceAttachment *string `json:"sshServiceAttachment,omitempty"`
-}
-
 // +kcc:proto=google.cloud.securesourcemanager.v1.Repository
 type Repository struct {
 	// Optional. A unique identifier for a repository. The name should be of the
@@ -62,8 +44,10 @@ type Repository struct {
 	// Optional. The name of the instance in which the repository is hosted,
 	//  formatted as
 	//  `projects/{project_number}/locations/{location_id}/instances/{instance_id}`
-	//  For data plane CreateRepository requests, this field is output only.
-	//  For control plane CreateRepository requests, this field is used as input.
+	//  When creating repository via
+	//  securesourcemanager.googleapis.com (Control Plane API), this field is used
+	//  as input. When creating repository via *.sourcemanager.dev (Data Plane
+	//  API), this field is output only.
 	Instance *string `json:"instance,omitempty"`
 
 	// Output only. Unique identifier of the repository.

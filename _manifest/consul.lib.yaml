@@ -1,8 +1,0 @@
-#! only used to validate manifest, this files will be
-#! replaced by the real consul dump on deployment
-#@ def config():
-GCP_PROJECT_ID: birota-cloud
-cluster:
-  name: internal
-  zone: europe-west1
-#@ end

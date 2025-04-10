@@ -3,7 +3,6 @@
 [refs] crd=apigatewaygateways.apigateway.cnrm.cloud.google.com version=v1alpha1: field ".spec.apiConfig" should be a reference
 [refs] crd=apigeeendpointattachments.apigee.cnrm.cloud.google.com version=v1alpha1: field ".spec.serviceAttachment" should be a reference
 [refs] crd=beyondcorpappconnections.beyondcorp.cnrm.cloud.google.com version=v1alpha1: field ".spec.gateway.appGateway" should be a reference
-[refs] crd=bigqueryanalyticshublistings.bigqueryanalyticshub.cnrm.cloud.google.com version=v1alpha1: field ".spec.bigqueryDataset.dataset" should be a reference
 [refs] crd=bigquerydatapolicydatapolicies.bigquerydatapolicy.cnrm.cloud.google.com version=v1alpha1: field ".spec.policyTag" should be a reference
 [refs] crd=cloudbuildtriggers.cloudbuild.cnrm.cloud.google.com version=v1beta1: field ".spec.build.options.workerPool" should be a reference
 [refs] crd=cloudfunctions2functions.cloudfunctions2.cnrm.cloud.google.com version=v1alpha1: field ".spec.kmsKeyName" should be a reference
@@ -46,8 +45,8 @@
 [refs] crd=dialogflowintents.dialogflow.cnrm.cloud.google.com version=v1alpha1: field ".spec.parentFollowupIntentName" should be a reference
 [refs] crd=essentialcontactscontacts.essentialcontacts.cnrm.cloud.google.com version=v1alpha1: field ".spec.parent" should be a reference
 [refs] crd=gkebackupbackupplans.gkebackup.cnrm.cloud.google.com version=v1alpha1: field ".spec.backupConfig.encryptionKey.gcpKmsEncryptionKey" should be a reference
+[refs] crd=iapsettings.iap.cnrm.cloud.google.com version=v1alpha1: field ".spec.name" should be a reference
 [refs] crd=notebooksenvironments.notebooks.cnrm.cloud.google.com version=v1alpha1: field ".spec.vmImage.project" should be a reference
-[refs] crd=securesourcemanagerinstances.securesourcemanager.cnrm.cloud.google.com version=v1alpha1: field ".spec.kmsKey" should be a reference
 [refs] crd=tagstagkeys.tags.cnrm.cloud.google.com version=v1beta1: field ".spec.parent" should be a reference
 [refs] crd=vertexaifeaturestoreentitytypefeatures.vertexai.cnrm.cloud.google.com version=v1alpha1: field ".spec.entitytype" should be a reference
 [refs] crd=vertexaifeaturestoreentitytypes.vertexai.cnrm.cloud.google.com version=v1alpha1: field ".spec.featurestore" should be a reference

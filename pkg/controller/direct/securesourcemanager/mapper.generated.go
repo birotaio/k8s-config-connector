@@ -16,6 +16,7 @@ package securesourcemanager
 
 import (
 	pb "cloud.google.com/go/securesourcemanager/apiv1/securesourcemanagerpb"
+	refs "github.com/GoogleCloudPlatform/k8s-config-connector/apis/refs/v1beta1"
 	krm "github.com/GoogleCloudPlatform/k8s-config-connector/apis/securesourcemanager/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/controller/direct"
 )
@@ -40,60 +41,6 @@ func Instance_HostConfig_ToProto(mapCtx *direct.MapContext, in *krm.Instance_Hos
 	out.Api = direct.ValueOf(in.Api)
 	out.GitHttp = direct.ValueOf(in.GitHTTP)
 	out.GitSsh = direct.ValueOf(in.GitSSH)
-	return out
-}
-func Instance_PrivateConfig_FromProto(mapCtx *direct.MapContext, in *pb.Instance_PrivateConfig) *krm.Instance_PrivateConfig {
-	if in == nil {
-		return nil
-	}
-	out := &krm.Instance_PrivateConfig{}
-	out.IsPrivate = direct.LazyPtr(in.GetIsPrivate())
-	out.CaPool = direct.LazyPtr(in.GetCaPool())
-	out.HTTPServiceAttachment = direct.LazyPtr(in.GetHttpServiceAttachment())
-	out.SSHServiceAttachment = direct.LazyPtr(in.GetSshServiceAttachment())
-	return out
-}
-func Instance_PrivateConfig_ToProto(mapCtx *direct.MapContext, in *krm.Instance_PrivateConfig) *pb.Instance_PrivateConfig {
-	if in == nil {
-		return nil
-	}
-	out := &pb.Instance_PrivateConfig{}
-	out.IsPrivate = direct.ValueOf(in.IsPrivate)
-	out.CaPool = direct.ValueOf(in.CaPool)
-	out.HttpServiceAttachment = direct.ValueOf(in.HTTPServiceAttachment)
-	out.SshServiceAttachment = direct.ValueOf(in.SSHServiceAttachment)
-	return out
-}
-func Repository_FromProto(mapCtx *direct.MapContext, in *pb.Repository) *krm.Repository {
-	if in == nil {
-		return nil
-	}
-	out := &krm.Repository{}
-	out.Name = direct.LazyPtr(in.GetName())
-	out.Description = direct.LazyPtr(in.GetDescription())
-	out.Instance = direct.LazyPtr(in.GetInstance())
-	out.Uid = direct.LazyPtr(in.GetUid())
-	out.CreateTime = Repository_CreateTime_FromProto(mapCtx, in.GetCreateTime())
-	out.UpdateTime = Repository_UpdateTime_FromProto(mapCtx, in.GetUpdateTime())
-	out.Etag = direct.LazyPtr(in.GetEtag())
-	out.Uris = Repository_URIs_FromProto(mapCtx, in.GetUris())
-	out.InitialConfig = Repository_InitialConfig_FromProto(mapCtx, in.GetInitialConfig())
-	return out
-}
-func Repository_ToProto(mapCtx *direct.MapContext, in *krm.Repository) *pb.Repository {
-	if in == nil {
-		return nil
-	}
-	out := &pb.Repository{}
-	out.Name = direct.ValueOf(in.Name)
-	out.Description = direct.ValueOf(in.Description)
-	out.Instance = direct.ValueOf(in.Instance)
-	out.Uid = direct.ValueOf(in.Uid)
-	out.CreateTime = Repository_CreateTime_ToProto(mapCtx, in.CreateTime)
-	out.UpdateTime = Repository_UpdateTime_ToProto(mapCtx, in.UpdateTime)
-	out.Etag = direct.ValueOf(in.Etag)
-	out.Uris = Repository_URIs_ToProto(mapCtx, in.Uris)
-	out.InitialConfig = Repository_InitialConfig_ToProto(mapCtx, in.InitialConfig)
 	return out
 }
 func Repository_InitialConfig_FromProto(mapCtx *direct.MapContext, in *pb.Repository_InitialConfig) *krm.Repository_InitialConfig {
@@ -147,10 +94,8 @@ func SecureSourceManagerInstanceObservedState_FromProto(mapCtx *direct.MapContex
 	// MISSING: CreateTime
 	// MISSING: UpdateTime
 	// MISSING: Labels
-	// MISSING: PrivateConfig
 	out.State = direct.Enum_FromProto(mapCtx, in.GetState())
 	out.StateNote = direct.Enum_FromProto(mapCtx, in.GetStateNote())
-	// MISSING: KmsKey
 	out.HostConfig = Instance_HostConfig_FromProto(mapCtx, in.GetHostConfig())
 	return out
 }
@@ -163,10 +108,8 @@ func SecureSourceManagerInstanceObservedState_ToProto(mapCtx *direct.MapContext,
 	// MISSING: CreateTime
 	// MISSING: UpdateTime
 	// MISSING: Labels
-	// MISSING: PrivateConfig
 	out.State = direct.Enum_ToProto[pb.Instance_State](mapCtx, in.State)
 	out.StateNote = direct.Enum_ToProto[pb.Instance_StateNote](mapCtx, in.StateNote)
-	// MISSING: KmsKey
 	out.HostConfig = Instance_HostConfig_ToProto(mapCtx, in.HostConfig)
 	return out
 }
@@ -179,11 +122,10 @@ func SecureSourceManagerInstanceSpec_FromProto(mapCtx *direct.MapContext, in *pb
 	// MISSING: CreateTime
 	// MISSING: UpdateTime
 	// MISSING: Labels
-	// MISSING: PrivateConfig
-	// MISSING: State
-	// MISSING: StateNote
-	out.KmsKey = direct.LazyPtr(in.GetKmsKey())
-	// MISSING: HostConfig
+	out.PrivateConfig = Instance_PrivateConfig_FromProto(mapCtx, in.GetPrivateConfig())
+	if in.GetKmsKey() != "" {
+		out.KmsKeyRef = &refs.KMSCryptoKeyRef{External: in.GetKmsKey()}
+	}
 	return out
 }
 func SecureSourceManagerInstanceSpec_ToProto(mapCtx *direct.MapContext, in *krm.SecureSourceManagerInstanceSpec) *pb.Instance {
@@ -195,10 +137,45 @@ func SecureSourceManagerInstanceSpec_ToProto(mapCtx *direct.MapContext, in *krm.
 	// MISSING: CreateTime
 	// MISSING: UpdateTime
 	// MISSING: Labels
-	// MISSING: PrivateConfig
-	// MISSING: State
-	// MISSING: StateNote
-	out.KmsKey = direct.ValueOf(in.KmsKey)
-	// MISSING: HostConfig
+	out.PrivateConfig = Instance_PrivateConfig_ToProto(mapCtx, in.PrivateConfig)
+	if in.KmsKeyRef != nil {
+		out.KmsKey = in.KmsKeyRef.External
+	}
+	return out
+}
+func SecureSourceManagerRepositorySpec_FromProto(mapCtx *direct.MapContext, in *pb.Repository) *krm.SecureSourceManagerRepositorySpec {
+	if in == nil {
+		return nil
+	}
+	out := &krm.SecureSourceManagerRepositorySpec{}
+	// MISSING: Name
+	// MISSING: Description
+	if in.GetInstance() != "" {
+		out.InstanceRef = &krm.SecureSourceManagerInstanceRef{External: in.GetInstance()}
+	}
+	// MISSING: Uid
+	// MISSING: CreateTime
+	// MISSING: UpdateTime
+	// MISSING: Etag
+	// MISSING: Uris
+	out.InitialConfig = Repository_InitialConfig_FromProto(mapCtx, in.GetInitialConfig())
+	return out
+}
+func SecureSourceManagerRepositorySpec_ToProto(mapCtx *direct.MapContext, in *krm.SecureSourceManagerRepositorySpec) *pb.Repository {
+	if in == nil {
+		return nil
+	}
+	out := &pb.Repository{}
+	// MISSING: Name
+	// MISSING: Description
+	if in.InstanceRef != nil {
+		out.Instance = in.InstanceRef.External
+	}
+	// MISSING: Uid
+	// MISSING: CreateTime
+	// MISSING: UpdateTime
+	// MISSING: Etag
+	// MISSING: Uris
+	out.InitialConfig = Repository_InitialConfig_ToProto(mapCtx, in.InitialConfig)
 	return out
 }

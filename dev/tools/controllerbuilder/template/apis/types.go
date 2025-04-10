@@ -4,7 +4,7 @@ type APIArgs struct {
 	Group           string
 	Version         string
 	Kind            string
-	GcpResource     string
+	ProtoResource   string
 	PackageProtoTag string
 	KindProtoTag    string
 }
@@ -32,18 +32,12 @@ import (
 
 var {{ .Kind }}GVK = GroupVersion.WithKind("{{ .Kind }}")
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // {{ .Kind }}Spec defines the desired state of {{ .Kind }}
 {{- if .KindProtoTag }}
 // +kcc:proto={{ .KindProtoTag }}
 {{- end }}
 type {{ .Kind }}Spec struct {
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ResourceID field is immutable"
-	// Immutable.
 	// The {{ .Kind }} name. If not given, the metadata.name will be used.
-	// + optional
 	ResourceID *string ` + "`" + `json:"resourceID,omitempty"` + "`" + `
 }
 
@@ -54,15 +48,12 @@ type {{ .Kind }}Status struct {
 	Conditions []v1alpha1.Condition ` + "`" + `json:"conditions,omitempty"` + "`" + ` 
 
 	// ObservedGeneration is the generation of the resource that was most recently observed by the Config Connector controller. If this is equal to metadata.generation, then that means that the current reported status reflects the most recent desired state of the resource.
-	// +optional
 	ObservedGeneration *int64 ` + "`" + `json:"observedGeneration,omitempty"` + "`" + `
 
 	// A unique specifier for the {{ .Kind }} resource in GCP.
-	// +optional
 	ExternalRef *string ` + "`" + `json:"externalRef,omitempty"` + "`" + `
 
 	// ObservedState is the state of the resource as most recently observed in GCP.
-	// +optional
 	ObservedState *{{ .Kind }}ObservedState ` + "`" + `json:"observedState,omitempty"` + "`" + `
 }
 
@@ -70,13 +61,14 @@ type {{ .Kind }}Status struct {
 {{- if .KindProtoTag }}
 // +kcc:proto={{ .KindProtoTag }}
 {{- end }}
+// {{ .Kind }}ObservedState is the state of the {{ .Kind }} resource as most recently observed in GCP.
 type {{ .Kind }}ObservedState struct {
 }
 
-
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:categories=gcp
+// TODO(user): make sure the pluralizaiton below is correct
+// +kubebuilder:resource:categories=gcp,shortName=gcp{{ .Kind | ToLower }};gcp{{ .Kind | ToLower }}s
 // +kubebuilder:subresource:status
 // +kubebuilder:metadata:labels="cnrm.cloud.google.com/managed-by-kcc=true";"cnrm.cloud.google.com/system=true"
 // +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date"
@@ -90,6 +82,7 @@ type {{ .Kind }} struct {
 	metav1.TypeMeta   ` + "`" + `json:",inline"` + "`" + `
 	metav1.ObjectMeta ` + "`" + `json:"metadata,omitempty"` + "`" + `
 
+	// +required
 	Spec   {{ .Kind }}Spec   ` + "`" + `json:"spec,omitempty"` + "`" + `
 	Status {{ .Kind }}Status ` + "`" + `json:"status,omitempty"` + "`" + `
 }

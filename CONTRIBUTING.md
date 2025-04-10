@@ -2,7 +2,7 @@
 
 We'd love to accept your patches and contributions to this project. We use this
 GitHub project as our primary source of truth and the main development
-repository for Config Connetor. The source code in this project is also
+repository for Config Connector. The source code in this project is also
 mirrored to internal Google repository for the purposes of releases.
 
 ## Contributor License Agreement
@@ -35,6 +35,15 @@ You need to set up your own DEV environment before contributing to this project.
 
 We follow the typical contribution flow similar to most OSS projects on GitHub.
 
+### Configure Variables
+
+Export the `GITHUB_USERNAME` environment variable which will be used in subsequent
+steps.
+
+```
+export GITHUB_USERNAME=YOUR_USERNAME
+```
+
 ### Fork and pull
 
 We follow the
@@ -64,13 +73,13 @@ summary, you perform the follow steps to get your fork ready:
     https://docs.github.com/en/get-started/quickstart/fork-a-repo#cloning-your-forked-repository
 
     We recommend you to create the local clone under the path
-    `~/go/src/github.com/YOUR_USERNAME`. This will help to avoid a few known
+    `~/go/src/github.com/$GITHUB_USERNAME`. This will help to avoid a few known
     build frictions related to generated code.
 
     ```shell
-    mkdir -p ~/go/src/github.com/YOUR_USERNAME
-    cd ~/go/src/github.com/YOUR_USERNAME
-    git clone https://github.com/YOUR_USERNAME/k8s-config-connector   # If you use ssh key auth, this will be git@github.com:YOUR_USERNAME/k8s-config-connector.git
+    mkdir -p ~/go/src/github.com/$GITHUB_USERNAME
+    cd ~/go/src/github.com/$GITHUB_USERNAME
+    git clone https://github.com/$GITHUB_USERNAME/k8s-config-connector   # If you use ssh key auth, this will be git@github.com:$GITHUB_USERNAME/k8s-config-connector.git
     ```
 
 ### Set up your environment
@@ -96,7 +105,7 @@ repo to quickly set up a local dev environment.
 1.  Change to environment-setup directory.
 
     ```shell
-    cd ~/go/src/github.com/YOUR_USERNAME/k8s-config-connector/scripts/environment-setup
+    cd ~/go/src/github.com/$GITHUB_USERNAME/k8s-config-connector/scripts/environment-setup
     ```
 
 1.  Set up sudoless Docker.
@@ -105,7 +114,7 @@ repo to quickly set up a local dev environment.
     ./docker-setup.sh
     ```
 
-1.  Exit your current session, then SSH back in to the VM. Then run the
+1.  Exit your current session, then SSH back into the VM. Then run the
     following to ensure you have set up sudoless docker correctly:
 
     ```shell
@@ -115,7 +124,7 @@ repo to quickly set up a local dev environment.
 1.  Install Golang.
 
     ```shell
-    cd ~/go/src/github.com/YOUR_USERNAME/k8s-config-connector/scripts/environment-setup
+    cd ~/go/src/github.com/$GITHUB_USERNAME/k8s-config-connector/scripts/environment-setup
     ./golang-setup.sh
     source ~/.profile
     ```
@@ -153,7 +162,7 @@ repo to quickly set up a local dev environment.
         validate creation of this resource in the next step. So we can do:
 
         ```shell
-        cd ~/go/src/github.com/YOUR_USERNAME/k8s-config-connector
+        cd ~/go/src/github.com/$GITHUB_USERNAME/k8s-config-connector
         make manifests
         kubectl apply -f config/crds/resources/apiextensions.k8s.io_v1_customresourcedefinition_artifactregistryrepositories.artifactregistry.cnrm.cloud.google.com.yaml
         ```
@@ -172,12 +181,26 @@ repo to quickly set up a local dev environment.
         make deploy-controller
         ```
 
+    1. If you want to install config connector on a brand new GKE cluster, the following command will install all CRDs, locally build, push and deploy all workloads to a standard GKE cluster.
+
+        ```shell
+        make deploy-kcc-standard
+        make install
+        ```
+    
+        For autopilot clusters, please use the following command.
+
+        ```shell
+        make deploy-kcc-autopilot
+        make install
+        ```
+
 ### Validate your environment
 
 The script `gcp-setup.sh` annotates your `default` namespace in the GKE cluster
 with a
 [project-id](https://cloud.google.com/config-connector/docs/how-to/organizing-resources/project-scoped-resources#annotate_namespace_configuration)
-annotation equals to your default GCP project id in gcloud. This enables Config
+annotation equal to your default GCP project id in gcloud. This enables Config
 Connector to create GCP resources in that default GCP project. We can validate
 by creating an Artifact Registry resource through Config Connector.
 
@@ -209,8 +232,7 @@ by creating an Artifact Registry resource through Config Connector.
 
 #### Looking for error logs
 
-You can look for error logs by checking the controller logs following the steps
-[here](https://cloud.google.com/config-connector/docs/troubleshooting#check-controller-logs).
+You can look for error logs by checking the controller logs following the [troubleshooting](https://cloud.google.com/config-connector/docs/troubleshooting#check-controller-logs).
 
 #### Pods fail to pull image
 When the cluster is created without providing a service account, a Compute Engine service account is created for the cluster. Users must grant the service account permission to pull images from the project registry.
@@ -349,9 +371,9 @@ If you are working on a existing resource, test yaml should exist under
 to make sure the test can still pass. Example command:
 
 ```bash
-   # Export the environment variables needed in the dynamic tests if you haven't done it.
-   TEST_FOLDER_ID=123456789 go test -v -tags=integration ./pkg/controller/dynamic/ -test.run TestCreateNoChangeUpdateDelete -run-tests cloudschedulerjob -timeout 900s
- ```
+# Export the environment variables needed in the dynamic tests if you haven't done it.
+TEST_FOLDER_ID=123456789 go test -v -tags=integration ./pkg/controller/dynamic/ -test.run TestCreateNoChangeUpdateDelete -run-tests cloudschedulerjob -timeout 900s
+```
 Replace `cloudschedulerjob` with your test target.
 
 ### Submit a Pull Request
@@ -364,5 +386,5 @@ you can first validate the change locally:
 make ready-pr
 ```
 
-You can then commit your change and make a pull request. See more details
-[here](https://docs.github.com/en/get-started/quickstart/contributing-to-projects#making-and-pushing-changes).
+You can then commit your change and make a pull request. See [GitHub's contributing
+to projects: making and pushing changes](https://docs.github.com/en/get-started/quickstart/contributing-to-projects#making-and-pushing-changes).

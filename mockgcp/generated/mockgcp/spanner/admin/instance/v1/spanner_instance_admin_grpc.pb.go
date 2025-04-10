@@ -26,44 +26,47 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type InstanceAdminClient interface {
 	// Lists the supported instance configurations for a given project.
+	//
+	// Returns both Google-managed configurations and user-managed
+	// configurations.
 	ListInstanceConfigs(ctx context.Context, in *ListInstanceConfigsRequest, opts ...grpc.CallOption) (*ListInstanceConfigsResponse, error)
 	// Gets information about a particular instance configuration.
 	GetInstanceConfig(ctx context.Context, in *GetInstanceConfigRequest, opts ...grpc.CallOption) (*InstanceConfig, error)
-	// Creates an instance config and begins preparing it to be used. The
-	// returned [long-running operation][google.longrunning.Operation]
+	// Creates an instance configuration and begins preparing it to be used. The
+	// returned long-running operation
 	// can be used to track the progress of preparing the new
-	// instance config. The instance config name is assigned by the caller. If the
-	// named instance config already exists, `CreateInstanceConfig` returns
-	// `ALREADY_EXISTS`.
+	// instance configuration. The instance configuration name is assigned by the
+	// caller. If the named instance configuration already exists,
+	// `CreateInstanceConfig` returns `ALREADY_EXISTS`.
 	//
 	// Immediately after the request returns:
 	//
-	//   - The instance config is readable via the API, with all requested
-	//     attributes. The instance config's
+	//   - The instance configuration is readable via the API, with all requested
+	//     attributes. The instance configuration's
 	//     [reconciling][mockgcp.spanner.admin.instance.v1.InstanceConfig.reconciling]
 	//     field is set to true. Its state is `CREATING`.
 	//
 	// While the operation is pending:
 	//
-	//   - Cancelling the operation renders the instance config immediately
+	//   - Cancelling the operation renders the instance configuration immediately
 	//     unreadable via the API.
 	//   - Except for deleting the creating resource, all other attempts to modify
-	//     the instance config are rejected.
+	//     the instance configuration are rejected.
 	//
 	// Upon completion of the returned operation:
 	//
 	//   - Instances can be created using the instance configuration.
-	//   - The instance config's
+	//   - The instance configuration's
 	//     [reconciling][mockgcp.spanner.admin.instance.v1.InstanceConfig.reconciling]
 	//     field becomes false. Its state becomes `READY`.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format
 	// `<instance_config_name>/operations/<operation_id>` and can be used to track
-	// creation of the instance config. The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// creation of the instance configuration. The
+	// metadata field type is
 	// [CreateInstanceConfigMetadata][mockgcp.spanner.admin.instance.v1.CreateInstanceConfigMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [InstanceConfig][mockgcp.spanner.admin.instance.v1.InstanceConfig], if
 	// successful.
 	//
@@ -71,16 +74,16 @@ type InstanceAdminClient interface {
 	// the resource
 	// [parent][mockgcp.spanner.admin.instance.v1.CreateInstanceConfigRequest.parent].
 	CreateInstanceConfig(ctx context.Context, in *CreateInstanceConfigRequest, opts ...grpc.CallOption) (*longrunningpb.Operation, error)
-	// Updates an instance config. The returned
-	// [long-running operation][google.longrunning.Operation] can be used to track
-	// the progress of updating the instance. If the named instance config does
-	// not exist, returns `NOT_FOUND`.
+	// Updates an instance configuration. The returned
+	// long-running operation can be used to track
+	// the progress of updating the instance. If the named instance configuration
+	// does not exist, returns `NOT_FOUND`.
 	//
-	// Only user managed configurations can be updated.
+	// Only user-managed configurations can be updated.
 	//
 	// Immediately after the request returns:
 	//
-	//   - The instance config's
+	//   - The instance configuration's
 	//     [reconciling][mockgcp.spanner.admin.instance.v1.InstanceConfig.reconciling]
 	//     field is set to true.
 	//
@@ -90,47 +93,47 @@ type InstanceAdminClient interface {
 	//     [cancel_time][mockgcp.spanner.admin.instance.v1.UpdateInstanceConfigMetadata.cancel_time].
 	//     The operation is guaranteed to succeed at undoing all changes, after
 	//     which point it terminates with a `CANCELLED` status.
-	//   - All other attempts to modify the instance config are rejected.
-	//   - Reading the instance config via the API continues to give the
+	//   - All other attempts to modify the instance configuration are rejected.
+	//   - Reading the instance configuration via the API continues to give the
 	//     pre-request values.
 	//
 	// Upon completion of the returned operation:
 	//
 	//   - Creating instances using the instance configuration uses the new
 	//     values.
-	//   - The instance config's new values are readable via the API.
-	//   - The instance config's
+	//   - The new values of the instance configuration are readable via the API.
+	//   - The instance configuration's
 	//     [reconciling][mockgcp.spanner.admin.instance.v1.InstanceConfig.reconciling]
 	//     field becomes false.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format
 	// `<instance_config_name>/operations/<operation_id>` and can be used to track
-	// the instance config modification.  The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// the instance configuration modification.  The
+	// metadata field type is
 	// [UpdateInstanceConfigMetadata][mockgcp.spanner.admin.instance.v1.UpdateInstanceConfigMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [InstanceConfig][mockgcp.spanner.admin.instance.v1.InstanceConfig], if
 	// successful.
 	//
 	// Authorization requires `spanner.instanceConfigs.update` permission on
 	// the resource [name][mockgcp.spanner.admin.instance.v1.InstanceConfig.name].
 	UpdateInstanceConfig(ctx context.Context, in *UpdateInstanceConfigRequest, opts ...grpc.CallOption) (*longrunningpb.Operation, error)
-	// Deletes the instance config. Deletion is only allowed when no
+	// Deletes the instance configuration. Deletion is only allowed when no
 	// instances are using the configuration. If any instances are using
-	// the config, returns `FAILED_PRECONDITION`.
+	// the configuration, returns `FAILED_PRECONDITION`.
 	//
-	// Only user managed configurations can be deleted.
+	// Only user-managed configurations can be deleted.
 	//
 	// Authorization requires `spanner.instanceConfigs.delete` permission on
 	// the resource [name][mockgcp.spanner.admin.instance.v1.InstanceConfig.name].
 	DeleteInstanceConfig(ctx context.Context, in *DeleteInstanceConfigRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	// Lists the user-managed instance config [long-running
-	// operations][google.longrunning.Operation] in the given project. An instance
-	// config operation has a name of the form
+	// Lists the user-managed instance configuration long-running
+	// operations in the given project. An instance
+	// configuration operation has a name of the form
 	// `projects/<project>/instanceConfigs/<instance_config>/operations/<operation>`.
 	// The long-running operation
-	// [metadata][google.longrunning.Operation.metadata] field type
+	// metadata field type
 	// `metadata.type_url` describes the type of the metadata. Operations returned
 	// include those that have completed/failed/canceled within the last 7 days,
 	// and pending operations. Operations returned are ordered by
@@ -144,7 +147,7 @@ type InstanceAdminClient interface {
 	// Gets information about a particular instance.
 	GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*Instance, error)
 	// Creates an instance and begins preparing it to begin serving. The
-	// returned [long-running operation][google.longrunning.Operation]
+	// returned long-running operation
 	// can be used to track the progress of preparing the new
 	// instance. The instance name is assigned by the caller. If the
 	// named instance already exists, `CreateInstance` returns
@@ -170,17 +173,16 @@ type InstanceAdminClient interface {
 	//   - The instance's allocated resource levels are readable via the API.
 	//   - The instance's state becomes `READY`.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format `<instance_name>/operations/<operation_id>` and
 	// can be used to track creation of the instance.  The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// metadata field type is
 	// [CreateInstanceMetadata][mockgcp.spanner.admin.instance.v1.CreateInstanceMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [Instance][mockgcp.spanner.admin.instance.v1.Instance], if successful.
 	CreateInstance(ctx context.Context, in *CreateInstanceRequest, opts ...grpc.CallOption) (*longrunningpb.Operation, error)
 	// Updates an instance, and begins allocating or releasing resources
-	// as requested. The returned [long-running
-	// operation][google.longrunning.Operation] can be used to track the
+	// as requested. The returned long-running operation can be used to track the
 	// progress of updating the instance. If the named instance does not
 	// exist, returns `NOT_FOUND`.
 	//
@@ -208,12 +210,12 @@ type InstanceAdminClient interface {
 	//     tables.
 	//   - The instance's new resource levels are readable via the API.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format `<instance_name>/operations/<operation_id>` and
 	// can be used to track the instance modification.  The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// metadata field type is
 	// [UpdateInstanceMetadata][mockgcp.spanner.admin.instance.v1.UpdateInstanceMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [Instance][mockgcp.spanner.admin.instance.v1.Instance], if successful.
 	//
 	// Authorization requires `spanner.instances.update` permission on
@@ -253,7 +255,7 @@ type InstanceAdminClient interface {
 	// Gets information about a particular instance partition.
 	GetInstancePartition(ctx context.Context, in *GetInstancePartitionRequest, opts ...grpc.CallOption) (*InstancePartition, error)
 	// Creates an instance partition and begins preparing it to be used. The
-	// returned [long-running operation][google.longrunning.Operation]
+	// returned long-running operation
 	// can be used to track the progress of preparing the new instance partition.
 	// The instance partition name is assigned by the caller. If the named
 	// instance partition already exists, `CreateInstancePartition` returns
@@ -280,13 +282,13 @@ type InstanceAdminClient interface {
 	//     API.
 	//   - The instance partition's state becomes `READY`.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format
 	// `<instance_partition_name>/operations/<operation_id>` and can be used to
 	// track creation of the instance partition.  The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// metadata field type is
 	// [CreateInstancePartitionMetadata][mockgcp.spanner.admin.instance.v1.CreateInstancePartitionMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [InstancePartition][mockgcp.spanner.admin.instance.v1.InstancePartition], if
 	// successful.
 	CreateInstancePartition(ctx context.Context, in *CreateInstancePartitionRequest, opts ...grpc.CallOption) (*longrunningpb.Operation, error)
@@ -299,8 +301,7 @@ type InstanceAdminClient interface {
 	// [name][mockgcp.spanner.admin.instance.v1.InstancePartition.name].
 	DeleteInstancePartition(ctx context.Context, in *DeleteInstancePartitionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Updates an instance partition, and begins allocating or releasing resources
-	// as requested. The returned [long-running
-	// operation][google.longrunning.Operation] can be used to track the
+	// as requested. The returned long-running operation can be used to track the
 	// progress of updating the instance partition. If the named instance
 	// partition does not exist, returns `NOT_FOUND`.
 	//
@@ -329,13 +330,13 @@ type InstanceAdminClient interface {
 	//     partition's tables.
 	//   - The instance partition's new resource levels are readable via the API.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format
 	// `<instance_partition_name>/operations/<operation_id>` and can be used to
 	// track the instance partition modification. The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// metadata field type is
 	// [UpdateInstancePartitionMetadata][mockgcp.spanner.admin.instance.v1.UpdateInstancePartitionMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [InstancePartition][mockgcp.spanner.admin.instance.v1.InstancePartition], if
 	// successful.
 	//
@@ -343,12 +344,11 @@ type InstanceAdminClient interface {
 	// the resource
 	// [name][mockgcp.spanner.admin.instance.v1.InstancePartition.name].
 	UpdateInstancePartition(ctx context.Context, in *UpdateInstancePartitionRequest, opts ...grpc.CallOption) (*longrunningpb.Operation, error)
-	// Lists instance partition [long-running
-	// operations][google.longrunning.Operation] in the given instance.
+	// Lists instance partition long-running operations in the given instance.
 	// An instance partition operation has a name of the form
 	// `projects/<project>/instances/<instance>/instancePartitions/<instance_partition>/operations/<operation>`.
 	// The long-running operation
-	// [metadata][google.longrunning.Operation.metadata] field type
+	// metadata field type
 	// `metadata.type_url` describes the type of the metadata. Operations returned
 	// include those that have completed/failed/canceled within the last 7 days,
 	// and pending operations. Operations returned are ordered by
@@ -359,6 +359,74 @@ type InstanceAdminClient interface {
 	// permission on the resource
 	// [parent][mockgcp.spanner.admin.instance.v1.ListInstancePartitionOperationsRequest.parent].
 	ListInstancePartitionOperations(ctx context.Context, in *ListInstancePartitionOperationsRequest, opts ...grpc.CallOption) (*ListInstancePartitionOperationsResponse, error)
+	// Moves an instance to the target instance configuration. You can use the
+	// returned long-running operation to track
+	// the progress of moving the instance.
+	//
+	// `MoveInstance` returns `FAILED_PRECONDITION` if the instance meets any of
+	// the following criteria:
+	//
+	//   - Is undergoing a move to a different instance configuration
+	//   - Has backups
+	//   - Has an ongoing update
+	//   - Contains any CMEK-enabled databases
+	//   - Is a free trial instance
+	//
+	// While the operation is pending:
+	//
+	//   - All other attempts to modify the instance, including changes to its
+	//     compute capacity, are rejected.
+	//
+	//   - The following database and backup admin operations are rejected:
+	//
+	//   - `DatabaseAdmin.CreateDatabase`
+	//
+	//   - `DatabaseAdmin.UpdateDatabaseDdl` (disabled if default_leader is
+	//     specified in the request.)
+	//
+	//   - `DatabaseAdmin.RestoreDatabase`
+	//
+	//   - `DatabaseAdmin.CreateBackup`
+	//
+	//   - `DatabaseAdmin.CopyBackup`
+	//
+	//   - Both the source and target instance configurations are subject to
+	//     hourly compute and storage charges.
+	//
+	//   - The instance might experience higher read-write latencies and a higher
+	//     transaction abort rate. However, moving an instance doesn't cause any
+	//     downtime.
+	//
+	// The returned long-running operation has
+	// a name of the format
+	// `<instance_name>/operations/<operation_id>` and can be used to track
+	// the move instance operation. The
+	// metadata field type is
+	// [MoveInstanceMetadata][mockgcp.spanner.admin.instance.v1.MoveInstanceMetadata].
+	// The response field type is
+	// [Instance][mockgcp.spanner.admin.instance.v1.Instance],
+	// if successful.
+	// Cancelling the operation sets its metadata's
+	// [cancel_time][mockgcp.spanner.admin.instance.v1.MoveInstanceMetadata.cancel_time].
+	// Cancellation is not immediate because it involves moving any data
+	// previously moved to the target instance configuration back to the original
+	// instance configuration. You can use this operation to track the progress of
+	// the cancellation. Upon successful completion of the cancellation, the
+	// operation terminates with `CANCELLED` status.
+	//
+	// If not cancelled, upon completion of the returned operation:
+	//
+	//   - The instance successfully moves to the target instance
+	//     configuration.
+	//   - You are billed for compute and storage in target instance
+	//     configuration.
+	//
+	// Authorization requires the `spanner.instances.update` permission on
+	// the resource [instance][mockgcp.spanner.admin.instance.v1.Instance].
+	//
+	// For more details, see
+	// [Move an instance](https://cloud.google.com/spanner/docs/move-instance).
+	MoveInstance(ctx context.Context, in *MoveInstanceRequest, opts ...grpc.CallOption) (*longrunningpb.Operation, error)
 }
 
 type instanceAdminClient struct {
@@ -549,49 +617,61 @@ func (c *instanceAdminClient) ListInstancePartitionOperations(ctx context.Contex
 	return out, nil
 }
 
+func (c *instanceAdminClient) MoveInstance(ctx context.Context, in *MoveInstanceRequest, opts ...grpc.CallOption) (*longrunningpb.Operation, error) {
+	out := new(longrunningpb.Operation)
+	err := c.cc.Invoke(ctx, "/mockgcp.spanner.admin.instance.v1.InstanceAdmin/MoveInstance", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InstanceAdminServer is the server API for InstanceAdmin service.
 // All implementations must embed UnimplementedInstanceAdminServer
 // for forward compatibility
 type InstanceAdminServer interface {
 	// Lists the supported instance configurations for a given project.
+	//
+	// Returns both Google-managed configurations and user-managed
+	// configurations.
 	ListInstanceConfigs(context.Context, *ListInstanceConfigsRequest) (*ListInstanceConfigsResponse, error)
 	// Gets information about a particular instance configuration.
 	GetInstanceConfig(context.Context, *GetInstanceConfigRequest) (*InstanceConfig, error)
-	// Creates an instance config and begins preparing it to be used. The
-	// returned [long-running operation][google.longrunning.Operation]
+	// Creates an instance configuration and begins preparing it to be used. The
+	// returned long-running operation
 	// can be used to track the progress of preparing the new
-	// instance config. The instance config name is assigned by the caller. If the
-	// named instance config already exists, `CreateInstanceConfig` returns
-	// `ALREADY_EXISTS`.
+	// instance configuration. The instance configuration name is assigned by the
+	// caller. If the named instance configuration already exists,
+	// `CreateInstanceConfig` returns `ALREADY_EXISTS`.
 	//
 	// Immediately after the request returns:
 	//
-	//   - The instance config is readable via the API, with all requested
-	//     attributes. The instance config's
+	//   - The instance configuration is readable via the API, with all requested
+	//     attributes. The instance configuration's
 	//     [reconciling][mockgcp.spanner.admin.instance.v1.InstanceConfig.reconciling]
 	//     field is set to true. Its state is `CREATING`.
 	//
 	// While the operation is pending:
 	//
-	//   - Cancelling the operation renders the instance config immediately
+	//   - Cancelling the operation renders the instance configuration immediately
 	//     unreadable via the API.
 	//   - Except for deleting the creating resource, all other attempts to modify
-	//     the instance config are rejected.
+	//     the instance configuration are rejected.
 	//
 	// Upon completion of the returned operation:
 	//
 	//   - Instances can be created using the instance configuration.
-	//   - The instance config's
+	//   - The instance configuration's
 	//     [reconciling][mockgcp.spanner.admin.instance.v1.InstanceConfig.reconciling]
 	//     field becomes false. Its state becomes `READY`.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format
 	// `<instance_config_name>/operations/<operation_id>` and can be used to track
-	// creation of the instance config. The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// creation of the instance configuration. The
+	// metadata field type is
 	// [CreateInstanceConfigMetadata][mockgcp.spanner.admin.instance.v1.CreateInstanceConfigMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [InstanceConfig][mockgcp.spanner.admin.instance.v1.InstanceConfig], if
 	// successful.
 	//
@@ -599,16 +679,16 @@ type InstanceAdminServer interface {
 	// the resource
 	// [parent][mockgcp.spanner.admin.instance.v1.CreateInstanceConfigRequest.parent].
 	CreateInstanceConfig(context.Context, *CreateInstanceConfigRequest) (*longrunningpb.Operation, error)
-	// Updates an instance config. The returned
-	// [long-running operation][google.longrunning.Operation] can be used to track
-	// the progress of updating the instance. If the named instance config does
-	// not exist, returns `NOT_FOUND`.
+	// Updates an instance configuration. The returned
+	// long-running operation can be used to track
+	// the progress of updating the instance. If the named instance configuration
+	// does not exist, returns `NOT_FOUND`.
 	//
-	// Only user managed configurations can be updated.
+	// Only user-managed configurations can be updated.
 	//
 	// Immediately after the request returns:
 	//
-	//   - The instance config's
+	//   - The instance configuration's
 	//     [reconciling][mockgcp.spanner.admin.instance.v1.InstanceConfig.reconciling]
 	//     field is set to true.
 	//
@@ -618,47 +698,47 @@ type InstanceAdminServer interface {
 	//     [cancel_time][mockgcp.spanner.admin.instance.v1.UpdateInstanceConfigMetadata.cancel_time].
 	//     The operation is guaranteed to succeed at undoing all changes, after
 	//     which point it terminates with a `CANCELLED` status.
-	//   - All other attempts to modify the instance config are rejected.
-	//   - Reading the instance config via the API continues to give the
+	//   - All other attempts to modify the instance configuration are rejected.
+	//   - Reading the instance configuration via the API continues to give the
 	//     pre-request values.
 	//
 	// Upon completion of the returned operation:
 	//
 	//   - Creating instances using the instance configuration uses the new
 	//     values.
-	//   - The instance config's new values are readable via the API.
-	//   - The instance config's
+	//   - The new values of the instance configuration are readable via the API.
+	//   - The instance configuration's
 	//     [reconciling][mockgcp.spanner.admin.instance.v1.InstanceConfig.reconciling]
 	//     field becomes false.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format
 	// `<instance_config_name>/operations/<operation_id>` and can be used to track
-	// the instance config modification.  The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// the instance configuration modification.  The
+	// metadata field type is
 	// [UpdateInstanceConfigMetadata][mockgcp.spanner.admin.instance.v1.UpdateInstanceConfigMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [InstanceConfig][mockgcp.spanner.admin.instance.v1.InstanceConfig], if
 	// successful.
 	//
 	// Authorization requires `spanner.instanceConfigs.update` permission on
 	// the resource [name][mockgcp.spanner.admin.instance.v1.InstanceConfig.name].
 	UpdateInstanceConfig(context.Context, *UpdateInstanceConfigRequest) (*longrunningpb.Operation, error)
-	// Deletes the instance config. Deletion is only allowed when no
+	// Deletes the instance configuration. Deletion is only allowed when no
 	// instances are using the configuration. If any instances are using
-	// the config, returns `FAILED_PRECONDITION`.
+	// the configuration, returns `FAILED_PRECONDITION`.
 	//
-	// Only user managed configurations can be deleted.
+	// Only user-managed configurations can be deleted.
 	//
 	// Authorization requires `spanner.instanceConfigs.delete` permission on
 	// the resource [name][mockgcp.spanner.admin.instance.v1.InstanceConfig.name].
 	DeleteInstanceConfig(context.Context, *DeleteInstanceConfigRequest) (*empty.Empty, error)
-	// Lists the user-managed instance config [long-running
-	// operations][google.longrunning.Operation] in the given project. An instance
-	// config operation has a name of the form
+	// Lists the user-managed instance configuration long-running
+	// operations in the given project. An instance
+	// configuration operation has a name of the form
 	// `projects/<project>/instanceConfigs/<instance_config>/operations/<operation>`.
 	// The long-running operation
-	// [metadata][google.longrunning.Operation.metadata] field type
+	// metadata field type
 	// `metadata.type_url` describes the type of the metadata. Operations returned
 	// include those that have completed/failed/canceled within the last 7 days,
 	// and pending operations. Operations returned are ordered by
@@ -672,7 +752,7 @@ type InstanceAdminServer interface {
 	// Gets information about a particular instance.
 	GetInstance(context.Context, *GetInstanceRequest) (*Instance, error)
 	// Creates an instance and begins preparing it to begin serving. The
-	// returned [long-running operation][google.longrunning.Operation]
+	// returned long-running operation
 	// can be used to track the progress of preparing the new
 	// instance. The instance name is assigned by the caller. If the
 	// named instance already exists, `CreateInstance` returns
@@ -698,17 +778,16 @@ type InstanceAdminServer interface {
 	//   - The instance's allocated resource levels are readable via the API.
 	//   - The instance's state becomes `READY`.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format `<instance_name>/operations/<operation_id>` and
 	// can be used to track creation of the instance.  The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// metadata field type is
 	// [CreateInstanceMetadata][mockgcp.spanner.admin.instance.v1.CreateInstanceMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [Instance][mockgcp.spanner.admin.instance.v1.Instance], if successful.
 	CreateInstance(context.Context, *CreateInstanceRequest) (*longrunningpb.Operation, error)
 	// Updates an instance, and begins allocating or releasing resources
-	// as requested. The returned [long-running
-	// operation][google.longrunning.Operation] can be used to track the
+	// as requested. The returned long-running operation can be used to track the
 	// progress of updating the instance. If the named instance does not
 	// exist, returns `NOT_FOUND`.
 	//
@@ -736,12 +815,12 @@ type InstanceAdminServer interface {
 	//     tables.
 	//   - The instance's new resource levels are readable via the API.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format `<instance_name>/operations/<operation_id>` and
 	// can be used to track the instance modification.  The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// metadata field type is
 	// [UpdateInstanceMetadata][mockgcp.spanner.admin.instance.v1.UpdateInstanceMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [Instance][mockgcp.spanner.admin.instance.v1.Instance], if successful.
 	//
 	// Authorization requires `spanner.instances.update` permission on
@@ -781,7 +860,7 @@ type InstanceAdminServer interface {
 	// Gets information about a particular instance partition.
 	GetInstancePartition(context.Context, *GetInstancePartitionRequest) (*InstancePartition, error)
 	// Creates an instance partition and begins preparing it to be used. The
-	// returned [long-running operation][google.longrunning.Operation]
+	// returned long-running operation
 	// can be used to track the progress of preparing the new instance partition.
 	// The instance partition name is assigned by the caller. If the named
 	// instance partition already exists, `CreateInstancePartition` returns
@@ -808,13 +887,13 @@ type InstanceAdminServer interface {
 	//     API.
 	//   - The instance partition's state becomes `READY`.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format
 	// `<instance_partition_name>/operations/<operation_id>` and can be used to
 	// track creation of the instance partition.  The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// metadata field type is
 	// [CreateInstancePartitionMetadata][mockgcp.spanner.admin.instance.v1.CreateInstancePartitionMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [InstancePartition][mockgcp.spanner.admin.instance.v1.InstancePartition], if
 	// successful.
 	CreateInstancePartition(context.Context, *CreateInstancePartitionRequest) (*longrunningpb.Operation, error)
@@ -827,8 +906,7 @@ type InstanceAdminServer interface {
 	// [name][mockgcp.spanner.admin.instance.v1.InstancePartition.name].
 	DeleteInstancePartition(context.Context, *DeleteInstancePartitionRequest) (*empty.Empty, error)
 	// Updates an instance partition, and begins allocating or releasing resources
-	// as requested. The returned [long-running
-	// operation][google.longrunning.Operation] can be used to track the
+	// as requested. The returned long-running operation can be used to track the
 	// progress of updating the instance partition. If the named instance
 	// partition does not exist, returns `NOT_FOUND`.
 	//
@@ -857,13 +935,13 @@ type InstanceAdminServer interface {
 	//     partition's tables.
 	//   - The instance partition's new resource levels are readable via the API.
 	//
-	// The returned [long-running operation][google.longrunning.Operation] will
+	// The returned long-running operation will
 	// have a name of the format
 	// `<instance_partition_name>/operations/<operation_id>` and can be used to
 	// track the instance partition modification. The
-	// [metadata][google.longrunning.Operation.metadata] field type is
+	// metadata field type is
 	// [UpdateInstancePartitionMetadata][mockgcp.spanner.admin.instance.v1.UpdateInstancePartitionMetadata].
-	// The [response][google.longrunning.Operation.response] field type is
+	// The response field type is
 	// [InstancePartition][mockgcp.spanner.admin.instance.v1.InstancePartition], if
 	// successful.
 	//
@@ -871,12 +949,11 @@ type InstanceAdminServer interface {
 	// the resource
 	// [name][mockgcp.spanner.admin.instance.v1.InstancePartition.name].
 	UpdateInstancePartition(context.Context, *UpdateInstancePartitionRequest) (*longrunningpb.Operation, error)
-	// Lists instance partition [long-running
-	// operations][google.longrunning.Operation] in the given instance.
+	// Lists instance partition long-running operations in the given instance.
 	// An instance partition operation has a name of the form
 	// `projects/<project>/instances/<instance>/instancePartitions/<instance_partition>/operations/<operation>`.
 	// The long-running operation
-	// [metadata][google.longrunning.Operation.metadata] field type
+	// metadata field type
 	// `metadata.type_url` describes the type of the metadata. Operations returned
 	// include those that have completed/failed/canceled within the last 7 days,
 	// and pending operations. Operations returned are ordered by
@@ -887,6 +964,74 @@ type InstanceAdminServer interface {
 	// permission on the resource
 	// [parent][mockgcp.spanner.admin.instance.v1.ListInstancePartitionOperationsRequest.parent].
 	ListInstancePartitionOperations(context.Context, *ListInstancePartitionOperationsRequest) (*ListInstancePartitionOperationsResponse, error)
+	// Moves an instance to the target instance configuration. You can use the
+	// returned long-running operation to track
+	// the progress of moving the instance.
+	//
+	// `MoveInstance` returns `FAILED_PRECONDITION` if the instance meets any of
+	// the following criteria:
+	//
+	//   - Is undergoing a move to a different instance configuration
+	//   - Has backups
+	//   - Has an ongoing update
+	//   - Contains any CMEK-enabled databases
+	//   - Is a free trial instance
+	//
+	// While the operation is pending:
+	//
+	//   - All other attempts to modify the instance, including changes to its
+	//     compute capacity, are rejected.
+	//
+	//   - The following database and backup admin operations are rejected:
+	//
+	//   - `DatabaseAdmin.CreateDatabase`
+	//
+	//   - `DatabaseAdmin.UpdateDatabaseDdl` (disabled if default_leader is
+	//     specified in the request.)
+	//
+	//   - `DatabaseAdmin.RestoreDatabase`
+	//
+	//   - `DatabaseAdmin.CreateBackup`
+	//
+	//   - `DatabaseAdmin.CopyBackup`
+	//
+	//   - Both the source and target instance configurations are subject to
+	//     hourly compute and storage charges.
+	//
+	//   - The instance might experience higher read-write latencies and a higher
+	//     transaction abort rate. However, moving an instance doesn't cause any
+	//     downtime.
+	//
+	// The returned long-running operation has
+	// a name of the format
+	// `<instance_name>/operations/<operation_id>` and can be used to track
+	// the move instance operation. The
+	// metadata field type is
+	// [MoveInstanceMetadata][mockgcp.spanner.admin.instance.v1.MoveInstanceMetadata].
+	// The response field type is
+	// [Instance][mockgcp.spanner.admin.instance.v1.Instance],
+	// if successful.
+	// Cancelling the operation sets its metadata's
+	// [cancel_time][mockgcp.spanner.admin.instance.v1.MoveInstanceMetadata.cancel_time].
+	// Cancellation is not immediate because it involves moving any data
+	// previously moved to the target instance configuration back to the original
+	// instance configuration. You can use this operation to track the progress of
+	// the cancellation. Upon successful completion of the cancellation, the
+	// operation terminates with `CANCELLED` status.
+	//
+	// If not cancelled, upon completion of the returned operation:
+	//
+	//   - The instance successfully moves to the target instance
+	//     configuration.
+	//   - You are billed for compute and storage in target instance
+	//     configuration.
+	//
+	// Authorization requires the `spanner.instances.update` permission on
+	// the resource [instance][mockgcp.spanner.admin.instance.v1.Instance].
+	//
+	// For more details, see
+	// [Move an instance](https://cloud.google.com/spanner/docs/move-instance).
+	MoveInstance(context.Context, *MoveInstanceRequest) (*longrunningpb.Operation, error)
 	mustEmbedUnimplementedInstanceAdminServer()
 }
 
@@ -953,6 +1098,9 @@ func (UnimplementedInstanceAdminServer) UpdateInstancePartition(context.Context,
 }
 func (UnimplementedInstanceAdminServer) ListInstancePartitionOperations(context.Context, *ListInstancePartitionOperationsRequest) (*ListInstancePartitionOperationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListInstancePartitionOperations not implemented")
+}
+func (UnimplementedInstanceAdminServer) MoveInstance(context.Context, *MoveInstanceRequest) (*longrunningpb.Operation, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MoveInstance not implemented")
 }
 func (UnimplementedInstanceAdminServer) mustEmbedUnimplementedInstanceAdminServer() {}
 
@@ -1327,6 +1475,24 @@ func _InstanceAdmin_ListInstancePartitionOperations_Handler(srv interface{}, ctx
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InstanceAdmin_MoveInstance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MoveInstanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InstanceAdminServer).MoveInstance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/mockgcp.spanner.admin.instance.v1.InstanceAdmin/MoveInstance",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InstanceAdminServer).MoveInstance(ctx, req.(*MoveInstanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InstanceAdmin_ServiceDesc is the grpc.ServiceDesc for InstanceAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1413,6 +1579,10 @@ var InstanceAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListInstancePartitionOperations",
 			Handler:    _InstanceAdmin_ListInstancePartitionOperations_Handler,
+		},
+		{
+			MethodName: "MoveInstance",
+			Handler:    _InstanceAdmin_MoveInstance_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

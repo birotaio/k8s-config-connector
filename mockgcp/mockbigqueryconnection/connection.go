@@ -16,6 +16,9 @@ package mockbigqueryconnection
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +28,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/common/fields"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/common/projects"
 	pb "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/generated/mockgcp/cloud/bigquery/connection/v1"
 )
@@ -54,7 +58,16 @@ func (s *ConnectionV1) GetConnection(ctx context.Context, req *pb.GetConnectionR
 }
 
 func (s *ConnectionV1) CreateConnection(ctx context.Context, req *pb.CreateConnectionRequest) (*pb.Connection, error) {
-	reqName := req.Parent + "/connections/" + req.ConnectionId
+	var reqName string
+	if req.ConnectionId != "" {
+		reqName = req.Parent + "/connections/" + req.ConnectionId
+	} else if req.Connection.Name != "" {
+		reqName = req.Connection.Name
+	} else {
+		// reqName = req.Parent + "/connections/" + uuid.New().String()
+		// Using fixed UUID to test "acquire" in spec.resourceID. This also fix the dynamic uuid value in the `x-goog-request-params` header.
+		reqName = req.Parent + "/connections/" + "71389360-831c-431d-8975-837aee2153be"
+	}
 	name, err := s.parseConnectionName(reqName)
 	if err != nil {
 		return nil, err
@@ -65,11 +78,109 @@ func (s *ConnectionV1) CreateConnection(ctx context.Context, req *pb.CreateConne
 
 	obj := proto.Clone(req.Connection).(*pb.Connection)
 
-	obj.Name = name.stringInResponse()
+	obj.Name = name.String()
 	obj.CreationTime = now.Unix()
 	obj.LastModifiedTime = now.Unix()
-	if obj.GetCloudResource().GetServiceAccountId() == "" {
-		obj.GetCloudResource().ServiceAccountId = "bqcx-${projectNumber}-abcd@gcp-sa-bigquery-condel.iam.gserviceaccount.com"
+
+	// Bigqueryconnections supports two types of SA.
+	// Primary SA is attached with pre-defined IAM roles, while the delegation SA doesn't include any roles.
+	// see https://cloud.google.com/iam/docs/service-agents#bigquery-connection-delegation-service-agent.
+
+	buildDelegationServiceAccountId := func() string {
+		letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+		b := make([]rune, 4)
+		for i := range b {
+			b[i] = letterRunes[rand.Intn(len(letterRunes))]
+		}
+		return fmt.Sprintf("bqcx-%s-%s@gcp-sa-bigquery-condel.iam.gserviceaccount.com", strconv.FormatInt(name.Project.Number, 10), string(b))
+	}
+
+	buildPrimaryServiceAccountId := func() string {
+		return fmt.Sprintf("service-%s@gcp-sa-bigqueryconnection.iam.gserviceaccount.com", strconv.FormatInt(name.Project.Number, 10))
+	}
+
+	buildGoogleIdentity := func() string {
+		letterRunes := []rune("0123456789")
+		b := make([]rune, 21)
+		for i := range b {
+			b[i] = letterRunes[rand.Intn(len(letterRunes))]
+		}
+		return string(b)
+	}
+
+	if _, ok := (req.Connection.Properties).(*pb.Connection_Aws); ok {
+		if aws := req.Connection.GetAws(); aws != nil {
+			obj.Properties = &pb.Connection_Aws{
+				Aws: &pb.AwsProperties{
+					AuthenticationMethod: &pb.AwsProperties_AccessRole{
+						AccessRole: &pb.AwsAccessRole{
+							IamRoleId: aws.GetAccessRole().GetIamRoleId(),
+							Identity:  buildGoogleIdentity(),
+						},
+					},
+				},
+			}
+		}
+	}
+
+	if _, ok := (req.Connection.Properties).(*pb.Connection_Azure); ok {
+		if azure := req.Connection.GetAzure(); azure != nil {
+			obj.Properties = &pb.Connection_Azure{
+				Azure: &pb.AzureProperties{
+					CustomerTenantId:             azure.GetCustomerTenantId(),
+					FederatedApplicationClientId: azure.GetFederatedApplicationClientId(),
+					Identity:                     buildGoogleIdentity(),
+				},
+			}
+		}
+	}
+
+	if _, ok := (req.Connection.Properties).(*pb.Connection_CloudResource); ok {
+		obj.Properties = &pb.Connection_CloudResource{
+			CloudResource: &pb.CloudResourceProperties{
+				ServiceAccountId: buildDelegationServiceAccountId(),
+			},
+		}
+	}
+
+	if _, ok := (req.Connection.Properties).(*pb.Connection_CloudSql); ok {
+		obj.HasCredential = true
+		if sql := req.Connection.GetCloudSql(); sql != nil {
+			obj.Properties = &pb.Connection_CloudSql{
+				CloudSql: &pb.CloudSqlProperties{
+					InstanceId:       sql.InstanceId,
+					Database:         sql.Database,
+					Type:             sql.Type,
+					ServiceAccountId: buildPrimaryServiceAccountId(),
+				},
+			}
+		}
+	}
+
+	if _, ok := (req.Connection.Properties).(*pb.Connection_CloudSpanner); ok {
+		if spanner := req.Connection.GetCloudSpanner(); spanner != nil {
+			obj.Properties = &pb.Connection_CloudSpanner{
+				CloudSpanner: &pb.CloudSpannerProperties{
+					Database:       spanner.Database,
+					UseParallelism: spanner.UseParallelism,
+					UseDataBoost:   spanner.UseDataBoost,
+					MaxParallelism: spanner.MaxParallelism,
+					DatabaseRole:   spanner.DatabaseRole,
+				},
+			}
+		}
+	}
+
+	if _, ok := (req.Connection.Properties).(*pb.Connection_Spark); ok {
+		if spark := req.Connection.GetSpark(); spark != nil {
+			obj.Properties = &pb.Connection_Spark{
+				Spark: &pb.SparkProperties{
+					MetastoreServiceConfig:   spark.GetMetastoreServiceConfig(),
+					SparkHistoryServerConfig: spark.GetSparkHistoryServerConfig(),
+					ServiceAccountId:         buildDelegationServiceAccountId(),
+				},
+			}
+		}
 	}
 
 	if err := s.storage.Create(ctx, fqn, obj); err != nil {
@@ -92,16 +203,8 @@ func (s *ConnectionV1) UpdateConnection(ctx context.Context, req *pb.UpdateConne
 		return nil, err
 	}
 
-	paths := req.GetUpdateMask().GetPaths()
-	for _, path := range paths {
-		switch path {
-		case "friendlyName":
-			obj.FriendlyName = req.GetConnection().GetFriendlyName()
-		case "description":
-			obj.Description = req.GetConnection().GetDescription()
-		default:
-			return nil, status.Errorf(codes.InvalidArgument, "update_mask path %q not valid", path)
-		}
+	if err := fields.UpdateByFieldMask(obj, req.Connection, req.UpdateMask.Paths); err != nil {
+		return nil, fmt.Errorf("update field_mask.paths: %w", err)
 	}
 	obj.LastModifiedTime = now.Unix()
 	if err := s.storage.Update(ctx, fqn, obj); err != nil {
@@ -132,17 +235,11 @@ type connectionName struct {
 }
 
 func (n *connectionName) String() string {
-	return "projects/" + n.Project.ID + "/locations/" + n.Location + "/connections/" + n.ResourceID
-}
-
-func (n *connectionName) stringInResponse() string {
-	// The returned "name" in the response uses the project number instead of
-	// project ID.
-	return "projects/${projectNumber}/locations/" + n.Location + "/connections/" + n.ResourceID
+	return "projects/" + strconv.FormatInt(n.Project.Number, 10) + "/locations/" + n.Location + "/connections/" + n.ResourceID
 }
 
 // parseConnectionName parses a string into a connectionName.
-// The expected form is projects/<projectID>/locations/<location>/connections/<connectionID>
+// The expected form is projects/<projectNum>/locations/<location>/connections/<connectionID>
 func (s *MockService) parseConnectionName(name string) (*connectionName, error) {
 	tokens := strings.Split(name, "/")
 

@@ -65,8 +65,8 @@ func (s *NetworksV1) Insert(ctx context.Context, req *pb.InsertNetworkRequest) (
 	obj := proto.Clone(req.GetNetworkResource()).(*pb.Network)
 	obj.CreationTimestamp = PtrTo(s.nowString())
 	obj.Id = &id
-	obj.SelfLink = PtrTo("https://www.googleapis.com/compute/v1/" + name.String())
-	obj.SelfLinkWithId = PtrTo(fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/global/networks/%d", name.Project.ID, id))
+	obj.SelfLink = PtrTo(buildComputeSelfLink(ctx, name.String()))
+	obj.SelfLinkWithId = PtrTo(buildComputeSelfLink(ctx, fmt.Sprintf("projects/%s/global/networks/%d", name.Project.ID, id)))
 	obj.Kind = PtrTo("compute#network")
 
 	if err := s.storage.Create(ctx, fqn, obj); err != nil {
@@ -80,6 +80,12 @@ func (s *NetworksV1) Insert(ctx context.Context, req *pb.InsertNetworkRequest) (
 		User:          PtrTo("user@example.com"),
 	}
 	return s.startGlobalLRO(ctx, name.Project.ID, op, func() (proto.Message, error) {
+		ctx := context.Background()
+		if ValueOf(obj.AutoCreateSubnetworks) {
+			if err := s.Workflows.CreateComputeNetworkSubnetworks(ctx, name.Project.ID, name.Name); err != nil {
+				return nil, err
+			}
+		}
 		return obj, nil
 	})
 }
@@ -205,6 +211,16 @@ func (s *MockService) parseNetworkName(name string) (*networkName, error) {
 		return s.newNetworkName(tokens[1], tokens[4])
 	}
 	return nil, status.Errorf(codes.InvalidArgument, "name %q is not valid", name)
+}
+
+// parseNetworkSelfLink parses a selfLink string into a networkName.
+// The expected form is `https://www.googleapis.com/compute/{version}/projects/*/global/networks/*`.
+func (s *MockService) parseNetworkSelfLink(selfLink string) (*networkName, error) {
+	name := selfLink
+	name = strings.TrimPrefix(name, "https://www.googleapis.com/compute/beta/")
+	name = strings.TrimPrefix(name, "https://www.googleapis.com/compute/v1/")
+
+	return s.parseNetworkName(name)
 }
 
 // newNetworkName builds a normalized networkName from the constituent parts.

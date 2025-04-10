@@ -42,6 +42,7 @@ SUPPORTED_SERVICES=(
   artifactregistry.googleapis.com
   bigquery.googleapis.com
   bigqueryconnection.googleapis.com
+  bigquerydatatransfer.googleapis.com
   bigtableadmin.googleapis.com
   billingbudgets.googleapis.com
   binaryauthorization.googleapis.com
@@ -62,12 +63,14 @@ SUPPORTED_SERVICES=(
   dataflow.googleapis.com
   datafusion.googleapis.com
   dataproc.googleapis.com
+  discoveryengine.googleapis.com
   dlp.googleapis.com
   dns.googleapis.com
   edgenetwork.googleapis.com
   edgecontainer.googleapis.com
   eventarc.googleapis.com
   file.googleapis.com
+  firestore.googleapis.com
   gkeconnect.googleapis.com
   gkehub.googleapis.com
   gkemulticloud.googleapis.com
@@ -85,12 +88,14 @@ SUPPORTED_SERVICES=(
   osconfig.googleapis.com
   opsconfigmonitoring.googleapis.com
   privateca.googleapis.com
+  privilegedaccessmanager.googleapis.com
   pubsub.googleapis.com
   pubsublite.googleapis.com
   recaptchaenterprise.googleapis.com
   redis.googleapis.com
   run.googleapis.com
   secretmanager.googleapis.com
+  securesourcemanager.googleapis.com
   servicedirectory.googleapis.com
   servicenetworking.googleapis.com
   serviceusage.googleapis.com
@@ -100,8 +105,41 @@ SUPPORTED_SERVICES=(
   sqladmin.googleapis.com
   storagetransfer.googleapis.com
   vpcaccess.googleapis.com
+  workstations.googleapis.com
 )
 
 # Regex used to match long running tests cases (10m+ runtime). Any new
 # long-running tests should be added to this regex in alphabetical order.
-LONG_RUNNING_CRUD_TESTS_REGEX="basicalloydbbackup|basicalloydbinstance|basicalloydbsecondarycluster|basicalloydbsecondaryinstance|cidrconnector|cloudidsendpoint|configcontrollerinstance|containercluster|containernodepool|databasealloydbuser|datafusioninstance|filestorebackup|filestoreinstance|fullalloydbbackup|fullalloydbcluster|gkehubfeaturemembership|gkehubmembership|iamalloydbuser|postgresinstance|readalloydbinstance|restorebackupalloydbcluster|zonalalloydbinstance|memcacheinstance|redisinstance|removedefaultnodepool|sqlinstanceencryptionkey|subnetconnector|vertexaidatasetencryptionkey|vertexaiendpointencryptionkey"
+LONG_RUNNING_CRUD_TESTS_REGEX="basicalloydbbackup|\
+basicalloydbinstance|\
+basicalloydbsecondarycluster|\
+basicalloydbsecondaryinstance|\
+cidrconnector|\
+cloudidsendpoint|\
+configcontrollerinstance|\
+containercluster|\
+containernodepool|\
+databasealloydbuser|\
+datafusioninstance|\
+filestorebackup|\
+filestoreinstance|\
+fullalloydbbackup|\
+fullalloydbcluster|\
+gkehubfeaturemembership|\
+gkehubmembership|\
+iamalloydbuser|\
+memcacheinstance|\
+postgresinstance|\
+readalloydbinstance|\
+redisinstance|\
+removedefaultnodepool|\
+restorebackupalloydbcluster|\
+securesourcemanagerinstancebasic|\
+securesourcemanagerinstancecmek|\
+securesourcemanagerrepositorybasic|\
+securesourcemanagerrepositoryfull|\
+sqlinstanceencryptionkey|\
+subnetconnector|\
+vertexaidatasetencryptionkey|\
+vertexaiendpointencryptionkey|\
+zonalalloydbinstance"

@@ -116,7 +116,7 @@ resources using `IAMPolicy`, `IAMPartialPolicy`, and `IAMPolicyMember` since
     </tr>
     <tr>
         <td><code>ApigeeEnvironment</code></td>
-        <td>Y</td>
+        <td></td>
         <td></td>
     </tr>
     <tr>
@@ -655,7 +655,7 @@ resourceRef:
         </td>
         <td>
             <p><code class="apitype">string</code></p>
-            <p>{% verbatim %}Required. The service for which to enable Data Access audit logs. The special value 'allServices' covers all services. Note that if there are audit configs covering both 'allServices' and a specific service, then the union of the two audit configs is used for that service: the 'logTypes' specified in each 'auditLogConfig' are enabled, and the 'exemptedMembers' in each 'auditLogConfg' are exempted.{% endverbatim %}</p>
+            <p>{% verbatim %}Required. The service for which to enable Data Access audit logs. The special value 'allServices' covers all services. Note that if there are audit configs covering both 'allServices' and a specific service, then the union of the two audit configs is used for that service: the 'logTypes' specified in each 'auditLogConfig' are enabled, and the 'exemptedMembers' in each 'auditLogConfig' are exempted.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -931,7 +931,7 @@ spec:
         # Replace ${GSA_EMAIL?} with the Config Connector service account's
         # email address. This ensures that the Config Connector service account
         # can continue to manage the referenced project.
-        - serviceAccount:${GSA_EMAIL?}
+        - "serviceAccount:${GSA_EMAIL?}"
       role: roles/owner
     - members:
         - serviceAccount:iampolicy-dep-external-project@iampolicy-dep-external-project.iam.gserviceaccount.com
@@ -1044,7 +1044,7 @@ spec:
         # Replace ${GSA_EMAIL?} with the Config Connector service account's
         # email address. This ensures that the Config Connector service account
         # can continue to manage the referenced project.
-        - serviceAccount:${GSA_EMAIL?}
+        - "serviceAccount:${GSA_EMAIL?}"
       role: roles/owner
     - members:
         - serviceAccount:iampolicy-dep-project@iampolicy-dep-project.iam.gserviceaccount.com
@@ -1080,7 +1080,7 @@ spec:
     external: "${ORG_ID?}"
 ```
 
-### Pubsub Admin Policy
+### PubSub Admin Policy
 ```yaml
 # Copyright 2020 Google LLC
 #

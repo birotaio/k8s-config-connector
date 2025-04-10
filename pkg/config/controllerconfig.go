@@ -19,9 +19,11 @@ import (
 
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc"
 )
 
 type ControllerConfig struct {
+	// UserAgent sets the User-Agent to pass in HTTP request headers
 	UserAgent string
 
 	// UserProjectOverride provides the option to use the resource project for preconditions, quota, and billing,
@@ -37,12 +39,20 @@ type ControllerConfig struct {
 	// This is particularly useful in mocks/tests.
 	HTTPClient *http.Client
 
+	// GRPCUnaryClientInterceptor is the GRPC interceptor for use in tests.
+	GRPCUnaryClientInterceptor grpc.UnaryClientInterceptor
+
 	// GCPTokenSource mints OAuth2 tokens to be passed with GCP API calls,
 	// allowing use of a non-default OAuth2 identity
 	GCPTokenSource oauth2.TokenSource
 }
 
 func (c *ControllerConfig) RESTClientOptions() ([]option.ClientOption, error) {
+	quotaProject := ""
+	if c.UserProjectOverride && c.BillingProject != "" {
+		quotaProject = c.BillingProject
+	}
+
 	var opts []option.ClientOption
 	if c.UserAgent != "" {
 		opts = append(opts, option.WithUserAgent(c.UserAgent))
@@ -51,13 +61,17 @@ func (c *ControllerConfig) RESTClientOptions() ([]option.ClientOption, error) {
 		httpClient := &http.Client{}
 		*httpClient = *c.HTTPClient
 		httpClient.Transport = &optionsRoundTripper{
-			config: *c,
-			inner:  c.HTTPClient.Transport,
+			config:       *c,
+			quotaProject: quotaProject,
+			inner:        c.HTTPClient.Transport,
 		}
 		opts = append(opts, option.WithHTTPClient(httpClient))
+
+		// quotaProject is incompatible with http client
+		quotaProject = ""
 	}
-	if c.UserProjectOverride && c.BillingProject != "" {
-		opts = append(opts, option.WithQuotaProject(c.BillingProject))
+	if quotaProject != "" {
+		opts = append(opts, option.WithQuotaProject(quotaProject))
 	}
 	if c.GCPTokenSource != nil {
 		opts = append(opts, option.WithTokenSource(c.GCPTokenSource))
@@ -76,22 +90,14 @@ func (c *ControllerConfig) GRPCClientOptions() ([]option.ClientOption, error) {
 	if c.UserAgent != "" {
 		opts = append(opts, option.WithUserAgent(c.UserAgent))
 	}
-	if c.HTTPClient != nil {
-		// TODO: Set UserAgent in this scenario (error is: WithHTTPClient is incompatible with gRPC dial options)
-
-		httpClient := &http.Client{}
-		*httpClient = *c.HTTPClient
-		httpClient.Transport = &optionsRoundTripper{
-			config: *c,
-			inner:  c.HTTPClient.Transport,
-		}
-		opts = append(opts, option.WithHTTPClient(httpClient))
-	}
 	if c.UserProjectOverride && c.BillingProject != "" {
 		opts = append(opts, option.WithQuotaProject(c.BillingProject))
 	}
 	if c.GCPTokenSource != nil {
 		opts = append(opts, option.WithTokenSource(c.GCPTokenSource))
+	}
+	if c.GRPCUnaryClientInterceptor != nil {
+		opts = append(opts, option.WithGRPCDialOption(grpc.WithUnaryInterceptor(c.GRPCUnaryClientInterceptor)))
 	}
 
 	// TODO: support endpoints?
@@ -103,13 +109,17 @@ func (c *ControllerConfig) GRPCClientOptions() ([]option.ClientOption, error) {
 }
 
 type optionsRoundTripper struct {
-	config ControllerConfig
-	inner  http.RoundTripper
+	config       ControllerConfig
+	quotaProject string
+	inner        http.RoundTripper
 }
 
 func (m *optionsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if m.config.UserAgent != "" {
 		req.Header.Set("User-Agent", m.config.UserAgent)
+	}
+	if m.quotaProject != "" {
+		req.Header.Set("X-goog-user-project", m.quotaProject)
 	}
 	return m.inner.RoundTrip(req)
 }

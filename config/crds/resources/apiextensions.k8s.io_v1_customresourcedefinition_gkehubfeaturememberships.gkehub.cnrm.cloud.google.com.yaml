@@ -5,7 +5,6 @@ metadata:
     cnrm.cloud.google.com/version: 0.0.0-dev
   creationTimestamp: null
   labels:
-    cnrm.cloud.google.com/dcl2crd: "true"
     cnrm.cloud.google.com/managed-by-kcc: "true"
     cnrm.cloud.google.com/stability-level: stable
     cnrm.cloud.google.com/system: "true"
@@ -227,12 +226,16 @@ spec:
                         description: Specifies whether the Config Sync Repo is in
                           "hierarchical" or "unstructured" mode.
                         type: string
+                      stopSyncing:
+                        description: 'Set to true to stop syncing configurations for
+                          a single cluster. This field is only available on clusters
+                          using Config Sync auto-upgrades or on Config Sync version
+                          1.20.0 or later. Defaults: false.'
+                        type: boolean
                     type: object
                   hierarchyController:
-                    description: '**DEPRECATED** Configuring Hierarchy Controller
-                      through the configmanagement feature is no longer recommended.
-                      Use https://github.com/kubernetes-sigs/hierarchical-namespaces
-                      instead.'
+                    description: Hierarchy Controller is no longer available. Use
+                      https://github.com/kubernetes-sigs/hierarchical-namespaces instead.
                     properties:
                       enableHierarchicalResourceQuota:
                         description: Whether hierarchical resource quota is enabled
@@ -246,6 +249,13 @@ spec:
                           cluster.
                         type: boolean
                     type: object
+                  management:
+                    description: Optional. Whether to automatically manage the configmanagement
+                      Feature. There are 3 accepted values. MANAGEMENT_UNSPECIFIED
+                      means that the mamangement mode is unspecified. MANAGEMENT_AUTOMATIC
+                      means that Google manages the Feature for the cluster. MANAGEMENT_MANUAL
+                      means that users should manage the Feature for the cluster.
+                    type: string
                   policyController:
                     description: '**DEPRECATED** Configuring Policy Controller through
                       the configmanagement feature is no longer recommended. Use the

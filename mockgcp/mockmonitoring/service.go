@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 
 	dashboardpb "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/generated/mockgcp/monitoring/dashboard/v1"
+	metricsscopepb "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/generated/mockgcp/monitoring/metricsscope/v1"
 	monitoringpb "github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp/generated/mockgcp/monitoring/v3"
 )
 
@@ -52,19 +53,27 @@ func (s *MockService) ExpectedHosts() []string {
 func (s *MockService) Register(grpcServer *grpc.Server) {
 	monitoringpb.RegisterAlertPolicyServiceServer(grpcServer, &AlertPolicyService{MockService: s})
 	monitoringpb.RegisterGroupServiceServer(grpcServer, &GroupService{MockService: s})
+	monitoringpb.RegisterMetricServiceServer(grpcServer, &metricService{MockService: s})
 	monitoringpb.RegisterNotificationChannelServiceServer(grpcServer, &NotificationChannelService{MockService: s})
+	monitoringpb.RegisterServiceMonitoringServiceServer(grpcServer, &serviceMonitoringService{MockService: s})
 	monitoringpb.RegisterUptimeCheckServiceServer(grpcServer, &UptimeCheckService{MockService: s})
 
 	dashboardpb.RegisterDashboardsServiceServer(grpcServer, &DashboardsService{MockService: s})
+
+	metricsscopepb.RegisterMetricsScopesServer(grpcServer, &metricsScopeService{MockService: s})
 }
 
 func (s *MockService) NewHTTPMux(ctx context.Context, conn *grpc.ClientConn) (http.Handler, error) {
 	mux, err := httpmux.NewServeMux(ctx, conn, httpmux.Options{},
 		monitoringpb.RegisterAlertPolicyServiceHandler,
 		monitoringpb.RegisterGroupServiceHandler,
+		monitoringpb.RegisterMetricServiceHandler,
 		monitoringpb.RegisterNotificationChannelServiceHandler,
+		monitoringpb.RegisterServiceMonitoringServiceHandler,
 		monitoringpb.RegisterUptimeCheckServiceHandler,
-		dashboardpb.RegisterDashboardsServiceHandler)
+		dashboardpb.RegisterDashboardsServiceHandler,
+		metricsscopepb.RegisterMetricsScopesHandler,
+	)
 	if err != nil {
 		return nil, err
 	}

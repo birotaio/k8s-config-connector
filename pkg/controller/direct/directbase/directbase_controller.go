@@ -128,8 +128,6 @@ type Deps struct {
 }
 
 // DirectReconciler is a reconciler for reconciling resources that support the Model/Adapter pattern.
-// It is currently an adaptation of the existing terraform based-reconciler, and thus uses things like k8s.Resource.
-// TODO: Move away from k8s.Resource to unstructured.Unstructured.
 type DirectReconciler struct {
 	lifecyclehandler.LifecycleHandler
 	client.Client
@@ -222,7 +220,9 @@ func (r *reconcileContext) doReconcile(ctx context.Context, u *unstructured.Unst
 
 		// add finalizers for deletion defender to make sure we don't delete cloud provider resources when uninstalling
 		if u.GetDeletionTimestamp().IsZero() {
-			k8s.EnsureFinalizers(u, k8s.ControllerFinalizerName, k8s.DeletionDefenderFinalizerName)
+			if err := r.ensureFinalizers(ctx, u); err != nil {
+				return false, nil
+			}
 		}
 
 		return false, nil
@@ -263,7 +263,7 @@ func (r *reconcileContext) doReconcile(ctx context.Context, u *unstructured.Unst
 			return true, nil
 		}
 		if !k8s.HasAbandonAnnotation(u) {
-			deleteOp := NewDeleteOperation(u)
+			deleteOp := NewDeleteOperation(r.Reconciler.Client, u)
 			if _, err := adapter.Delete(ctx, deleteOp); err != nil {
 				if !errors.Is(err, k8s.ErrIAMNotFound) && !k8s.IsReferenceNotFoundError(err) {
 					if unwrappedErr, ok := lifecyclehandler.CausedByUnresolvableDeps(err); ok {
@@ -282,13 +282,18 @@ func (r *reconcileContext) doReconcile(ctx context.Context, u *unstructured.Unst
 		return false, r.handleDeleted(ctx, u)
 	}
 
-	k8s.EnsureFinalizers(u, k8s.ControllerFinalizerName, k8s.DeletionDefenderFinalizerName)
+	if err := r.ensureFinalizers(ctx, u); err != nil {
+		return false, err
+	}
 
 	// set the etag to an empty string, since IAMPolicy is the authoritative intent, KCC wants to overwrite the underlying policy regardless
 	//policy.Spec.Etag = ""
 
+	hasSetReadyCondition := false
+	requeueRequested := false
+
 	if !existsAlready {
-		createOp := NewCreateOperation(u)
+		createOp := NewCreateOperation(r.Reconciler.Client, u)
 		if err := adapter.Create(ctx, createOp); err != nil {
 			if unwrappedErr, ok := lifecyclehandler.CausedByUnresolvableDeps(err); ok {
 				logger.Info(unwrappedErr.Error(), "resource", k8s.GetNamespacedName(u))
@@ -296,8 +301,10 @@ func (r *reconcileContext) doReconcile(ctx context.Context, u *unstructured.Unst
 			}
 			return false, r.handleUpdateFailed(ctx, u, fmt.Errorf("error creating: %w", err))
 		}
+		hasSetReadyCondition = createOp.HasSetReadyCondition
+		requeueRequested = createOp.RequeueRequested
 	} else {
-		updateOp := NewUpdateOperation(u)
+		updateOp := NewUpdateOperation(r.Reconciler.LifecycleHandler, r.Reconciler.Client, u)
 		if err := adapter.Update(ctx, updateOp); err != nil {
 			if unwrappedErr, ok := lifecyclehandler.CausedByUnresolvableDeps(err); ok {
 				logger.Info(unwrappedErr.Error(), "resource", k8s.GetNamespacedName(u))
@@ -305,11 +312,29 @@ func (r *reconcileContext) doReconcile(ctx context.Context, u *unstructured.Unst
 			}
 			return false, r.handleUpdateFailed(ctx, u, fmt.Errorf("error updating: %w", err))
 		}
+		hasSetReadyCondition = updateOp.HasSetReadyCondition
+		requeueRequested = updateOp.RequeueRequested
 	}
-	if isAPIServerUpdateRequired(u) {
-		return false, r.handleUpToDate(ctx, u)
+
+	if !hasSetReadyCondition && isAPIServerUpdateRequired(u) {
+		return requeueRequested, r.handleUpToDate(ctx, u)
 	}
-	return false, nil
+	return requeueRequested, nil
+}
+
+// ensureFinalizers will apply our finalizers to the object if they are not present.
+// We update the kube-apiserver immediately if any changes are needed.
+func (r *reconcileContext) ensureFinalizers(ctx context.Context, u *unstructured.Unstructured) error {
+	if k8s.EnsureFinalizers(u, k8s.ControllerFinalizerName, k8s.DeletionDefenderFinalizerName) {
+		// No change
+		return nil
+	}
+
+	if err := r.Reconciler.Client.Update(ctx, u); err != nil {
+		return fmt.Errorf("updating finalizers: %w", err)
+	}
+
+	return nil
 }
 
 func (r *reconcileContext) handleUpToDate(ctx context.Context, u *unstructured.Unstructured) error {

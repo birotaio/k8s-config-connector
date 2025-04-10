@@ -14,77 +14,59 @@
 
 package contexts
 
-import "time"
-
 func init() {
-	resourceContextMap["sqlinstance-authorizednetworks"] = ResourceContext{
-		// SQL instances appear to need a bit of additional time before attempting to recreate
-		// with the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
+	resourceContextMap["sqlinstance-activationpolicy"] = ResourceContext{
+		// TODO: After switching to use direct controller, we can update the direct controller
+		// logic to support creating SQLInstances with `activationPolicy: "NEVER"`. Then, we
+		// can enable this test. The TF based controller does not support creating
+		// SQLInstances with `activationPolicy: "NEVER"`.
+		SkipDriftDetection: true,
+		ResourceKind:       "SQLInstance",
 	}
 
-	resourceContextMap["sqlinstance-clone-minimal"] = ResourceContext{
-		// SQL instances appear to need a bit of additional time before attempting to recreate
-		// with the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
+	resourceContextMap["sqlinstance-activationpolicy-direct"] = ResourceContext{
+		// TODO: After switching to use direct controller, we can update the direct controller
+		// logic to support creating SQLInstances with `activationPolicy: "NEVER"`. Then, we
+		// can enable this test. The TF based controller does not support creating
+		// SQLInstances with `activationPolicy: "NEVER"`.
+		SkipDriftDetection: true,
+		ResourceKind:       "SQLInstance",
 	}
 
-	resourceContextMap["sqlinstance-encryptionkey"] = ResourceContext{
-		// SQL instances appear to need a bit of additional time before attempting to recreate
-		// with the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
+	resourceContextMap["sqlinstance-backupconfiguration-binarylog"] = ResourceContext{
+		// TODO: Remove after switching to use direct controller.
+		SkipNoChange: true,
+		ResourceKind: "SQLInstance",
 	}
 
-	resourceContextMap["sqlinstance-mysql"] = ResourceContext{
-		// SQL instances appear to need a bit of additional time before attempting to recreate
-		// with the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
+	resourceContextMap["sqlinstance-backupconfiguration-binarylog-direct"] = ResourceContext{
+		// TODO: Remove after switching to use direct controller.
+		SkipNoChange: true,
+		ResourceKind: "SQLInstance",
 	}
 
-	resourceContextMap["sqlinstance-mysql-minimal"] = ResourceContext{
-		// SQL instances appear to need a bit of additional time before attempting to recreate
-		// with the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
+	resourceContextMap["sqlinstance-backupconfiguration-pitr"] = ResourceContext{
+		// TODO: Remove after switching to use direct controller.
+		SkipNoChange: true,
+		ResourceKind: "SQLInstance",
 	}
 
-	resourceContextMap["sqlinstance-postgres"] = ResourceContext{
-		// SQL instances appear to need a bit of additional time before attempting to recreate
-		// with the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
+	resourceContextMap["sqlinstance-backupconfiguration-pitr-direct"] = ResourceContext{
+		// TODO: Remove after switching to use direct controller.
+		SkipNoChange: true,
+		ResourceKind: "SQLInstance",
 	}
 
-	resourceContextMap["sqlinstance-postgres-minimal"] = ResourceContext{
-		// SQL instances appear to need a bit of additional time before attempting to recreate
-		// with the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
+	resourceContextMap["sqlinstance-datacacheconfig"] = ResourceContext{
+		// TODO: Remove after switching to use direct controller.
+		SkipNoChange: true,
+		ResourceKind: "SQLInstance",
 	}
 
-	resourceContextMap["sqlinstance-privatenetwork"] = ResourceContext{
-		// SQL instances appear to need a bit of additional time before attempting to recreate
-		// with the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
-	}
-
-	resourceContextMap["sqlinstance-sqlserver"] = ResourceContext{
-		// SQL instances appear to need a bit of additional time before attempting to recreate
-		// with the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
-	}
-
-	resourceContextMap["sqlinstance-sqlserver-minimal"] = ResourceContext{
-		// SQL instances need a bit of additional time before attempting to recreate with
-		// the exact same name. Otherwise, the GCP API returns "unknown error".
-		RecreateDelay: time.Second * 60,
-		ResourceKind:  "SQLInstance",
+	resourceContextMap["sqlinstance-datacacheconfig-direct"] = ResourceContext{
+		// TODO: Remove after switching to use direct controller.
+		SkipNoChange: true,
+		ResourceKind: "SQLInstance",
 	}
 
 	resourceContextMap["sqldatabase"] = ResourceContext{

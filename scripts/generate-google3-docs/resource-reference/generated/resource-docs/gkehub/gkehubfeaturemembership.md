@@ -97,10 +97,12 @@ configmanagement:
       syncWaitSecs: string
     preventDrift: boolean
     sourceFormat: string
+    stopSyncing: boolean
   hierarchyController:
     enableHierarchicalResourceQuota: boolean
     enablePodTreeLabels: boolean
     enabled: boolean
+  management: string
   policyController:
     auditIntervalSeconds: string
     enabled: boolean
@@ -469,12 +471,22 @@ projectRef:
     </tr>
     <tr>
         <td>
+            <p><code>configmanagement.configSync.stopSyncing</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">boolean</code></p>
+            <p>{% verbatim %}Set to true to stop syncing configurations for a single cluster. This field is only available on clusters using Config Sync auto-upgrades or on Config Sync version 1.20.0 or later. Defaults: false.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p><code>configmanagement.hierarchyController</code></p>
             <p><i>Optional</i></p>
         </td>
         <td>
             <p><code class="apitype">object</code></p>
-            <p>{% verbatim %}**DEPRECATED** Configuring Hierarchy Controller through the configmanagement feature is no longer recommended. Use https://github.com/kubernetes-sigs/hierarchical-namespaces instead.{% endverbatim %}</p>
+            <p>{% verbatim %}Hierarchy Controller is no longer available. Use https://github.com/kubernetes-sigs/hierarchical-namespaces instead.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -505,6 +517,16 @@ projectRef:
         <td>
             <p><code class="apitype">boolean</code></p>
             <p>{% verbatim %}Whether Hierarchy Controller is enabled in this cluster.{% endverbatim %}</p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p><code>configmanagement.management</code></p>
+            <p><i>Optional</i></p>
+        </td>
+        <td>
+            <p><code class="apitype">string</code></p>
+            <p>{% verbatim %}Optional. Whether to automatically manage the configmanagement Feature. There are 3 accepted values. MANAGEMENT_UNSPECIFIED means that the mamangement mode is unspecified. MANAGEMENT_AUTOMATIC means that Google manages the Feature for the cluster. MANAGEMENT_MANUAL means that users should manage the Feature for the cluster.{% endverbatim %}</p>
         </td>
     </tr>
     <tr>
@@ -1120,8 +1142,6 @@ apiVersion: gkehub.cnrm.cloud.google.com/v1beta1
 kind: GKEHubFeature
 metadata:
   name: gkehubfeaturemembership-dep-acm
-  # The GKEHubFeature is a global resource in your project.
-  # In case you might have configured the resource using other clients like gcloud, abandon the resource when deleted.
   annotations:
     cnrm.cloud.google.com/deletion-policy: abandon
 spec:
@@ -1189,6 +1209,134 @@ metadata:
     cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-acm
     cnrm.cloud.google.com/deletion-policy: "abandon"
   name: gkehubfeaturemembership-dep3-acm
+spec:
+  resourceID: anthosconfigmanagement.googleapis.com
+```
+
+### Configsync Auto Upgrade Feature Membership
+```yaml
+# Copyright 2024 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: gkehub.cnrm.cloud.google.com/v1beta1
+kind: GKEHubFeatureMembership
+metadata:
+  name: gkehubfeaturemembership-sample-csau
+spec:
+  projectRef:
+    name: gkehubfeaturemembership-dep-csau
+  location: global
+  # membershipLocation needs to be explicitly set here because the dependent membership is regional.
+  membershipLocation: us-central1
+  membershipRef:
+    name: gkehubfeaturemembership-dep-csau
+  featureRef:
+    name: gkehubfeaturemembership-dep-csau
+  configmanagement:
+    configSync:
+      sourceFormat: unstructured
+      git:
+        syncRepo: "https://github.com/GoogleCloudPlatform/anthos-config-management-samples"
+        syncBranch: "main"
+        policyDir: "config-sync-quickstart/multirepo/root"
+        secretType: "none"
+    management: MANAGEMENT_AUTOMATIC
+---
+apiVersion: container.cnrm.cloud.google.com/v1beta1
+kind: ContainerCluster
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-csau
+  name: gkehubfeaturemembership-dep-csau
+spec:
+  location: us-central1-a
+  initialNodeCount: 3
+  workloadIdentityConfig:
+    # Workload Identity supports only a single namespace based on your project name.
+    workloadPool: gkehubfeaturemembership-dep-csau.svc.id.goog
+---
+apiVersion: gkehub.cnrm.cloud.google.com/v1beta1
+kind: GKEHubFeature
+metadata:
+  name: gkehubfeaturemembership-dep-csau
+  annotations:
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  projectRef:
+    name: gkehubfeaturemembership-dep-csau
+  location: global
+  # The resourceID must be "configmanagement" if you want to use Anthos config
+  # management feature.
+  resourceID: configmanagement
+---
+apiVersion: gkehub.cnrm.cloud.google.com/v1beta1
+kind: GKEHubMembership
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-csau
+  name: gkehubfeaturemembership-dep-csau
+spec:
+  location: us-central1
+  authority:
+    # Issuer must contain a link to a valid JWT issuer. Your ContainerCluster is one.
+    issuer: https://container.googleapis.com/v1/projects/gkehubfeaturemembership-dep-csau/locations/us-central1-a/clusters/gkehubfeaturemembership-dep-csau
+  description: A sample GKE Hub membership
+  endpoint:
+    gkeCluster:
+      resourceRef:
+        name: gkehubfeaturemembership-dep-csau
+---
+apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+kind: Project
+metadata:
+  name: gkehubfeaturemembership-dep-csau
+spec:
+  name: Config Connector Sample
+  organizationRef:
+    # Replace "${ORG_ID?}" with the numeric ID for your organization
+    external: "${ORG_ID?}"
+  billingAccountRef:
+    # Replace "${BILLING_ACCOUNT_ID?}" with the numeric ID for your billing account
+    external: "${BILLING_ACCOUNT_ID?}"
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-csau
+    cnrm.cloud.google.com/deletion-policy: "abandon"
+  name: gkehubfeaturemembership-dep1-csau
+spec:
+  resourceID: container.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-csau
+    cnrm.cloud.google.com/deletion-policy: "abandon"
+  name: gkehubfeaturemembership-dep2-csau
+spec:
+  resourceID: gkehub.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: gkehubfeaturemembership-dep-csau
+    cnrm.cloud.google.com/deletion-policy: "abandon"
+  name: gkehubfeaturemembership-dep3-csau
 spec:
   resourceID: anthosconfigmanagement.googleapis.com
 ```

@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/gcp"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/util/slice"
 	"k8s.io/klog/v2"
 
@@ -82,17 +83,26 @@ func TestAllInSeries(t *testing.T) {
 
 			t.Run(sampleKey.Name, func(t *testing.T) {
 				ctx := addTestTimeout(ctx, t, subtestTimeout)
+				var harnessOptions []create.HarnessOption
 
 				// Quickly load the sample with a dummy project, just to see if we should skip it
 				{
 					dummySample := create.LoadSample(t, sampleKey, testgcp.GCPProject{ProjectID: "test-skip", ProjectNumber: 123456789})
 					create.MaybeSkip(t, sampleKey.Name, dummySample.Resources)
-					if s := os.Getenv("ONLY_TEST_APIGROUP"); s != "" {
-						t.Skipf("skipping test because cannot determine group for samples, with ONLY_TEST_APIGROUP=%s", s)
+					if s := os.Getenv("ONLY_TEST_APIGROUPS"); s != "" {
+						t.Skipf("skipping test because cannot determine group for samples, with ONLY_TEST_APIGROUPS=%s", s)
 					}
+
+					// Record the CRDs we will use, for faster testing
+					keepCRDs := map[schema.GroupKind]bool{}
+					for _, obj := range dummySample.Resources {
+						keepCRDs[obj.GroupVersionKind().GroupKind()] = true
+					}
+					harnessOptions = append(harnessOptions, buildCRDFilter(keepCRDs))
+
 				}
 
-				h := create.NewHarness(ctx, t)
+				h := create.NewHarness(ctx, t, harnessOptions...)
 				project := h.Project
 				s := create.LoadSample(t, sampleKey, project)
 
@@ -157,9 +167,10 @@ func testFixturesInSeries(ctx context.Context, t *testing.T, testPause bool, can
 					continue
 				}
 			}
-			if s := os.Getenv("ONLY_TEST_APIGROUP"); s != "" {
-				if group != s {
-					klog.Infof("skipping test %s because group %q did not match ONLY_TEST_APIGROUP=%s", fixture.Name, group, s)
+			if s := os.Getenv("ONLY_TEST_APIGROUPS"); s != "" {
+				groups := strings.Split(s, ",")
+				if !slice.StringSliceContains(groups, group) {
+					klog.Infof("skipping test %s because group %q did not match ONLY_TEST_APIGROUPS=%s", fixture.Name, group, s)
 					continue
 				}
 			}
@@ -200,6 +211,8 @@ func testFixturesInSeries(ctx context.Context, t *testing.T, testPause bool, can
 }
 
 func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture resourcefixture.ResourceFixture, loadFixture func(project testgcp.GCPProject, uniqueID string) (*unstructured.Unstructured, create.CreateDeleteTestOptions)) {
+	var harnessOptions []create.HarnessOption
+
 	// Extra indentation to avoid merge conflicts
 	{
 		{
@@ -215,12 +228,34 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 							"pause test should not run against test cases already contain ConfigConnector "+
 							"or ConfigConnectorContext objects", fixture.Name)
 					}
+
+					// If the test contains "${resourceId}", that means it is an acquisition test, which we don't currently support
+					for _, create := range opt.Create {
+						resourceID, _, err := unstructured.NestedString(create.Object, "spec", "resourceID")
+						if err != nil {
+							j, _ := json.Marshal(create.Object)
+							t.Logf("error reading spec.resourceID, can't check for acquisition test: %v.  object is %v", err, string(j))
+						} else if strings.Contains(resourceID, "${resourceId}") {
+							t.Skipf("test has ${resourceId} placeholder in spec.resource, indicating an acquisition test.  Not currently supported here; skipping")
+						}
+					}
+
+					// Record the CRDs we will use, for faster testing
+					keepCRDs := map[schema.GroupKind]bool{}
+					for _, obj := range opt.Create {
+						keepCRDs[obj.GroupVersionKind().GroupKind()] = true
+					}
+					for _, obj := range opt.Updates {
+						keepCRDs[obj.GroupVersionKind().GroupKind()] = true
+					}
+					harnessOptions = append(harnessOptions, buildCRDFilter(keepCRDs))
 				}
 
 				// Create test harness
 				var h *create.Harness
 				if os.Getenv("E2E_GCP_TARGET") == "vcr" {
-					h = create.NewHarnessWithOptions(ctx, t, &create.HarnessOptions{VCRPath: fixture.SourceDir})
+					harnessOptions = append(harnessOptions, create.WithVCRPath(fixture.SourceDir))
+					h = create.NewHarness(ctx, t, harnessOptions...)
 					hash := func(s string) uint64 {
 						h := fnv.New64a()
 						h.Write([]byte(s))
@@ -229,22 +264,22 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 					uniqueID = strconv.FormatUint(hash(t.Name()), 36)
 					// Stop recording after tests finish and write to cassette
 					t.Cleanup(func() {
-						err := h.VCRRecorderDCL.Stop()
+						err := h.VCRRecorderNonTF.Stop()
 						if err != nil {
-							t.Errorf("[VCR] Failed stop DCL vcr recorder: %v", err)
+							t.Errorf("FAIL: [VCR] Failed stop non TF vcr recorder: %v", err)
 						}
 						err = h.VCRRecorderTF.Stop()
 						if err != nil {
-							t.Errorf("[VCR] Failed stop TF vcr recorder: %v", err)
+							t.Errorf("FAIL: [VCR] Failed stop TF vcr recorder: %v", err)
 						}
 						err = h.VCRRecorderOauth.Stop()
 						if err != nil {
-							t.Errorf("[VCR] Failed stop Oauth vcr recorder: %v", err)
+							t.Errorf("FAIL: [VCR] Failed stop Oauth vcr recorder: %v", err)
 						}
 					})
 					configureVCR(t, h)
 				} else {
-					h = create.NewHarness(ctx, t)
+					h = create.NewHarness(ctx, t, harnessOptions...)
 				}
 				project := h.Project
 
@@ -270,7 +305,7 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 				}
 				create.RunCreateDeleteTest(h, opt)
 
-				if os.Getenv("GOLDEN_OBJECT_CHECKS") != "" {
+				if os.Getenv("GOLDEN_OBJECT_CHECKS") != "" || os.Getenv("WRITE_GOLDEN_OUTPUT") != "" {
 					for _, obj := range exportResources {
 						// Get testName from t.Name()
 						// If t.Name() = TestAllInInSeries_fixtures_computenodetemplate
@@ -280,21 +315,21 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 						if len(pieces) > 0 {
 							testName = pieces[len(pieces)-1]
 						} else {
-							t.Errorf("failed to get test name")
+							t.Fatalf("FAIL: failed to get test name")
 						}
 						// Golden test exported GCP object
-						exportedYAML := exportResource(h, obj)
+						exportedYAML := exportResource(h, obj, &Expectations{})
 						if exportedYAML != "" {
 							exportedObj := &unstructured.Unstructured{}
 							if err := yaml.Unmarshal([]byte(exportedYAML), exportedObj); err != nil {
-								t.Fatalf("error from yaml.Unmarshal: %v", err)
+								t.Fatalf("FAIL: error from yaml.Unmarshal: %v", err)
 							}
 							if err := normalizeKRMObject(t, exportedObj, project, uniqueID); err != nil {
-								t.Fatalf("error from normalizeObject: %v", err)
+								t.Fatalf("FAIL: error from normalizeObject: %v", err)
 							}
 							got, err := yaml.Marshal(exportedObj)
 							if err != nil {
-								t.Errorf("failed to convert KRM object to yaml: %v", err)
+								t.Fatalf("FAIL: failed to convert KRM object to yaml: %v", err)
 							}
 
 							expectedPath := filepath.Join(fixture.SourceDir, fmt.Sprintf("_generated_export_%v.golden", testName))
@@ -305,14 +340,14 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 						u.SetGroupVersionKind(obj.GroupVersionKind())
 						id := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
 						if err := h.GetClient().Get(ctx, id, u); err != nil {
-							t.Errorf("failed to get KRM object: %v", err)
+							t.Fatalf("FAIL: failed to get KRM object: %v", err)
 						} else {
 							if err := normalizeKRMObject(t, u, project, uniqueID); err != nil {
-								t.Fatalf("error from normalizeObject: %v", err)
+								t.Fatalf("FAIL: error from normalizeObject: %v", err)
 							}
 							got, err := yaml.Marshal(u)
 							if err != nil {
-								t.Errorf("failed to convert KRM object to yaml: %v", err)
+								t.Fatalf("FAIL: failed to convert KRM object to yaml: %v", err)
 							}
 							expectedPath := filepath.Join(fixture.SourceDir, fmt.Sprintf("_generated_object_%v.golden.yaml", testName))
 							test.CompareGoldenObject(t, expectedPath, got)
@@ -335,8 +370,11 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 					verifyKubeWatches(h)
 				}
 
-				// Verify events against golden file
-				if os.Getenv("GOLDEN_REQUEST_CHECKS") != "" {
+				// Verify HTTP log with static checks
+				verifyUserAgent(h)
+
+				// Verify events against golden file or records events
+				if os.Getenv("GOLDEN_REQUEST_CHECKS") != "" || os.Getenv("WRITE_GOLDEN_OUTPUT") != "" {
 					events := test.LogEntries(h.Events.HTTPEvents)
 
 					networkIDs := map[string]bool{}
@@ -386,6 +424,11 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 						if selfLinkWithId, _, _ := unstructured.NestedString(body, "selfLinkWithId"); selfLinkWithId != "" {
 							r.ExtractIDsFromLinks(selfLinkWithId)
 						}
+
+						if billingAccountName, _, _ := unstructured.NestedString(body, "billingAccountName"); billingAccountName != "" {
+							r.ExtractIDsFromLinks(billingAccountName)
+						}
+
 						// if targetId, _, _ := unstructured.NestedString(body, "targetId"); targetId != "" {
 						// 	extractIDsFromLinks(selfLinkWithId)
 						// }
@@ -466,7 +509,7 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 							_, found, _ := unstructured.NestedString(obj, tokens...)
 							if found {
 								if err := unstructured.SetNestedField(obj, newValue, tokens...); err != nil {
-									t.Fatal(err)
+									t.Fatalf("FAIL: setting nested field: %v", err)
 								}
 							}
 						})
@@ -475,7 +518,7 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 					addSetStringReplacement := func(path string, newValue string) {
 						jsonMutators = append(jsonMutators, func(obj map[string]any) {
 							if err := setStringAtPath(obj, path, newValue); err != nil {
-								t.Fatalf("error from setStringAtPath(%+v): %v", obj, err)
+								t.Fatalf("FAIL: error from setStringAtPath(%+v): %v", obj, err)
 							}
 						})
 					}
@@ -485,15 +528,18 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 					addReplacement("oauth2ClientId", "888888888888888888888")
 
 					addReplacement("createTime", "2024-04-01T12:34:56.123456Z")
-					addReplacement("insertTime", "2024-04-01T12:34:56.123456Z")
+					addReplacement("expireTime", "2024-04-01T12:34:56.123456Z")
 					addReplacement("response.createTime", "2024-04-01T12:34:56.123456Z")
+					addReplacement("response.deleteTime", "2024-04-01T12:34:56.123456Z")
 					addReplacement("creationTimestamp", "2024-04-01T12:34:56.123456Z")
 					addReplacement("metadata.createTime", "2024-04-01T12:34:56.123456Z")
 					addReplacement("metadata.genericMetadata.createTime", "2024-04-01T12:34:56.123456Z")
+					addSetStringReplacement(".monitoredProjects[].createTime", "2024-04-01T12:34:56.123456Z")
 
 					addReplacement("updateTime", "2024-04-01T12:34:56.123456Z")
 					addReplacement("response.updateTime", "2024-04-01T12:34:56.123456Z")
 					addReplacement("metadata.genericMetadata.updateTime", "2024-04-01T12:34:56.123456Z")
+					addReplacement("metadata.updateTime", "2024-04-01T12:34:56.123456Z")
 
 					// Specific to cloudbuild
 					addReplacement("metadata.completeTime", "2024-04-01T12:34:56.123456Z")
@@ -521,45 +567,12 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 					addReplacement("metadata.endTime", "2024-04-01T12:34:56.123456Z")
 
 					// Specific to Compute
-					addReplacement("insertTime", "2024-04-01T12:34:56.123456Z")
-					addReplacement("user", "user@example.com")
 					addReplacement("natIP", "192.0.0.10")
 					addReplacement("labelFingerprint", "abcdef0123A=")
 					addReplacement("fingerprint", "abcdef0123A=")
-					// Extract resource targetID numbers from compute operations
-					for _, event := range events {
-						body := event.Response.ParseBody()
-						targetLink, _, _ := unstructured.NestedString(body, "targetLink")
-						targetId, _, _ := unstructured.NestedString(body, "targetId")
-						if targetLink != "" && targetId != "" {
-							tokens := strings.Split(targetLink, "/")
-							n := len(tokens)
-							if n >= 2 {
-								kind := tokens[n-2]
-								switch kind {
-								case "subnetworks":
-									r.PathIDs[targetId] = "${subnetworkNumber}"
-								case "sslCertificates":
-									r.PathIDs[targetId] = "${sslCertificatesId}"
-								case "forwardingRules":
-									r.PathIDs[targetId] = "${forwardingRulesId}"
-								case "serviceAttachments":
-									r.PathIDs[targetId] = "${serviceAttachmentsId}"
-								}
-							}
-						}
-
-						u := event.Request.URL
-						// Terraform uses the /beta/ endpoints, but mocks and direct controller should use /v1/
-						// This special handling to avoid diffs in http logs.
-						// This can be removed once all Compute resources are migrated to direct controller.
-						basePath := "https://compute.googleapis.com/compute"
-						if strings.HasPrefix(u, basePath+"/beta/") {
-							u = basePath + "/v1/" + strings.TrimPrefix(u, basePath+"/beta/")
-						}
-						event.Request.URL = u
-
-					}
+					// Matches the mock ip address of Compute forwarding rule
+					addReplacement("IPAddress", "8.8.8.8")
+					addReplacement("pscConnectionId", "111111111111")
 
 					// Specific to IAM/policy
 					addReplacement("policy.etag", "abcdef0123A=")
@@ -594,21 +607,122 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 					// Specific to AlloyDB
 					addReplacement("uid", "111111111111111111111")
 					addReplacement("response.uid", "111111111111111111111")
-					addReplacement("endTime", "2024-04-01T12:34:56.123456Z")
 					addReplacement("continuousBackupInfo.enabledTime", "2024-04-01T12:34:56.123456Z")
 					addReplacement("response.continuousBackupInfo.enabledTime", "2024-04-01T12:34:56.123456Z")
 					addReplacement("ipAddress", "10.1.2.3")
 					addReplacement("response.ipAddress", "10.1.2.3")
 					addReplacement("primary.createTime", "2024-04-01T12:34:56.123456Z")
 					addReplacement("primary.generateTime", "2024-04-01T12:34:56.123456Z")
+					jsonMutators = append(jsonMutators, func(obj map[string]any) {
+						if val, found, _ := unstructured.NestedString(obj, "name"); found {
+							if strings.Contains(val, "clusters/alloydb") ||
+								strings.Contains(val, "instances/alloydb") ||
+								strings.Contains(val, "backups/alloydb") {
 
-					// Specific to BigQuery
-					addSetStringReplacement(".access[].userByEmail", "user@google.com")
+								// Explicitly set `reconciling` to `false`.
+								if _, found, _ := unstructured.NestedBool(obj, "reconciling"); !found {
+									if err := unstructured.SetNestedField(obj, false, "reconciling"); err != nil {
+										t.Fatal(err)
+									}
+								}
+
+								// Replace the IP addresses in `outboundPublicIpAddresses` slice to test IP addresses.
+								if _, found, _ := unstructured.NestedSlice(obj, "outboundPublicIpAddresses"); found {
+									if err := unstructured.SetNestedStringSlice(obj, []string{"6.6.6.6", "8.8.8.8"}, "outboundPublicIpAddresses"); err != nil {
+										t.Fatal(err)
+									}
+								}
+							}
+						}
+					})
+					// Boolean fields in LRO are omitted when false so we need
+					// to add them back.
+					jsonMutators = append(jsonMutators, func(obj map[string]any) {
+						if _, found, _ := unstructured.NestedMap(obj, "metadata"); found {
+							if val, found, err := unstructured.NestedString(obj, "metadata", "@type"); err == nil && found && val == "type.googleapis.com/google.cloud.alloydb.v1beta.OperationMetadata" {
+								if _, found, err := unstructured.NestedString(obj, "done"); err == nil && !found {
+									// Explicitly set `done` to `false`.
+									if err := unstructured.SetNestedField(obj, false, "done"); err != nil {
+										t.Fatal(err)
+									}
+								}
+
+								if _, found, err := unstructured.NestedString(obj, "metadata", "requestedCancellation"); err == nil && !found {
+									// Explicitly set `metadata.requestedCancellation` to `false`.
+									if err := unstructured.SetNestedField(obj, false, "metadata", "requestedCancellation"); err != nil {
+										t.Fatal(err)
+									}
+								}
+
+								if _, found, _ := unstructured.NestedMap(obj, "response"); found {
+									if val, found, _ := unstructured.NestedString(obj, "response", "@type"); found &&
+										val == "type.googleapis.com/google.cloud.alloydb.v1beta.Cluster" ||
+										val == "type.googleapis.com/google.cloud.alloydb.v1beta.Instance" ||
+										val == "type.googleapis.com/google.cloud.alloydb.v1beta.Backup" {
+										// Explicitly set `reconciling` in response to `false`.
+										if _, found, _ := unstructured.NestedBool(obj, "response", "reconciling"); !found {
+											if err := unstructured.SetNestedField(obj, false, "response", "reconciling"); err != nil {
+												t.Fatal(err)
+											}
+										}
+
+										// Replace the IP addresses in `outboundPublicIpAddresses` slice to test IP addresses.
+										if _, found, _ := unstructured.NestedSlice(obj, "response", "outboundPublicIpAddresses"); found {
+											if err := unstructured.SetNestedStringSlice(obj, []string{"6.6.6.6", "8.8.8.8"}, "response", "outboundPublicIpAddresses"); err != nil {
+												t.Fatal(err)
+											}
+										}
+									}
+								}
+							}
+						}
+					})
 
 					// Specific to BigTable
 					addSetStringReplacement(".instances[].createTime", "2024-04-01T12:34:56.123456Z")
 					addSetStringReplacement(".metadata.requestTime", "2024-04-01T12:34:56.123456Z")
 					addSetStringReplacement(".metadata.finishTime", "2024-04-01T12:34:56.123456Z")
+
+					// Specific to Firestore
+					jsonMutators = append(jsonMutators, func(obj map[string]any) {
+						if _, found, _ := unstructured.NestedMap(obj, "response"); found {
+							// Only run this mutator for firestore database objects.
+							if val, found, err := unstructured.NestedString(obj, "response", "@type"); err == nil && found && val == "type.googleapis.com/google.firestore.admin.v1.Database" {
+								// Only run this mutator for firestore database objects that have a name set in the response.
+								if val, found, err := unstructured.NestedString(obj, "response", "name"); err == nil && found && val != "" {
+									// Set name field to use human-readable ID, instead of UID
+									// Note: This only works if firestore databases in all resource fixture test cases use the name "firestoredatabase-${uniqueId}"
+									if err := unstructured.SetNestedField(obj, "projects/${projectId}/databases/firestoredatabase-${uniqueId}", "response", "name"); err != nil {
+										t.Fatalf("FAIL: stting nested field: %v", err)
+									}
+								}
+							}
+						}
+					})
+
+					// Specific to PAM
+					// Boolean fields in LRO are omitted when false so we need
+					// to add them back.
+					jsonMutators = append(jsonMutators, func(obj map[string]any) {
+						if _, found, _ := unstructured.NestedMap(obj, "metadata"); found {
+							if val, found, err := unstructured.NestedString(obj, "metadata", "@type"); err == nil && found && val == "type.googleapis.com/google.cloud.privilegedaccessmanager.v1.OperationMetadata" {
+								if _, found, err := unstructured.NestedString(obj, "done"); err == nil && !found {
+									// Explicitly set `done` to `false`.
+									if err := unstructured.SetNestedField(obj, false, "done"); err != nil {
+										t.Fatalf("FAIL: setting nested field: %v", err)
+									}
+								}
+
+								if _, found, err := unstructured.NestedString(obj, "metadata", "requestedCancellation"); err == nil && !found {
+									// Explicitly set `metadata.requestedCancellation` to `false`.
+									if err := unstructured.SetNestedField(obj, false, "metadata", "requestedCancellation"); err != nil {
+										t.Fatalf("FAIL: setting nested field: %v", err)
+									}
+								}
+							}
+
+						}
+					})
 
 					// Specific to pubsub
 					addReplacement("revisionCreateTime", "2024-04-01T12:34:56.123456Z")
@@ -622,16 +736,8 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 					addSetStringReplacement(".mutationRecords[].mutateTime", "2024-04-01T12:34:56.123456Z")
 					addSetStringReplacement(".mutationRecords[].mutatedBy", "user@example.com")
 
-					// Specific to Sql
-					addSetStringReplacement(".ipAddresses[].ipAddress", "10.1.2.3")
-					addReplacement("serverCaCert.cert", "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n")
-					addReplacement("serverCaCert.commonName", "common-name")
-					addReplacement("serverCaCert.createTime", "2024-04-01T12:34:56.123456Z")
-					addReplacement("serverCaCert.expirationTime", "2024-04-01T12:34:56.123456Z")
-					addReplacement("serverCaCert.sha1Fingerprint", "12345678")
-					addReplacement("serviceAccountEmailAddress", "p${projectNumber}-abcdef@gcp-sa-cloud-sql.iam.gserviceaccount.com")
-					addReplacement("settings.backupConfiguration.startTime", "12:00")
-					addReplacement("settings.settingsVersion", "123")
+					// Specific to CertificateManager
+					addReplacement("response.dnsResourceRecord.data", uniqueID)
 					jsonMutators = append(jsonMutators, func(obj map[string]any) {
 						if val, found, err := unstructured.NestedString(obj, "kind"); err != nil || !found || val != "sql#instance" {
 							// Only run this mutator for sql instance objects.
@@ -648,7 +754,7 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 								// Include settings.authorizedGaeApplications in response, even if it's empty.
 								var val []string
 								if err := unstructured.SetNestedStringSlice(obj, val, "settings", "authorizedGaeApplications"); err != nil {
-									t.Fatal(err)
+									t.Fatalf("FAIL: setting nested field: %v", err)
 								}
 							}
 						}
@@ -657,7 +763,7 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 								// Include settings.ipConfiguration.authorizedNetworks in response, even if it's empty.
 								var val []string
 								if err := unstructured.SetNestedStringSlice(obj, val, "settings", "ipConfiguration", "authorizedNetworks"); err != nil {
-									t.Fatal(err)
+									t.Fatalf("FAIL: setting nested field: %v", err)
 								}
 							}
 						}
@@ -665,14 +771,14 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 							// Hardcode the zone. GCP chooses this zone within the
 							// region, and it varies based on availability.
 							if err := unstructured.SetNestedField(obj, "us-central1-a", "gceZone"); err != nil {
-								t.Fatal(err)
+								t.Fatalf("FAIL: setting nested field: %v", err)
 							}
 						}
 						if ipConfig, found, _ := unstructured.NestedMap(obj, "settings", "ipConfiguration"); found {
 							// Hack fix: remove unpublished field that's suddenly showing up in real gcp proto responses.
 							delete(ipConfig, "serverCaMode")
 							if err := unstructured.SetNestedMap(obj, ipConfig, "settings", "ipConfiguration"); err != nil {
-								t.Fatal(err)
+								t.Fatalf("FAIL: setting nested field: %v", err)
 							}
 						}
 					})
@@ -688,14 +794,14 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 								if itemMap, ok := item.(map[string]interface{}); ok {
 									if _, found, _ := unstructured.NestedStringSlice(itemMap, "host"); !found {
 										if err := unstructured.SetNestedField(itemMap, "", "host"); err != nil {
-											t.Fatal(err)
+											t.Fatalf("FAIL: setting nested field: %v", err)
 										}
 									}
 									newItems = append(newItems, itemMap)
 								}
 							}
 							if err := unstructured.SetNestedSlice(obj, newItems, "items"); err != nil {
-								t.Fatal(err)
+								t.Fatalf("FAIL: setting nested field: %v", err)
 							}
 						}
 					})
@@ -708,7 +814,11 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 					addReplacement("generateTime", "2024-04-01T12:34:56.123456Z")
 
 					// Specific to BigQueryConnectionConnection.
+					addReplacement("aws.accessRole.identity", "048077221682493034546")
+					addReplacement("azure.identity", "117243083562690747295")
 					addReplacement("cloudResource.serviceAccountId", "bqcx-${projectNumber}-abcd@gcp-sa-bigquery-condel.iam.gserviceaccount.com")
+					addReplacement("cloudSql.serviceAccountId", "service-${projectNumber}@gcp-sa-bigqueryconnection.iam.gserviceaccount.com")
+					addReplacement("spark.serviceAccountId", "bqcx-${projectNumber}-abcd@gcp-sa-bigquery-condel.iam.gserviceaccount.com")
 
 					// Replace any empty values in LROs; this is surprisingly difficult to fix in mockgcp
 					//
@@ -729,6 +839,47 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 						}
 					})
 
+					// Specific to Apigee
+					addReplacement("lastModifiedAt", strconv.FormatInt(time.Date(2024, 4, 1, 12, 34, 56, 123456, time.UTC).Unix(), 10))
+					addReplacement("createdAt", strconv.FormatInt(time.Date(2024, 4, 1, 12, 34, 56, 123456, time.UTC).Unix(), 10))
+
+					// Specific to BigQueryDataTransferConfig
+					addReplacement("nextRunTime", "2024-04-01T12:34:56.123456Z")
+					addReplacement("ownerInfo.email", "user@google.com")
+					addReplacement("userId", "0000000000000000000")
+					jsonMutators = append(jsonMutators, func(obj map[string]any) {
+						if _, found, err := unstructured.NestedString(obj, "destinationDatasetId"); err != nil || !found {
+							// This is a hack to only run this mutator for BigQueryDataTransferConfig objects.
+							return
+						}
+						// special handling because the field includes dot
+						if _, found, _ := unstructured.NestedString(obj, "params", "connector.authentication.oauth.clientId"); found {
+							if err := unstructured.SetNestedField(obj, "client-id", "params", "connector.authentication.oauth.clientId"); err != nil {
+								t.Fatalf("FAIL: setting nested field: %v", err)
+							}
+						}
+						if _, found, _ := unstructured.NestedString(obj, "params", "connector.authentication.oauth.clientSecret"); found {
+							if err := unstructured.SetNestedField(obj, "client-secret", "params", "connector.authentication.oauth.clientSecret"); err != nil {
+								t.Fatalf("FAIL: setting nested field: %v", err)
+							}
+						}
+						delete(obj, "state") // data transfer run state, which depends on timing
+					})
+
+					// Specific to IAPSettings
+					jsonMutators = append(jsonMutators, func(obj map[string]any) {
+						if val, found, _ := unstructured.NestedString(obj, "name"); found {
+							tokens := strings.Split(val, "/")
+							// e.g. "projects/project-id/iap_web/compute-us-central1/services/service-id"
+							if len(tokens) >= 6 && tokens[0] == "projects" && tokens[2] == "iap_web" && strings.Contains(tokens[3], "compute") && tokens[4] == "services" {
+								tokens[len(tokens)-1] = "${serviceId}"
+								if err := unstructured.SetNestedField(obj, strings.Join(tokens, "/"), "name"); err != nil {
+									t.Fatalf("FAIL: setting nested field: %v", err)
+								}
+							}
+						}
+					})
+
 					// Remove error details which can contain confidential information
 					jsonMutators = append(jsonMutators, func(obj map[string]any) {
 						response := obj["error"]
@@ -741,7 +892,7 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 
 					events.PrettifyJSON(jsonMutators...)
 
-					NormalizeHTTPLog(t, events, project, uniqueID)
+					NormalizeHTTPLog(t, events, project, uniqueID, testgcp.TestFolderID.Get(), testgcp.TestOrgID.Get())
 
 					events = RemoveExtraEvents(events)
 
@@ -770,13 +921,6 @@ func runScenario(ctx context.Context, t *testing.T, testPause bool, fixture reso
 					normalizers = append(normalizers, ReplaceString(uniqueID, "${uniqueId}"))
 					normalizers = append(normalizers, ReplaceString(project.ProjectID, "${projectId}"))
 					normalizers = append(normalizers, ReplaceString(fmt.Sprintf("%d", project.ProjectNumber), "${projectNumber}"))
-					if testgcp.TestFolderID.Get() != "" {
-						normalizers = append(normalizers, ReplaceString(testgcp.TestFolderID.Get(), "${testFolderId}"))
-					}
-					if testgcp.TestOrgID.Get() != "" {
-						normalizers = append(normalizers, ReplaceString("organizations/"+testgcp.TestOrgID.Get(), "organizations/${organizationID}"))
-						normalizers = append(normalizers, ReplaceString(testgcp.TestOrgID.Get()+"/", "${organizationID}/"))
-					}
 					for k, v := range r.PathIDs {
 						normalizers = append(normalizers, ReplaceString(k, v))
 					}
@@ -810,11 +954,11 @@ func assertNoRequest(t *testing.T, got string, normalizers ...func(s string) str
 	}
 
 	if strings.Contains(got, "POST") {
-		t.Fatalf("unexpected POST in log: %s", got)
+		t.Fatalf("FAIL: unexpected POST in log: %s", got)
 	}
 
 	if strings.Contains(got, "GET") {
-		t.Fatalf("unexpected GET in log: %s", got)
+		t.Fatalf("FAIL: unexpected GET in log: %s", got)
 	}
 }
 
@@ -833,7 +977,40 @@ func createPausedCC(ctx context.Context, t *testing.T, c client.Client) {
 	cc.Name = "configconnector.core.cnrm.cloud.google.com"
 
 	if err := c.Create(ctx, cc); err != nil {
-		t.Fatalf("error creating CC: %v", err)
+		t.Fatalf("FAIL: error creating CC: %v", err)
+	}
+}
+
+// verifyUserAgent verifies that the user agent is set to the expected KCC user agent for all requests
+func verifyUserAgent(h *create.Harness) {
+	for _, event := range h.Events.HTTPEvents {
+		userAgent := event.Request.Header.Get("User-Agent")
+
+		// We don't capture the user-agent for GRPC
+		if userAgent == "" && event.Request.Method == "GRPC" {
+			continue
+		}
+
+		tokens := strings.Split(userAgent, " ")
+		var keepTokens []string
+		for _, token := range tokens {
+			// We ignore the google-api-go-client/ prefix; it's added by the GCP client library and difficult to remove.
+			if strings.HasPrefix(token, "google-api-go-client/") {
+				continue
+			}
+			// Similarly we ignore the DCL suffix
+			if strings.HasPrefix(token, "DeclarativeClientLib/") {
+				continue
+			}
+			keepTokens = append(keepTokens, token)
+		}
+
+		got := strings.Join(keepTokens, " ")
+		want := gcp.KCCUserAgent()
+		if got != want {
+			h.Logf("request is %+v", event.Request)
+			h.Errorf("FAIL: unexpected user agent for request %v %v.  got %q, expected %q", event.Request.Method, event.Request.URL, got, want)
+		}
 	}
 }
 
@@ -939,7 +1116,7 @@ func addTestTimeout(ctx context.Context, t *testing.T, timeout time.Duration) co
 	t.Cleanup(func() {
 		done = true
 		if timedOut {
-			t.Fatalf("subtest timeout after %v", timeout)
+			t.Fatalf("FAIL: subtest timeout after %v", timeout)
 		}
 		cancel()
 	})
@@ -964,14 +1141,20 @@ func configureVCR(t *testing.T, h *create.Harness) {
 			result = strings.Replace(result, os.Getenv("TEST_ORG_ID"), "123450001", -1)
 		}
 
-		// Replace user info
-		obj := make(map[string]any)
-		if err := json.Unmarshal([]byte(s), &obj); err == nil {
-			toReplace, _, _ := unstructured.NestedString(obj, "user")
-			if len(toReplace) != 0 {
-				result = strings.Replace(result, toReplace, "user@google.com", -1)
+		addReplacement := func(path string, newValue string) {
+			tokens := strings.Split(path, ".")
+			obj := make(map[string]any)
+			if err := json.Unmarshal([]byte(s), &obj); err == nil {
+				toReplace, found, _ := unstructured.NestedString(obj, tokens...)
+				if found {
+					result = strings.Replace(result, toReplace, newValue, -1)
+				}
 			}
 		}
+		// Replace user info
+		addReplacement("user", "user@google.com")
+		// Replace billing account name
+		addReplacement("billingAccountName", "billingAccounts/123456-777777-000001")
 		return result
 	}
 
@@ -1030,7 +1213,7 @@ func configureVCR(t *testing.T, h *create.Harness) {
 
 		return nil
 	}
-	h.VCRRecorderDCL.AddHook(hook, recorder.BeforeSaveHook)
+	h.VCRRecorderNonTF.AddHook(hook, recorder.BeforeSaveHook)
 	h.VCRRecorderTF.AddHook(hook, recorder.BeforeSaveHook)
 	h.VCRRecorderOauth.AddHook(hook, recorder.BeforeSaveHook)
 
@@ -1046,7 +1229,7 @@ func configureVCR(t *testing.T, h *create.Harness) {
 			var err error
 			reqBody, err = io.ReadAll(r.Body)
 			if err != nil {
-				t.Fatal("[VCR] Failed to read request body")
+				t.Fatal("FAIL: [VCR] Failed to read request body")
 			}
 			r.Body.Close()
 			r.Body = ioutil.NopCloser(bytes.NewBuffer(reqBody))
@@ -1070,7 +1253,7 @@ func configureVCR(t *testing.T, h *create.Harness) {
 		}
 		return true
 	}
-	h.VCRRecorderDCL.SetMatcher(matcher)
+	h.VCRRecorderNonTF.SetMatcher(matcher)
 	h.VCRRecorderTF.SetMatcher(matcher)
 	h.VCRRecorderOauth.SetMatcher(matcher)
 }
@@ -1085,4 +1268,15 @@ func containsCCOrCCC(resources []*unstructured.Unstructured) bool {
 		}
 	}
 	return false
+}
+
+func buildCRDFilter(keepCRDs map[schema.GroupKind]bool) create.HarnessOption {
+	return create.FilterCRDs(func(gk schema.GroupKind) bool {
+		// Allow core CRDs
+		if gk.Group == "core.cnrm.cloud.google.com" {
+			return true
+		}
+		// Otherwise only allow the specified CRDs
+		return keepCRDs[gk]
+	})
 }

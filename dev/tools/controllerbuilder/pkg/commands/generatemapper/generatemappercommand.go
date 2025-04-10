@@ -17,6 +17,7 @@ package generatemapper
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/dev/tools/controllerbuilder/pkg/codegen"
@@ -36,8 +37,15 @@ type GenerateMapperOptions struct {
 	OutputMapperDirectory string
 }
 
-func (o *GenerateMapperOptions) InitDefaults() {
-
+func (o *GenerateMapperOptions) InitDefaults() error {
+	root, err := options.RepoRoot()
+	if err != nil {
+		return err
+	}
+	o.APIGoPackagePath = "github.com/GoogleCloudPlatform/k8s-config-connector/apis/"
+	o.APIDirectory = root + "/apis/"
+	o.OutputMapperDirectory = root + "/pkg/controller/direct/"
+	return nil
 }
 
 func (o *GenerateMapperOptions) BindFlags(cmd *cobra.Command) {
@@ -51,11 +59,32 @@ func BuildCommand(baseOptions *options.GenerateOptions) *cobra.Command {
 		GenerateOptions: baseOptions,
 	}
 
-	opt.InitDefaults()
+	if err := opt.InitDefaults(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing defaults: %v\n", err)
+		os.Exit(1)
+	}
 
 	cmd := &cobra.Command{
 		Use:   "generate-mapper",
 		Short: "generate mapper functions for a proto service",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if opt.ServiceName == "" {
+				return fmt.Errorf("ServiceName is required")
+			}
+			if opt.GenerateOptions.ProtoSourcePath == "" {
+				return fmt.Errorf("ProtoSourcePath is required")
+			}
+			if opt.APIGoPackagePath == "" {
+				return fmt.Errorf("GoPackagePath is required")
+			}
+			if opt.OutputMapperDirectory == "" {
+				return fmt.Errorf("OutputMapperDirectory is required")
+			}
+			if opt.APIVersion == "" {
+				return fmt.Errorf("APIVersion is required")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if err := RunGenerateMapper(ctx, opt); err != nil {
@@ -71,22 +100,6 @@ func BuildCommand(baseOptions *options.GenerateOptions) *cobra.Command {
 }
 
 func RunGenerateMapper(ctx context.Context, o *GenerateMapperOptions) error {
-	if o.ServiceName == "" {
-		return fmt.Errorf("ServiceName is required")
-	}
-	if o.GenerateOptions.ProtoSourcePath == "" {
-		return fmt.Errorf("ProtoSourcePath is required")
-	}
-	if o.APIGoPackagePath == "" {
-		return fmt.Errorf("GoPackagePath is required")
-	}
-	if o.OutputMapperDirectory == "" {
-		return fmt.Errorf("OutputMapperDirectory is required")
-	}
-	if o.APIVersion == "" {
-		return fmt.Errorf("APIVersion is required")
-	}
-
 	gv, err := schema.ParseGroupVersion(o.APIVersion)
 	if err != nil {
 		return fmt.Errorf("APIVersion %q is not valid: %w", o.APIVersion, err)
@@ -116,16 +129,6 @@ func RunGenerateMapper(ctx context.Context, o *GenerateMapperOptions) error {
 		if !strings.HasPrefix(fullName, o.ServiceName+".") {
 			return "", false
 		}
-
-		// protoPackagePath := string(msg.ParentFile().Package())
-		// protoPackagePath = strings.TrimPrefix(protoPackagePath, "mockgcp.")
-		// protoPackagePath = strings.TrimPrefix(protoPackagePath, "google.")
-		// protoPackagePath = strings.TrimPrefix(protoPackagePath, "cloud.")
-		// protoPackagePath = strings.TrimSuffix(protoPackagePath, ".v1")
-		// protoPackagePath = strings.TrimSuffix(protoPackagePath, ".v1beta1")
-		// protoPackagePath = strings.TrimSuffix(protoPackagePath, ".v2")
-		// protoPackagePath = strings.TrimSuffix(protoPackagePath, ".admin") // e.g. bigtable.admin.v2
-		// goPackage := strings.Join(strings.Split(protoPackagePath, "."), "/")
 
 		return goPackage, true
 	}

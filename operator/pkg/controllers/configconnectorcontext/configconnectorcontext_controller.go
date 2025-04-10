@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	customizev1alpha1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/customize/v1alpha1"
 	customizev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/customize/v1beta1"
 	corev1beta1 "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/apis/core/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/controllers"
@@ -54,6 +53,12 @@ import (
 
 const controllerName = "configconnectorcontext-controller"
 
+// ReconcilerOptions holds configuration options for the reconciler
+type ReconcilerOptions struct {
+	RepoPath       string
+	ImageTransform *controllers.ImageTransform
+}
+
 // Reconciler reconciles a ConfigConnectorContext object.
 //
 // From the high level, the Reconciler watches `ConfigConnectorContext` kind
@@ -71,8 +76,8 @@ type Reconciler struct {
 	jitterGen            jitter.Generator
 }
 
-func Add(mgr ctrl.Manager, repoPath string) error {
-	r, err := newReconciler(mgr, repoPath)
+func Add(mgr ctrl.Manager, opt *ReconcilerOptions) error {
+	r, err := newReconciler(mgr, opt)
 	if err != nil {
 		return err
 	}
@@ -93,8 +98,8 @@ func Add(mgr ctrl.Manager, repoPath string) error {
 	return nil
 }
 
-func newReconciler(mgr ctrl.Manager, repoPath string) (*Reconciler, error) {
-	repo := cnrmmanifest.NewLocalRepository(repoPath)
+func newReconciler(mgr ctrl.Manager, opt *ReconcilerOptions) (*Reconciler, error) {
+	repo := cnrmmanifest.NewLocalRepository(opt.RepoPath)
 	manifestLoader := cnrmmanifest.NewPerNamespaceManifestLoader(repo)
 	preflight := preflight.NewCompositePreflight([]declarative.Preflight{
 		preflight.NewNameChecker(mgr.GetClient(), k8s.ConfigConnectorContextAllowedName),
@@ -118,7 +123,7 @@ func newReconciler(mgr ctrl.Manager, repoPath string) (*Reconciler, error) {
 			Log:         r.log,
 		})
 
-	err := r.reconciler.Init(mgr, &corev1beta1.ConfigConnectorContext{},
+	options := []declarative.ReconcilerOption{
 		declarative.WithPreserveNamespace(),
 		declarative.WithManifestController(manifestLoader),
 		declarative.WithObjectTransform(r.transformNamespacedComponents()),
@@ -128,7 +133,13 @@ func newReconciler(mgr ctrl.Manager, repoPath string) (*Reconciler, error) {
 		declarative.WithStatus(&declarative.StatusBuilder{
 			PreflightImpl: preflight,
 		}),
-	)
+	}
+
+	if opt.ImageTransform != nil {
+		options = append(options, declarative.WithObjectTransform(opt.ImageTransform.RemapImages))
+	}
+
+	err := r.reconciler.Init(mgr, &corev1beta1.ConfigConnectorContext{}, options...)
 	return r, err
 }
 
@@ -534,9 +545,13 @@ func (r *Reconciler) fetchAndApplyAllNamespacedControllerReconcilers(ctx context
 }
 
 // applyNamespacedControllerReconciler applies customizations specified in NamespacedControllerReconciler CR.
-func (r *Reconciler) applyNamespacedControllerReconciler(ctx context.Context, cr *customizev1alpha1.NamespacedControllerReconciler, m *manifest.Objects) error {
+func (r *Reconciler) applyNamespacedControllerReconciler(ctx context.Context, cr *customizev1beta1.NamespacedControllerReconciler, m *manifest.Objects) error {
 	if err := controllers.ApplyContainerRateLimit(m, cr.Name, cr.Spec.RateLimit); err != nil {
 		msg := fmt.Sprintf("failed to apply rate limit customization %s: %v", cr.Name, err)
+		return r.handleApplyNamespacedControllerReconcilerFailed(ctx, cr.Namespace, cr.Name, msg)
+	}
+	if err := controllers.ApplyContainerPprof(m, cr.Name, cr.Spec.Pprof); err != nil {
+		msg := fmt.Sprintf("failed to apply pprof customization %s: %v", cr.Name, err)
 		return r.handleApplyNamespacedControllerReconcilerFailed(ctx, cr.Namespace, cr.Name, msg)
 	}
 	return r.handleApplyNamespacedControllerReconcilerSucceeded(ctx, cr.Namespace, cr.Name)
@@ -576,7 +591,7 @@ func (r *Reconciler) handleApplyNamespacedControllerReconcilerSucceeded(ctx cont
 	return r.updateNamespacedControllerReconcilerStatus(ctx, cr)
 }
 
-func (r *Reconciler) updateNamespacedControllerReconcilerStatus(ctx context.Context, cr *customizev1alpha1.NamespacedControllerReconciler) error {
+func (r *Reconciler) updateNamespacedControllerReconcilerStatus(ctx context.Context, cr *customizev1beta1.NamespacedControllerReconciler) error {
 	if err := r.client.Status().Update(ctx, cr); err != nil {
 		r.log.Error(err, "failed to update NamespacedControllerReconciler", "namespace", cr.Namespace, "name", cr.Name)
 		return fmt.Errorf("failed to update NamespacedControllerReconciler %v/%v: %w", cr.Namespace, cr.Name, err)
