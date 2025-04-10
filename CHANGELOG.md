@@ -1,3 +1,7 @@
+## 1.130.2.1 (2025-04-10)
+
+  - Upgraded to `1.130.2`
+
 ## 1.128.0.1 (2025-02-25)
 
   - Upgraded cnrm operator and rework build system [#SVC-14447]
